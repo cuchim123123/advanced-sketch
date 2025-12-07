@@ -335,7 +335,7 @@ export default function Canvas({
         />
 
         {/* Other users' cursors */}
-        {Object.entries(cursors).map(([oderId, cursor]) => (
+        {Object.entries(cursors).map(([userId, cursor]) => (
           <div
             key={userId}
             className="absolute pointer-events-none transition-all duration-75"
