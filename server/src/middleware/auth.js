@@ -31,6 +31,19 @@ const protect = async (req, res, next) => {
     
     next();
   } catch (error) {
+    // Handle specific JWT errors
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        success: false,
+        message: 'Token expired'
+      });
+    }
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid token'
+      });
+    }
     return res.status(401).json({
       success: false,
       message: 'Not authorized to access this route'

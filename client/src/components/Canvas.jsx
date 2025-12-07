@@ -35,10 +35,14 @@ export default function Canvas({
   // Initialize canvas
   useEffect(() => {
     const canvas = canvasRef.current
-    canvas.width = canvas.offsetWidth * 2
-    canvas.height = canvas.offsetHeight * 2
-    canvas.style.width = `${canvas.offsetWidth}px`
-    canvas.style.height = `${canvas.offsetHeight}px`
+    // Store dimensions before modifying
+    const width = canvas.offsetWidth
+    const height = canvas.offsetHeight
+    
+    canvas.width = width * 2
+    canvas.height = height * 2
+    canvas.style.width = `${width}px`
+    canvas.style.height = `${height}px`
 
     const context = canvas.getContext('2d')
     context.scale(2, 2)
@@ -47,6 +51,23 @@ export default function Canvas({
     contextRef.current = context
 
     redrawCanvas()
+    
+    // Handle window resize
+    const handleResize = () => {
+      const w = canvas.parentElement.offsetWidth
+      const h = canvas.parentElement.offsetHeight
+      canvas.width = w * 2
+      canvas.height = h * 2
+      canvas.style.width = `${w}px`
+      canvas.style.height = `${h}px`
+      context.scale(2, 2)
+      context.lineCap = 'round'
+      context.lineJoin = 'round'
+      redrawCanvas()
+    }
+    
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
   }, [])
 
   // Update strokes from props
@@ -105,8 +126,11 @@ export default function Canvas({
   const getCoordinates = (e) => {
     const canvas = canvasRef.current
     const rect = canvas.getBoundingClientRect()
-    const x = (e.clientX || e.touches?.[0]?.clientX) - rect.left
-    const y = (e.clientY || e.touches?.[0]?.clientY) - rect.top
+    // Handle both mouse and touch events, including touchend (uses changedTouches)
+    const clientX = e.clientX ?? e.touches?.[0]?.clientX ?? e.changedTouches?.[0]?.clientX ?? 0
+    const clientY = e.clientY ?? e.touches?.[0]?.clientY ?? e.changedTouches?.[0]?.clientY ?? 0
+    const x = clientX - rect.left
+    const y = clientY - rect.top
     return { x, y }
   }
 

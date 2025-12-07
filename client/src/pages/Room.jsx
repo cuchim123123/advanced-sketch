@@ -53,6 +53,20 @@ export default function Room() {
 
       sock.on('user:joined', (participant) => {
         addParticipant(participant)
+        // Update cursor with participant info if exists
+        setCursors(prev => {
+          if (prev[participant.id]) {
+            return {
+              ...prev,
+              [participant.id]: {
+                ...prev[participant.id],
+                color: participant.color,
+                username: participant.username
+              }
+            }
+          }
+          return prev
+        })
       })
 
       sock.on('user:left', ({ id }) => {
@@ -90,16 +104,19 @@ export default function Room() {
       })
 
       sock.on('cursor:move', ({ userId, x, y }) => {
-        const participant = participants.find(p => p.id === userId)
-        setCursors(prev => ({
-          ...prev,
-          [userId]: {
-            x,
-            y,
-            color: participant?.color || '#888',
-            username: participant?.username || 'User'
+        setCursors(prev => {
+          // Get participant info from current state or previous cursor data
+          const existingCursor = prev[userId]
+          return {
+            ...prev,
+            [userId]: {
+              x,
+              y,
+              color: existingCursor?.color || '#888',
+              username: existingCursor?.username || 'User'
+            }
           }
-        }))
+        })
       })
 
       sock.on('room:saved', ({ version }) => {

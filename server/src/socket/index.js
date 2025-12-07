@@ -152,8 +152,13 @@ module.exports = (io) => {
         timestamp: new Date()
       };
 
-      // Add to room state
-      roomState.strokes.push(fullStroke);
+      // Update existing stroke or add new (prevents duplicates)
+      const existingIndex = roomState.strokes.findIndex(s => s.id === stroke.id);
+      if (existingIndex >= 0) {
+        roomState.strokes[existingIndex] = fullStroke;
+      } else {
+        roomState.strokes.push(fullStroke);
+      }
 
       // Broadcast to others (not back to sender)
       socket.to(socket.roomCode).emit('draw:stroke', {
@@ -206,10 +211,16 @@ module.exports = (io) => {
 
     /**
      * CURSOR MOVE
-     * Throttled cursor position updates
+     * Throttled cursor position updates (server-side throttle)
      */
+    let lastCursorUpdate = 0;
     socket.on('cursor:move', async ({ x, y }) => {
       if (!socket.roomCode) return;
+      
+      // Throttle to max 20 updates per second (50ms)
+      const now = Date.now();
+      if (now - lastCursorUpdate < 50) return;
+      lastCursorUpdate = now;
 
       // Broadcast to others
       socket.to(socket.roomCode).emit('cursor:move', {

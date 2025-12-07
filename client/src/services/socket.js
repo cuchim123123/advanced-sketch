@@ -11,13 +11,23 @@ export const connectSocket = () => {
     return null
   }
 
+  // Return existing connected socket
   if (socket?.connected) {
     return socket
+  }
+  
+  // Clean up any disconnected socket
+  if (socket) {
+    socket.removeAllListeners()
+    socket = null
   }
 
   socket = io({
     auth: { token },
-    transports: ['websocket', 'polling']
+    transports: ['websocket', 'polling'],
+    reconnection: true,
+    reconnectionAttempts: 5,
+    reconnectionDelay: 1000
   })
 
   socket.on('connect', () => {
@@ -39,6 +49,7 @@ export const getSocket = () => socket
 
 export const disconnectSocket = () => {
   if (socket) {
+    socket.removeAllListeners()
     socket.disconnect()
     socket = null
   }
