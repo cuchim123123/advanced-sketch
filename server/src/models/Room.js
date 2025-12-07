@@ -58,8 +58,7 @@ roomSchema.methods.getInviteLink = function(baseUrl) {
   return `${baseUrl}/join/${this.code}`;
 };
 
-// Index for faster lookups
-roomSchema.index({ code: 1 });
+// Index for faster lookups (code index is already created by unique: true)
 roomSchema.index({ owner: 1 });
 
 module.exports = mongoose.model('Room', roomSchema);
