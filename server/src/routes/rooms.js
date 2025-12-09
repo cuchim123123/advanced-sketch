@@ -30,7 +30,8 @@ router.post('/', protect, async (req, res) => {
       roomData.canvasSettings = canvasSettings;
     }
 
-    const room = await Room.create(roomData);
+    // Use createWithRetry to handle potential code collisions
+    const room = await Room.createWithRetry(roomData);
 
     // Create initial empty sketch history
     await SketchHistory.create({

@@ -1,6 +1,9 @@
 const mongoose = require('mongoose');
 const { v4: uuidv4 } = require('uuid');
 
+// Generate unique room code with collision check
+const generateRoomCode = () => uuidv4().substring(0, 8).toUpperCase();
+
 const roomSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -11,7 +14,7 @@ const roomSchema = new mongoose.Schema({
   code: {
     type: String,
     unique: true,
-    default: () => uuidv4().substring(0, 8).toUpperCase()
+    default: generateRoomCode
   },
   owner: {
     type: mongoose.Schema.Types.ObjectId,
@@ -61,4 +64,28 @@ roomSchema.methods.getInviteLink = function(baseUrl) {
 // Index for faster lookups (code index is already created by unique: true)
 roomSchema.index({ owner: 1 });
 
-module.exports = mongoose.model('Room', roomSchema);
+const Room = mongoose.model('Room', roomSchema);
+
+// Static method to create room with retry on code collision
+Room.createWithRetry = async function(roomData, maxRetries = 5) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const room = await Room.create({
+        ...roomData,
+        code: generateRoomCode()
+      });
+      return room;
+    } catch (error) {
+      // If duplicate key error on 'code', retry with new code
+      if (error.code === 11000 && error.keyPattern?.code) {
+        console.log(`Room code collision, retrying... (${i + 1}/${maxRetries})`);
+        continue;
+      }
+      // Other errors, throw immediately
+      throw error;
+    }
+  }
+  throw new Error('Failed to generate unique room code after max retries');
+};
+
+module.exports = Room;

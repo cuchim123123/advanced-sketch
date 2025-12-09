@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useRoomStore } from '../store/roomStore'
 import { useAuthStore } from '../store/authStore'
@@ -14,6 +14,7 @@ export default function Room() {
   const { currentRoom, getRoom, setParticipants, addParticipant, removeParticipant, participants, clearRoom } = useRoomStore()
   const toast = useToast()
   const confirm = useConfirm()
+  const kickedRef = useRef(false)
   
   const [socket, setSocket] = useState(null)
   const [strokes, setStrokes] = useState([])
@@ -134,8 +135,10 @@ export default function Room() {
         toast.error(message)
       })
 
-      // IMPORTANT: Listen for kick event immediately
+      // IMPORTANT: Listen for kick event - use ref to prevent duplicate
       sock.on('user:kicked', () => {
+        if (kickedRef.current) return // Already handled
+        kickedRef.current = true
         console.log('Received user:kicked event!')
         toast.kicked()
         setTimeout(() => {
