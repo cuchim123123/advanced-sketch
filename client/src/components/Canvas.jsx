@@ -24,6 +24,7 @@ export default function Canvas({
   showCursorNames = true
 }) {
   const canvasRef = useRef(null)
+  const containerRef = useRef(null)
   const contextRef = useRef(null)
   const strokesRef = useRef(strokes) // Keep ref to current strokes for resize handler
   const [isDrawing, setIsDrawing] = useState(false)
@@ -32,6 +33,17 @@ export default function Canvas({
   const [strokeWidth, setStrokeWidth] = useState(3)
   const currentStroke = useRef(null)
   const startPoint = useRef(null)
+  
+  // Zoom and pan state
+  const [zoom, setZoom] = useState(1)
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const [isPanning, setIsPanning] = useState(false)
+  const lastPanPoint = useRef(null)
+  const lastPinchDistance = useRef(null)
+  
+  const MIN_ZOOM = 0.25
+  const MAX_ZOOM = 4
+  const CANVAS_SIZE = 2000 // Virtual canvas size
 
   // Keep strokesRef in sync with strokes prop
   useEffect(() => {
@@ -41,7 +53,7 @@ export default function Canvas({
   // Initialize canvas
   useEffect(() => {
     const canvas = canvasRef.current
-    const container = canvas.parentElement
+    const container = containerRef.current
     
     const setupCanvas = () => {
       const w = container.offsetWidth
@@ -49,10 +61,11 @@ export default function Canvas({
       
       if (w === 0 || h === 0) return
       
-      canvas.width = w * 2
-      canvas.height = h * 2
-      canvas.style.width = `${w}px`
-      canvas.style.height = `${h}px`
+      // Use fixed large canvas size for zoom
+      canvas.width = CANVAS_SIZE * 2
+      canvas.height = CANVAS_SIZE * 2
+      canvas.style.width = `${CANVAS_SIZE}px`
+      canvas.style.height = `${CANVAS_SIZE}px`
 
       const context = canvas.getContext('2d')
       context.scale(2, 2)
@@ -68,8 +81,7 @@ export default function Canvas({
     
     // Use ResizeObserver for container size changes (sidebar toggle, etc.)
     const resizeObserver = new ResizeObserver(() => {
-      // Debounce resize to avoid excessive redraws
-      requestAnimationFrame(setupCanvas)
+      // No need to resize canvas, just ensure it's visible
     })
     
     resizeObserver.observe(container)
@@ -98,6 +110,9 @@ export default function Canvas({
   useEffect(() => {
     redrawWithStrokes(strokes)
   }, [strokes])
+  
+  // Alias for shape preview
+  const redrawCanvas = () => redrawWithStrokes(strokesRef.current)
 
   const drawStroke = (stroke, ctx) => {
     if (!stroke || !stroke.tool) return
@@ -133,14 +148,24 @@ export default function Canvas({
   }
 
   const getCoordinates = (e) => {
-    const canvas = canvasRef.current
-    const rect = canvas.getBoundingClientRect()
+    const container = containerRef.current
+    const rect = container.getBoundingClientRect()
     // Handle both mouse and touch events, including touchend (uses changedTouches)
     const clientX = e.clientX ?? e.touches?.[0]?.clientX ?? e.changedTouches?.[0]?.clientX ?? 0
     const clientY = e.clientY ?? e.touches?.[0]?.clientY ?? e.changedTouches?.[0]?.clientY ?? 0
-    const x = clientX - rect.left
-    const y = clientY - rect.top
+    
+    // Convert screen coordinates to canvas coordinates (accounting for zoom and pan)
+    const x = (clientX - rect.left - pan.x) / zoom
+    const y = (clientY - rect.top - pan.y) / zoom
     return { x, y }
+  }
+  
+  // Convert canvas coordinates to screen coordinates (for cursors)
+  const canvasToScreen = (x, y) => {
+    return {
+      x: x * zoom + pan.x,
+      y: y * zoom + pan.y
+    }
   }
 
   const startDrawing = (e) => {
@@ -260,6 +285,15 @@ export default function Canvas({
 
   // Handle cursor move without drawing
   const handleMouseMove = (e) => {
+    // Handle panning with middle mouse or when isPanning
+    if (isPanning && e.buttons === 4) {
+      const dx = e.clientX - lastPanPoint.current.x
+      const dy = e.clientY - lastPanPoint.current.y
+      setPan(prev => ({ x: prev.x + dx, y: prev.y + dy }))
+      lastPanPoint.current = { x: e.clientX, y: e.clientY }
+      return
+    }
+    
     const { x, y } = getCoordinates(e)
     if (socket && !isDrawing) {
       socket.emit('cursor:move', { x, y })
@@ -267,6 +301,118 @@ export default function Canvas({
     if (isDrawing) {
       draw(e)
     }
+  }
+  
+  // Zoom with mouse wheel
+  const handleWheel = (e) => {
+    e.preventDefault()
+    const container = containerRef.current
+    const rect = container.getBoundingClientRect()
+    
+    // Get mouse position relative to container
+    const mouseX = e.clientX - rect.left
+    const mouseY = e.clientY - rect.top
+    
+    // Calculate zoom
+    const delta = e.deltaY > 0 ? 0.9 : 1.1
+    const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom * delta))
+    
+    // Adjust pan to zoom toward mouse position
+    const zoomRatio = newZoom / zoom
+    const newPanX = mouseX - (mouseX - pan.x) * zoomRatio
+    const newPanY = mouseY - (mouseY - pan.y) * zoomRatio
+    
+    setZoom(newZoom)
+    setPan({ x: newPanX, y: newPanY })
+  }
+  
+  // Touch handlers for pinch zoom and pan
+  const handleTouchStart = (e) => {
+    if (e.touches.length === 2) {
+      // Start pinch zoom
+      e.preventDefault()
+      const touch1 = e.touches[0]
+      const touch2 = e.touches[1]
+      lastPinchDistance.current = Math.hypot(
+        touch2.clientX - touch1.clientX,
+        touch2.clientY - touch1.clientY
+      )
+      lastPanPoint.current = {
+        x: (touch1.clientX + touch2.clientX) / 2,
+        y: (touch1.clientY + touch2.clientY) / 2
+      }
+      setIsPanning(true)
+    } else if (e.touches.length === 1) {
+      setIsPanning(false)
+      startDrawing(e)
+    }
+  }
+  
+  const handleTouchMove = (e) => {
+    if (e.touches.length === 2 && lastPinchDistance.current) {
+      e.preventDefault()
+      const touch1 = e.touches[0]
+      const touch2 = e.touches[1]
+      
+      // Calculate new pinch distance
+      const newDistance = Math.hypot(
+        touch2.clientX - touch1.clientX,
+        touch2.clientY - touch1.clientY
+      )
+      
+      // Calculate pinch center
+      const centerX = (touch1.clientX + touch2.clientX) / 2
+      const centerY = (touch1.clientY + touch2.clientY) / 2
+      
+      // Calculate zoom
+      const delta = newDistance / lastPinchDistance.current
+      const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom * delta))
+      
+      // Calculate pan (follow pinch center)
+      const container = containerRef.current
+      const rect = container.getBoundingClientRect()
+      const mouseX = centerX - rect.left
+      const mouseY = centerY - rect.top
+      
+      const zoomRatio = newZoom / zoom
+      const newPanX = mouseX - (mouseX - pan.x) * zoomRatio + (centerX - lastPanPoint.current.x)
+      const newPanY = mouseY - (mouseY - pan.y) * zoomRatio + (centerY - lastPanPoint.current.y)
+      
+      setZoom(newZoom)
+      setPan({ x: newPanX, y: newPanY })
+      
+      lastPinchDistance.current = newDistance
+      lastPanPoint.current = { x: centerX, y: centerY }
+    } else if (e.touches.length === 1 && !isPanning) {
+      draw(e)
+    }
+  }
+  
+  const handleTouchEnd = (e) => {
+    if (e.touches.length === 0) {
+      lastPinchDistance.current = null
+      setIsPanning(false)
+      if (!isPanning) {
+        stopDrawing(e)
+      }
+    } else if (e.touches.length === 1) {
+      // Switched from pinch to single touch - don't start drawing
+      lastPinchDistance.current = null
+    }
+  }
+  
+  // Zoom controls
+  const handleZoomIn = () => {
+    setZoom(prev => Math.min(MAX_ZOOM, prev * 1.2))
+  }
+  
+  const handleZoomOut = () => {
+    setZoom(prev => Math.max(MIN_ZOOM, prev / 1.2))
+  }
+  
+  const handleResetZoom = () => {
+    setZoom(1)
+    setPan({ x: 0, y: 0 })
   }
 
   return (
@@ -345,49 +491,119 @@ export default function Canvas({
             🗑️ Clear
           </button>
         </div>
+
+        {/* Divider */}
+        <div className="w-px h-8 bg-gray-200" />
+
+        {/* Zoom Controls */}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleZoomOut}
+            className="p-2 rounded hover:bg-gray-100"
+            title="Zoom Out"
+          >
+            ➖
+          </button>
+          <button
+            onClick={handleResetZoom}
+            className="px-2 py-1 text-sm bg-gray-100 rounded hover:bg-gray-200 min-w-[60px]"
+            title="Reset Zoom"
+          >
+            {Math.round(zoom * 100)}%
+          </button>
+          <button
+            onClick={handleZoomIn}
+            className="p-2 rounded hover:bg-gray-100"
+            title="Zoom In"
+          >
+            ➕
+          </button>
+        </div>
       </div>
 
       {/* Canvas Container */}
-      <div className="flex-1 relative overflow-hidden bg-gray-50">
-        <canvas
-          ref={canvasRef}
-          className={`absolute inset-0 w-full h-full ${
-            tool === TOOLS.ERASER ? 'cursor-eraser' : 'cursor-pen'
-          }`}
-          onMouseDown={startDrawing}
-          onMouseMove={handleMouseMove}
-          onMouseUp={stopDrawing}
-          onMouseLeave={handleMouseLeave}
-          onTouchStart={startDrawing}
-          onTouchMove={draw}
-          onTouchEnd={stopDrawing}
-        />
+      <div 
+        ref={containerRef}
+        className="flex-1 relative overflow-hidden bg-gray-100"
+        onWheel={handleWheel}
+        onMouseDown={(e) => {
+          if (e.button === 1) {
+            // Middle mouse button for panning
+            e.preventDefault()
+            setIsPanning(true)
+            lastPanPoint.current = { x: e.clientX, y: e.clientY }
+          } else {
+            startDrawing(e)
+          }
+        }}
+        onMouseMove={handleMouseMove}
+        onMouseUp={(e) => {
+          if (isPanning) {
+            setIsPanning(false)
+          } else {
+            stopDrawing(e)
+          }
+        }}
+        onMouseLeave={handleMouseLeave}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* Checkerboard background to show canvas bounds */}
+        <div 
+          className="absolute bg-white shadow-lg"
+          style={{
+            width: CANVAS_SIZE,
+            height: CANVAS_SIZE,
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            transformOrigin: '0 0'
+          }}
+        >
+          <canvas
+            ref={canvasRef}
+            className={`absolute inset-0 ${
+              tool === TOOLS.ERASER ? 'cursor-eraser' : 'cursor-pen'
+            }`}
+            style={{
+              width: CANVAS_SIZE,
+              height: CANVAS_SIZE
+            }}
+          />
+        </div>
 
         {/* Other users' cursors */}
-        {Object.entries(cursors).map(([userId, cursor]) => (
-          <div
-            key={userId}
-            className="absolute pointer-events-none transition-all duration-75"
-            style={{
-              left: cursor.x,
-              top: cursor.y,
-              transform: 'translate(-50%, -50%)'
-            }}
-          >
+        {Object.entries(cursors).map(([userId, cursor]) => {
+          const screenPos = canvasToScreen(cursor.x, cursor.y)
+          return (
             <div
-              className="w-4 h-4 rounded-full border-2 border-white"
-              style={{ backgroundColor: cursor.color }}
-            />
-            {showCursorNames && (
-              <span
-                className="absolute top-4 left-2 text-xs px-1 rounded whitespace-nowrap"
-                style={{ backgroundColor: cursor.color, color: 'white' }}
-              >
-                {cursor.username}
-              </span>
-            )}
-          </div>
-        ))}
+              key={userId}
+              className="absolute pointer-events-none transition-all duration-75"
+              style={{
+                left: screenPos.x,
+                top: screenPos.y,
+                transform: 'translate(-50%, -50%)'
+              }}
+            >
+              <div
+                className="w-4 h-4 rounded-full border-2 border-white"
+                style={{ backgroundColor: cursor.color }}
+              />
+              {showCursorNames && (
+                <span
+                  className="absolute top-4 left-2 text-xs px-1 rounded whitespace-nowrap"
+                  style={{ backgroundColor: cursor.color, color: 'white' }}
+                >
+                  {cursor.username}
+                </span>
+              )}
+            </div>
+          )
+        })}
+
+        {/* Zoom hint */}
+        <div className="absolute bottom-4 left-4 text-xs text-gray-400 pointer-events-none select-none">
+          Scroll to zoom • Pinch on mobile
+        </div>
       </div>
     </div>
   )
