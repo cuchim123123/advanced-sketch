@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useRoomStore } from '../store/roomStore'
+import { useToast } from '../components/Toast'
+import { useConfirm } from '../components/ConfirmModal'
 
 export default function Dashboard() {
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -10,6 +12,8 @@ export default function Dashboard() {
   const [roomPassword, setRoomPassword] = useState('')
   const [joinCode, setJoinCode] = useState('')
   const [joinPassword, setJoinPassword] = useState('')
+  const toast = useToast()
+  const confirm = useConfirm()
 
   const { user, logout } = useAuthStore()
   const { rooms, fetchRooms, createRoom, joinRoom, deleteRoom, loading, error } = useRoomStore()
@@ -42,14 +46,27 @@ export default function Dashboard() {
   }
 
   const handleDeleteRoom = async (code) => {
-    if (confirm('Are you sure you want to delete this room?')) {
-      await deleteRoom(code)
+    const confirmed = await confirm({
+      title: 'Delete Room',
+      message: 'Are you sure you want to delete this room? This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      type: 'danger'
+    })
+    
+    if (confirmed) {
+      const result = await deleteRoom(code)
+      if (result.success) {
+        toast.success('Room deleted successfully')
+      } else {
+        toast.error(result.error || 'Failed to delete room')
+      }
     }
   }
 
   const copyInviteLink = (code) => {
     navigator.clipboard.writeText(`${window.location.origin}/join/${code}`)
-    alert('Invite link copied!')
+    toast.success('Invite link copied to clipboard!')
   }
 
   return (

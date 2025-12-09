@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useRoomStore } from '../store/roomStore'
 import { useAuthStore } from '../store/authStore'
 import { connectSocket, getSocket, disconnectSocket } from '../services/socket'
+import { useToast } from '../components/Toast'
+import { useConfirm } from '../components/ConfirmModal'
 import Canvas from '../components/Canvas'
 
 export default function Room() {
@@ -10,6 +12,8 @@ export default function Room() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
   const { currentRoom, getRoom, setParticipants, addParticipant, removeParticipant, participants, clearRoom } = useRoomStore()
+  const toast = useToast()
+  const confirm = useConfirm()
   
   const [socket, setSocket] = useState(null)
   const [strokes, setStrokes] = useState([])
@@ -127,12 +131,16 @@ export default function Room() {
 
       sock.on('error', ({ message }) => {
         console.error('Socket error:', message)
-        alert(message)
+        toast.error(message)
       })
 
+      // IMPORTANT: Listen for kick event immediately
       sock.on('user:kicked', () => {
-        alert('You have been kicked from the room!')
-        navigate('/dashboard')
+        console.log('Received user:kicked event!')
+        toast.kicked()
+        setTimeout(() => {
+          navigate('/dashboard')
+        }, 2000)
       })
     }
 
@@ -140,6 +148,23 @@ export default function Room() {
 
     // Cleanup
     return () => {
+      const sock = getSocket()
+      if (sock) {
+        // Remove all listeners before disconnecting
+        sock.off('connect')
+        sock.off('disconnect')
+        sock.off('room:state')
+        sock.off('user:joined')
+        sock.off('user:left')
+        sock.off('draw:stroke')
+        sock.off('draw:complete')
+        sock.off('draw:erase')
+        sock.off('draw:clear')
+        sock.off('cursor:move')
+        sock.off('room:saved')
+        sock.off('error')
+        sock.off('user:kicked')
+      }
       disconnectSocket()
       clearRoom()
     }
@@ -167,18 +192,27 @@ export default function Room() {
 
   const copyInviteLink = () => {
     navigator.clipboard.writeText(`${window.location.origin}/join/${code}`)
-    alert('Invite link copied!')
+    toast.success('Invite link copied to clipboard!')
   }
 
   const handleLeave = () => {
     navigate('/dashboard')
   }
 
-  const handleKick = useCallback((targetUserId) => {
-    if (socket && window.confirm('Are you sure you want to kick this user?')) {
+  const handleKick = useCallback(async (targetUserId) => {
+    const confirmed = await confirm({
+      title: 'Kick User',
+      message: 'Are you sure you want to kick this user from the room?',
+      confirmText: 'Kick',
+      cancelText: 'Cancel',
+      type: 'danger'
+    })
+    
+    if (confirmed && socket) {
       socket.emit('user:kick', { targetUserId })
+      toast.success('User has been kicked')
     }
-  }, [socket])
+  }, [socket, confirm, toast])
 
   if (!currentRoom) {
     return (
