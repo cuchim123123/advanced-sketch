@@ -230,14 +230,18 @@ export default function Room() {
         </div>
 
         {/* Participants Sidebar */}
-        {showParticipants && (
-          <div className="w-64 bg-white border-l p-4 overflow-y-auto">
-            <h2 className="font-semibold mb-3">Participants</h2>
+        <div 
+          className={`bg-white border-l overflow-hidden transition-all duration-300 ease-in-out ${
+            showParticipants ? 'w-64 p-4' : 'w-0 p-0'
+          }`}
+        >
+          <div className={`transition-opacity duration-200 ${showParticipants ? 'opacity-100' : 'opacity-0'}`}>
+            <h2 className="font-semibold mb-3 whitespace-nowrap">Participants</h2>
             <ul className="space-y-2">
               {/* Current user */}
               <li className="flex items-center gap-2 p-2 bg-indigo-50 rounded">
-                <div className="w-3 h-3 rounded-full bg-indigo-500" />
-                <span className="text-sm font-medium">{user?.username} (you)</span>
+                <div className="w-3 h-3 rounded-full bg-indigo-500 flex-shrink-0" />
+                <span className="text-sm font-medium whitespace-nowrap">{user?.username} (you)</span>
               </li>
               
               {/* Other participants */}
@@ -249,22 +253,22 @@ export default function Room() {
                     className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded"
                   >
                     <div
-                      className="w-3 h-3 rounded-full"
+                      className="w-3 h-3 rounded-full flex-shrink-0"
                       style={{ backgroundColor: participant.color }}
                     />
-                    <span className="text-sm">{participant.username}</span>
+                    <span className="text-sm whitespace-nowrap">{participant.username}</span>
                   </li>
                 ))
               }
             </ul>
 
             {participants.filter(p => p.id !== user?.id).length === 0 && (
-              <p className="text-sm text-gray-400 mt-4">
+              <p className="text-sm text-gray-400 mt-4 whitespace-nowrap">
                 No one else is here yet. Share the invite link!
               </p>
             )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   )
