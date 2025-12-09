@@ -559,9 +559,11 @@ export default function Canvas({
       {/* Canvas Container */}
       <div 
         ref={containerRef}
-        className={`flex-1 relative overflow-hidden bg-gray-100 ${
-          spacePressed || tool === TOOLS.HAND ? 'cursor-grab' : ''
-        } ${isPanning ? 'cursor-grabbing' : ''}`}
+        className="flex-1 relative overflow-hidden bg-gray-100"
+        style={{
+          cursor: isPanning ? 'grabbing' : 
+                  (spacePressed || tool === TOOLS.HAND) ? 'grab' : 'default'
+        }}
         onWheel={handleWheel}
         onMouseDown={(e) => {
           if (e.button === 1 || shouldPan()) {
