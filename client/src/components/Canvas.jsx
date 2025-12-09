@@ -559,11 +559,10 @@ export default function Canvas({
       {/* Canvas Container */}
       <div 
         ref={containerRef}
-        className="flex-1 relative overflow-hidden bg-gray-100"
-        style={{
-          cursor: isPanning ? 'grabbing' : 
-                  (spacePressed || tool === TOOLS.HAND) ? 'grab' : undefined
-        }}
+        className={`flex-1 relative overflow-hidden bg-gray-100 ${
+          isPanning ? 'cursor-grabbing' : 
+          (spacePressed || tool === TOOLS.HAND) ? 'cursor-grab' : ''
+        }`}
         onWheel={handleWheel}
         onMouseDown={(e) => {
           if (e.button === 1 || shouldPan()) {
@@ -589,27 +588,27 @@ export default function Canvas({
       >
         {/* Checkerboard background to show canvas bounds */}
         <div 
-          className="absolute bg-white shadow-lg"
+          className={`absolute bg-white shadow-lg ${
+            isPanning ? 'cursor-grabbing' : 
+            (spacePressed || tool === TOOLS.HAND) ? 'cursor-grab' : ''
+          }`}
           style={{
             width: CANVAS_SIZE,
             height: CANVAS_SIZE,
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-            transformOrigin: '0 0',
-            cursor: isPanning ? 'grabbing' : 
-                    (spacePressed || tool === TOOLS.HAND) ? 'grab' : undefined
+            transformOrigin: '0 0'
           }}
         >
           <canvas
             ref={canvasRef}
             className={`absolute inset-0 ${
-              (tool === TOOLS.HAND || spacePressed || isPanning) ? '' :
+              isPanning ? 'cursor-grabbing' :
+              (tool === TOOLS.HAND || spacePressed) ? 'cursor-grab' :
               tool === TOOLS.ERASER ? 'cursor-eraser' : 'cursor-pen'
             }`}
             style={{
               width: CANVAS_SIZE,
-              height: CANVAS_SIZE,
-              cursor: isPanning ? 'grabbing' : 
-                      (spacePressed || tool === TOOLS.HAND) ? 'grab' : undefined
+              height: CANVAS_SIZE
             }}
           />
         </div>
