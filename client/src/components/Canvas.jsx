@@ -35,39 +35,39 @@ export default function Canvas({
   // Initialize canvas
   useEffect(() => {
     const canvas = canvasRef.current
-    // Store dimensions before modifying
-    const width = canvas.offsetWidth
-    const height = canvas.offsetHeight
+    const container = canvas.parentElement
     
-    canvas.width = width * 2
-    canvas.height = height * 2
-    canvas.style.width = `${width}px`
-    canvas.style.height = `${height}px`
-
-    const context = canvas.getContext('2d')
-    context.scale(2, 2)
-    context.lineCap = 'round'
-    context.lineJoin = 'round'
-    contextRef.current = context
-
-    redrawCanvas()
-    
-    // Handle window resize
-    const handleResize = () => {
-      const w = canvas.parentElement.offsetWidth
-      const h = canvas.parentElement.offsetHeight
+    const setupCanvas = () => {
+      const w = container.offsetWidth
+      const h = container.offsetHeight
+      
+      if (w === 0 || h === 0) return
+      
       canvas.width = w * 2
       canvas.height = h * 2
       canvas.style.width = `${w}px`
       canvas.style.height = `${h}px`
+
+      const context = canvas.getContext('2d')
       context.scale(2, 2)
       context.lineCap = 'round'
       context.lineJoin = 'round'
+      contextRef.current = context
+
       redrawCanvas()
     }
     
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
+    setupCanvas()
+    
+    // Use ResizeObserver for container size changes (sidebar toggle, etc.)
+    const resizeObserver = new ResizeObserver(() => {
+      // Debounce resize to avoid excessive redraws
+      requestAnimationFrame(setupCanvas)
+    })
+    
+    resizeObserver.observe(container)
+    
+    return () => resizeObserver.disconnect()
   }, [])
 
   // Redraw when strokes change

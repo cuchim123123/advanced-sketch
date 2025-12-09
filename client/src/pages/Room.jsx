@@ -178,37 +178,37 @@ export default function Room() {
   }
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-screen flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="bg-white border-b px-4 py-2 flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <header className="bg-white border-b px-2 sm:px-4 py-2 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
           <button
             onClick={handleLeave}
-            className="text-gray-500 hover:text-gray-700"
+            className="text-gray-500 hover:text-gray-700 flex-shrink-0"
           >
-            ← Back
+            ← <span className="hidden sm:inline">Back</span>
           </button>
-          <h1 className="font-semibold text-lg">{currentRoom.name}</h1>
-          <span className="text-sm text-gray-400">({code})</span>
-          <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
+          <h1 className="font-semibold text-base sm:text-lg truncate">{currentRoom.name}</h1>
+          <span className="text-xs sm:text-sm text-gray-400 hidden sm:inline">({code})</span>
+          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0">
           <button
             onClick={handleSave}
-            className="px-3 py-1 text-sm bg-green-100 text-green-600 rounded hover:bg-green-200"
+            className="px-2 sm:px-3 py-1 text-xs sm:text-sm bg-green-100 text-green-600 rounded hover:bg-green-200"
           >
-            💾 Save
+            💾 <span className="hidden sm:inline">Save</span>
           </button>
           <button
             onClick={copyInviteLink}
-            className="px-3 py-1 text-sm bg-indigo-100 text-indigo-600 rounded hover:bg-indigo-200"
+            className="px-2 sm:px-3 py-1 text-xs sm:text-sm bg-indigo-100 text-indigo-600 rounded hover:bg-indigo-200"
           >
-            📋 Invite
+            📋 <span className="hidden sm:inline">Invite</span>
           </button>
           <button
             onClick={() => setShowParticipants(!showParticipants)}
-            className="px-3 py-1 text-sm bg-gray-100 rounded hover:bg-gray-200"
+            className="px-2 sm:px-3 py-1 text-xs sm:text-sm bg-gray-100 rounded hover:bg-gray-200"
           >
             👥 {participants.filter(p => p.id !== user?.id).length + 1}
           </button>
@@ -216,9 +216,9 @@ export default function Room() {
       </header>
 
       {/* Main Area */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
         {/* Canvas */}
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <Canvas
             socket={socket}
             roomCode={code}
@@ -229,45 +229,63 @@ export default function Room() {
           />
         </div>
 
+        {/* Backdrop for mobile */}
+        {showParticipants && (
+          <div 
+            className="fixed inset-0 bg-black/20 z-10 md:hidden"
+            onClick={() => setShowParticipants(false)}
+          />
+        )}
+
         {/* Participants Sidebar */}
         <div 
-          className={`bg-white border-l overflow-hidden transition-all duration-300 ease-in-out ${
-            showParticipants ? 'w-64 p-4' : 'w-0 p-0'
-          }`}
+          className={`
+            fixed md:relative right-0 top-0 h-full z-20
+            bg-white border-l shadow-lg md:shadow-none
+            transform transition-transform duration-300 ease-in-out
+            w-64 p-4 overflow-y-auto
+            ${showParticipants ? 'translate-x-0' : 'translate-x-full md:hidden'}
+          `}
         >
-          <div className={`transition-opacity duration-200 ${showParticipants ? 'opacity-100' : 'opacity-0'}`}>
-            <h2 className="font-semibold mb-3 whitespace-nowrap">Participants</h2>
-            <ul className="space-y-2">
-              {/* Current user */}
-              <li className="flex items-center gap-2 p-2 bg-indigo-50 rounded">
-                <div className="w-3 h-3 rounded-full bg-indigo-500 flex-shrink-0" />
-                <span className="text-sm font-medium whitespace-nowrap">{user?.username} (you)</span>
-              </li>
-              
-              {/* Other participants */}
-              {participants
-                .filter(p => p.id !== user?.id)
-                .map(participant => (
-                  <li
-                    key={participant.id}
-                    className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded"
-                  >
-                    <div
-                      className="w-3 h-3 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: participant.color }}
-                    />
-                    <span className="text-sm whitespace-nowrap">{participant.username}</span>
-                  </li>
-                ))
-              }
-            </ul>
-
-            {participants.filter(p => p.id !== user?.id).length === 0 && (
-              <p className="text-sm text-gray-400 mt-4 whitespace-nowrap">
-                No one else is here yet. Share the invite link!
-              </p>
-            )}
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold">Participants</h2>
+            <button 
+              onClick={() => setShowParticipants(false)}
+              className="md:hidden text-gray-400 hover:text-gray-600 text-xl leading-none"
+            >
+              ×
+            </button>
           </div>
+          <ul className="space-y-2">
+            {/* Current user */}
+            <li className="flex items-center gap-2 p-2 bg-indigo-50 rounded">
+              <div className="w-3 h-3 rounded-full bg-indigo-500 flex-shrink-0" />
+              <span className="text-sm font-medium truncate">{user?.username} (you)</span>
+            </li>
+            
+            {/* Other participants */}
+            {participants
+              .filter(p => p.id !== user?.id)
+              .map(participant => (
+                <li
+                  key={participant.id}
+                  className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded"
+                >
+                  <div
+                    className="w-3 h-3 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: participant.color }}
+                  />
+                  <span className="text-sm truncate">{participant.username}</span>
+                </li>
+              ))
+            }
+          </ul>
+
+          {participants.filter(p => p.id !== user?.id).length === 0 && (
+            <p className="text-sm text-gray-400 mt-4">
+              No one else is here yet. Share the invite link!
+            </p>
+          )}
         </div>
       </div>
     </div>
