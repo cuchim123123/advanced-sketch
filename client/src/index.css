@@ -31,11 +31,11 @@ body {
   background: #555;
 }
 
-/* Canvas cursor styles */
+/* Canvas cursor styles - using outlined cursors for visibility on any background */
 .cursor-pen {
-  cursor: crosshair;
+  cursor: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><line x1="12" y1="2" x2="12" y2="22" stroke="white" stroke-width="3"/><line x1="2" y1="12" x2="22" y2="12" stroke="white" stroke-width="3"/><line x1="12" y1="2" x2="12" y2="22" stroke="%23333" stroke-width="1.5"/><line x1="2" y1="12" x2="22" y2="12" stroke="%23333" stroke-width="1.5"/><circle cx="12" cy="12" r="2" fill="%23333" stroke="white" stroke-width="1"/></svg>') 12 12, crosshair;
 }
 
 .cursor-eraser {
-  cursor: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="white" stroke="black" stroke-width="2"/></svg>') 12 12, auto;
+  cursor: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="white" stroke="%23333" stroke-width="2"/><circle cx="12" cy="12" r="10" fill="none" stroke="white" stroke-width="4"/><circle cx="12" cy="12" r="10" fill="rgba(255,255,255,0.5)" stroke="%23333" stroke-width="2"/></svg>') 12 12, auto;
 }
