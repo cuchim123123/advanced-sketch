@@ -324,14 +324,24 @@ module.exports = (io) => {
           return;
         }
 
-        // Send kick notification to target user
-        io.to(targetParticipant.socketId).emit('user:kicked');
+        console.log('Kicking user:', targetUserId, 'socketId:', targetParticipant.socketId);
 
-        // Force disconnect target from room
-        const targetSocket = io.sockets.sockets.get(targetParticipant.socketId);
+        // Send kick notification to target user via their socket ID
+        const targetSocketId = targetParticipant.socketId;
+        const targetSocket = io.sockets.sockets.get(targetSocketId);
+        
         if (targetSocket) {
+          // Emit directly to the socket
+          targetSocket.emit('user:kicked');
+          console.log('Kick event sent to socket:', targetSocketId);
+          
+          // Force disconnect target from room
           targetSocket.leave(socket.roomCode);
           targetSocket.roomCode = null;
+        } else {
+          // Fallback: emit to socketId (may work if socket exists)
+          io.to(targetSocketId).emit('user:kicked');
+          console.log('Kick event sent via io.to:', targetSocketId);
         }
 
         // Update participant status
