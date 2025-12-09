@@ -105,15 +105,17 @@ export default function Room() {
 
       sock.on('cursor:move', ({ userId, x, y }) => {
         setCursors(prev => {
-          // Get participant info from current state or previous cursor data
+          // Get participant info from store or previous cursor data
+          const { participants } = useRoomStore.getState()
+          const participant = participants.find(p => p.id === userId)
           const existingCursor = prev[userId]
           return {
             ...prev,
             [userId]: {
               x,
               y,
-              color: existingCursor?.color || '#888',
-              username: existingCursor?.username || 'User'
+              color: participant?.color || existingCursor?.color || '#888',
+              username: participant?.username || existingCursor?.username || 'User'
             }
           }
         })
