@@ -151,14 +151,23 @@ export default function Canvas({
     } else if (stroke.tool === TOOLS.RECTANGLE) {
       const width = stroke.endPoint.x - stroke.startPoint.x
       const height = stroke.endPoint.y - stroke.startPoint.y
-      ctx.strokeRect(stroke.startPoint.x, stroke.startPoint.y, width, height)
+      // Limit size to prevent browser crash
+      const maxSize = CANVAS_SIZE * 2
+      const clampedWidth = Math.max(-maxSize, Math.min(maxSize, width))
+      const clampedHeight = Math.max(-maxSize, Math.min(maxSize, height))
+      ctx.strokeRect(stroke.startPoint.x, stroke.startPoint.y, clampedWidth, clampedHeight)
       return
     } else if (stroke.tool === TOOLS.CIRCLE) {
       const radius = Math.sqrt(
         Math.pow(stroke.endPoint.x - stroke.startPoint.x, 2) +
         Math.pow(stroke.endPoint.y - stroke.startPoint.y, 2)
       )
-      ctx.arc(stroke.startPoint.x, stroke.startPoint.y, radius, 0, 2 * Math.PI)
+      // Limit radius to prevent browser crash
+      const maxRadius = CANVAS_SIZE
+      const clampedRadius = Math.min(maxRadius, Math.max(0, radius))
+      if (clampedRadius > 0) {
+        ctx.arc(stroke.startPoint.x, stroke.startPoint.y, clampedRadius, 0, 2 * Math.PI)
+      }
     } else {
       // Pen or eraser - draw path
       if (stroke.points && stroke.points.length > 0) {
@@ -250,14 +259,23 @@ export default function Canvas({
       } else if (tool === TOOLS.RECTANGLE) {
         const width = x - startPoint.current.x
         const height = y - startPoint.current.y
-        ctx.strokeRect(startPoint.current.x, startPoint.current.y, width, height)
+        // Limit size to prevent browser crash
+        const maxSize = CANVAS_SIZE * 2
+        const clampedWidth = Math.max(-maxSize, Math.min(maxSize, width))
+        const clampedHeight = Math.max(-maxSize, Math.min(maxSize, height))
+        ctx.strokeRect(startPoint.current.x, startPoint.current.y, clampedWidth, clampedHeight)
       } else if (tool === TOOLS.CIRCLE) {
         const radius = Math.sqrt(
           Math.pow(x - startPoint.current.x, 2) +
           Math.pow(y - startPoint.current.y, 2)
         )
-        ctx.arc(startPoint.current.x, startPoint.current.y, radius, 0, 2 * Math.PI)
-        ctx.stroke()
+        // Limit radius to prevent browser crash
+        const maxRadius = CANVAS_SIZE
+        const clampedRadius = Math.min(maxRadius, Math.max(0, radius))
+        if (clampedRadius > 0) {
+          ctx.arc(startPoint.current.x, startPoint.current.y, clampedRadius, 0, 2 * Math.PI)
+          ctx.stroke()
+        }
       }
     }
   }
