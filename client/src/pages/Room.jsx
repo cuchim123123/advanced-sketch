@@ -288,7 +288,7 @@ export default function Room() {
                   />
                   <span className="text-sm truncate flex-1">{participant.username}</span>
                   {/* Kick button - only visible to room owner */}
-                  {currentRoom?.owner === user?.id && (
+                  {(currentRoom?.owner === user?.id || currentRoom?.owner?._id === user?.id || currentRoom?.isOwner) && (
                     <button
                       onClick={() => handleKick(participant.id)}
                       className="opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-700 text-xs px-2 py-1 rounded hover:bg-red-50"
