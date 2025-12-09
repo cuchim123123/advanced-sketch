@@ -208,7 +208,7 @@ export default function Room() {
             onClick={() => setShowParticipants(!showParticipants)}
             className="px-3 py-1 text-sm bg-gray-100 rounded hover:bg-gray-200"
           >
-            👥 {participants.length + 1}
+            👥 {participants.filter(p => p.id !== user?.id).length + 1}
           </button>
         </div>
       </header>
@@ -255,7 +255,7 @@ export default function Room() {
               }
             </ul>
 
-            {participants.length === 0 && (
+            {participants.filter(p => p.id !== user?.id).length === 0 && (
               <p className="text-sm text-gray-400 mt-4">
                 No one else is here yet. Share the invite link!
               </p>
