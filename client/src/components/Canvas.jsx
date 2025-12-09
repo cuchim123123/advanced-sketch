@@ -6,7 +6,8 @@ const TOOLS = {
   ERASER: 'eraser',
   LINE: 'line',
   RECTANGLE: 'rectangle',
-  CIRCLE: 'circle'
+  CIRCLE: 'circle',
+  HAND: 'hand'  // Pan tool
 }
 
 const COLORS = [
@@ -38,12 +39,35 @@ export default function Canvas({
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [isPanning, setIsPanning] = useState(false)
+  const [spacePressed, setSpacePressed] = useState(false)
   const lastPanPoint = useRef(null)
   const lastPinchDistance = useRef(null)
   
   const MIN_ZOOM = 0.25
   const MAX_ZOOM = 4
   const CANVAS_SIZE = 2000 // Virtual canvas size
+  
+  // Handle spacebar for pan mode
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.code === 'Space' && !e.repeat) {
+        e.preventDefault()
+        setSpacePressed(true)
+      }
+    }
+    const handleKeyUp = (e) => {
+      if (e.code === 'Space') {
+        setSpacePressed(false)
+        setIsPanning(false)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    }
+  }, [])
 
   // Keep strokesRef in sync with strokes prop
   useEffect(() => {
@@ -281,12 +305,13 @@ export default function Canvas({
     if (isDrawing) {
       stopDrawing({ clientX: 0, clientY: 0 })
     }
+    setIsPanning(false)
   }
 
   // Handle cursor move without drawing
   const handleMouseMove = (e) => {
-    // Handle panning with middle mouse or when isPanning
-    if (isPanning && e.buttons === 4) {
+    // Handle panning (space+drag, middle mouse, or hand tool)
+    if (isPanning && lastPanPoint.current) {
       const dx = e.clientX - lastPanPoint.current.x
       const dy = e.clientY - lastPanPoint.current.y
       setPan(prev => ({ x: prev.x + dx, y: prev.y + dy }))
@@ -295,13 +320,22 @@ export default function Canvas({
     }
     
     const { x, y } = getCoordinates(e)
-    if (socket && !isDrawing) {
+    if (socket && !isDrawing && !isPanning) {
       socket.emit('cursor:move', { x, y })
     }
     if (isDrawing) {
       draw(e)
     }
   }
+  
+  // Start panning
+  const startPan = (e) => {
+    setIsPanning(true)
+    lastPanPoint.current = { x: e.clientX, y: e.clientY }
+  }
+  
+  // Check if should pan
+  const shouldPan = () => spacePressed || tool === TOOLS.HAND
   
   // Zoom with mouse wheel
   const handleWheel = (e) => {
@@ -435,6 +469,7 @@ export default function Canvas({
               {value === 'line' && '📏'}
               {value === 'rectangle' && '⬜'}
               {value === 'circle' && '⭕'}
+              {value === 'hand' && '✋'}
             </button>
           ))}
         </div>
@@ -524,14 +559,15 @@ export default function Canvas({
       {/* Canvas Container */}
       <div 
         ref={containerRef}
-        className="flex-1 relative overflow-hidden bg-gray-100"
+        className={`flex-1 relative overflow-hidden bg-gray-100 ${
+          spacePressed || tool === TOOLS.HAND ? 'cursor-grab' : ''
+        } ${isPanning ? 'cursor-grabbing' : ''}`}
         onWheel={handleWheel}
         onMouseDown={(e) => {
-          if (e.button === 1) {
-            // Middle mouse button for panning
+          if (e.button === 1 || shouldPan()) {
+            // Middle mouse button or space/hand tool for panning
             e.preventDefault()
-            setIsPanning(true)
-            lastPanPoint.current = { x: e.clientX, y: e.clientY }
+            startPan(e)
           } else {
             startDrawing(e)
           }
@@ -562,7 +598,8 @@ export default function Canvas({
           <canvas
             ref={canvasRef}
             className={`absolute inset-0 ${
-              tool === TOOLS.ERASER ? 'cursor-eraser' : 'cursor-pen'
+              tool === TOOLS.ERASER ? 'cursor-eraser' : 
+              tool === TOOLS.HAND || spacePressed ? '' : 'cursor-pen'
             }`}
             style={{
               width: CANVAS_SIZE,
@@ -602,7 +639,7 @@ export default function Canvas({
 
         {/* Zoom hint */}
         <div className="absolute bottom-4 left-4 text-xs text-gray-400 pointer-events-none select-none">
-          Scroll to zoom • Pinch on mobile
+          Scroll to zoom • Space+drag to pan • Pinch on mobile
         </div>
       </div>
     </div>
