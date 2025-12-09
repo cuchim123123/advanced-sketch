@@ -89,13 +89,19 @@ export default function Canvas({
     context.fillStyle = '#ffffff'
     context.fillRect(0, 0, canvas.width, canvas.height)
 
-    strokes.forEach(stroke => drawStroke(stroke, context))
+    strokes.forEach(stroke => {
+      if (stroke && stroke.tool) {
+        drawStroke(stroke, context)
+      }
+    })
   }, [strokes])
 
   const drawStroke = (stroke, ctx) => {
+    if (!stroke || !stroke.tool) return
+    
     ctx.beginPath()
-    ctx.strokeStyle = stroke.tool === TOOLS.ERASER ? '#ffffff' : stroke.color
-    ctx.lineWidth = stroke.strokeWidth
+    ctx.strokeStyle = stroke.tool === TOOLS.ERASER ? '#ffffff' : (stroke.color || '#000000')
+    ctx.lineWidth = stroke.strokeWidth || 3
 
     if (stroke.tool === TOOLS.LINE) {
       ctx.moveTo(stroke.startPoint.x, stroke.startPoint.y)
