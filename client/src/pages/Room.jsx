@@ -225,6 +225,7 @@ export default function Room() {
             strokes={strokes}
             onStrokeAdd={(stroke) => setStrokes(prev => [...prev, stroke])}
             cursors={cursors}
+            showCursorNames={showParticipants}
           />
         </div>
 

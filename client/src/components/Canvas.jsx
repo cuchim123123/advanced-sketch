@@ -20,7 +20,8 @@ export default function Canvas({
   roomCode, 
   strokes = [],  // Renamed from initialStrokes - parent manages this
   onStrokeAdd,   // Callback when user draws a stroke
-  cursors = {}
+  cursors = {},
+  showCursorNames = true
 }) {
   const canvasRef = useRef(null)
   const contextRef = useRef(null)
@@ -369,12 +370,14 @@ export default function Canvas({
               className="w-4 h-4 rounded-full border-2 border-white"
               style={{ backgroundColor: cursor.color }}
             />
-            <span
-              className="absolute top-4 left-2 text-xs px-1 rounded whitespace-nowrap"
-              style={{ backgroundColor: cursor.color, color: 'white' }}
-            >
-              {cursor.username}
-            </span>
+            {showCursorNames && (
+              <span
+                className="absolute top-4 left-2 text-xs px-1 rounded whitespace-nowrap"
+                style={{ backgroundColor: cursor.color, color: 'white' }}
+              >
+                {cursor.username}
+              </span>
+            )}
           </div>
         ))}
       </div>
