@@ -153,7 +153,7 @@ router.post('/:code/join', protect, async (req, res) => {
     // Check password if required
     if (room.isPasswordProtected) {
       if (!password) {
-        return res.status(401).json({
+        return res.status(403).json({
           success: false,
           message: 'Password required'
         });
@@ -161,7 +161,7 @@ router.post('/:code/join', protect, async (req, res) => {
 
       const isMatch = await bcrypt.compare(password, room.password);
       if (!isMatch) {
-        return res.status(401).json({
+        return res.status(403).json({
           success: false,
           message: 'Incorrect password'
         });
