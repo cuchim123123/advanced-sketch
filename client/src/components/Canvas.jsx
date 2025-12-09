@@ -562,7 +562,7 @@ export default function Canvas({
         className="flex-1 relative overflow-hidden bg-gray-100"
         style={{
           cursor: isPanning ? 'grabbing' : 
-                  (spacePressed || tool === TOOLS.HAND) ? 'grab' : 'default'
+                  (spacePressed || tool === TOOLS.HAND) ? 'grab' : undefined
         }}
         onWheel={handleWheel}
         onMouseDown={(e) => {
@@ -594,18 +594,22 @@ export default function Canvas({
             width: CANVAS_SIZE,
             height: CANVAS_SIZE,
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-            transformOrigin: '0 0'
+            transformOrigin: '0 0',
+            cursor: isPanning ? 'grabbing' : 
+                    (spacePressed || tool === TOOLS.HAND) ? 'grab' : undefined
           }}
         >
           <canvas
             ref={canvasRef}
             className={`absolute inset-0 ${
-              tool === TOOLS.ERASER ? 'cursor-eraser' : 
-              tool === TOOLS.HAND || spacePressed ? '' : 'cursor-pen'
+              (tool === TOOLS.HAND || spacePressed || isPanning) ? '' :
+              tool === TOOLS.ERASER ? 'cursor-eraser' : 'cursor-pen'
             }`}
             style={{
               width: CANVAS_SIZE,
-              height: CANVAS_SIZE
+              height: CANVAS_SIZE,
+              cursor: isPanning ? 'grabbing' : 
+                      (spacePressed || tool === TOOLS.HAND) ? 'grab' : undefined
             }}
           />
         </div>
