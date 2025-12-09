@@ -25,12 +25,18 @@ export default function Canvas({
 }) {
   const canvasRef = useRef(null)
   const contextRef = useRef(null)
+  const strokesRef = useRef(strokes) // Keep ref to current strokes for resize handler
   const [isDrawing, setIsDrawing] = useState(false)
   const [tool, setTool] = useState(TOOLS.PEN)
   const [color, setColor] = useState('#000000')
   const [strokeWidth, setStrokeWidth] = useState(3)
   const currentStroke = useRef(null)
   const startPoint = useRef(null)
+
+  // Keep strokesRef in sync with strokes prop
+  useEffect(() => {
+    strokesRef.current = strokes
+  }, [strokes])
 
   // Initialize canvas
   useEffect(() => {
@@ -54,7 +60,8 @@ export default function Canvas({
       context.lineJoin = 'round'
       contextRef.current = context
 
-      redrawCanvas()
+      // Use ref to get current strokes (not stale closure)
+      redrawWithStrokes(strokesRef.current)
     }
     
     setupCanvas()
@@ -70,12 +77,8 @@ export default function Canvas({
     return () => resizeObserver.disconnect()
   }, [])
 
-  // Redraw when strokes change
-  useEffect(() => {
-    redrawCanvas()
-  }, [strokes])
-
-  const redrawCanvas = useCallback(() => {
+  // Helper to redraw with specific strokes array (used by resize handler)
+  const redrawWithStrokes = (strokesArray) => {
     const context = contextRef.current
     if (!context) return
 
@@ -84,11 +87,16 @@ export default function Canvas({
     context.fillStyle = '#ffffff'
     context.fillRect(0, 0, canvas.width, canvas.height)
 
-    strokes.forEach(stroke => {
+    strokesArray.forEach(stroke => {
       if (stroke && stroke.tool) {
         drawStroke(stroke, context)
       }
     })
+  }
+
+  // Redraw when strokes change
+  useEffect(() => {
+    redrawWithStrokes(strokes)
   }, [strokes])
 
   const drawStroke = (stroke, ctx) => {
