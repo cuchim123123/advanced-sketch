@@ -283,6 +283,76 @@ module.exports = (io) => {
     });
 
     /**
+     * KICK USER
+     * Only room owner can kick users
+     */
+    socket.on('user:kick', async ({ targetUserId }) => {
+      if (!socket.roomCode) return;
+
+      try {
+        const room = await Room.findOne({ code: socket.roomCode });
+        
+        if (!room) {
+          socket.emit('error', { message: 'Room not found' });
+          return;
+        }
+
+        // Check if requester is room owner
+        if (room.owner.toString() !== socket.user._id.toString()) {
+          socket.emit('error', { message: 'Only room owner can kick users' });
+          return;
+        }
+
+        // Can't kick yourself
+        if (targetUserId === socket.user._id.toString()) {
+          socket.emit('error', { message: 'Cannot kick yourself' });
+          return;
+        }
+
+        // Find target user's socket
+        const participants = await SessionParticipant.find({
+          room: room._id,
+          isActive: true
+        });
+
+        const targetParticipant = participants.find(
+          p => p.user.toString() === targetUserId
+        );
+
+        if (!targetParticipant) {
+          socket.emit('error', { message: 'User not found in room' });
+          return;
+        }
+
+        // Send kick notification to target user
+        io.to(targetParticipant.socketId).emit('user:kicked');
+
+        // Force disconnect target from room
+        const targetSocket = io.sockets.sockets.get(targetParticipant.socketId);
+        if (targetSocket) {
+          targetSocket.leave(socket.roomCode);
+          targetSocket.roomCode = null;
+        }
+
+        // Update participant status
+        await SessionParticipant.findByIdAndUpdate(targetParticipant._id, {
+          isActive: false
+        });
+
+        // Notify room that user left
+        const targetUser = await User.findById(targetUserId);
+        io.to(socket.roomCode).emit('user:left', {
+          id: targetUserId,
+          username: targetUser?.username || 'User'
+        });
+
+      } catch (error) {
+        console.error('Kick error:', error);
+        socket.emit('error', { message: 'Failed to kick user' });
+      }
+    });
+
+    /**
      * DISCONNECT
      * Clean up participant and notify room
      */

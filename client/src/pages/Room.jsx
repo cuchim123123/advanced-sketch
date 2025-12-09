@@ -129,6 +129,11 @@ export default function Room() {
         console.error('Socket error:', message)
         alert(message)
       })
+
+      sock.on('user:kicked', () => {
+        alert('You have been kicked from the room!')
+        navigate('/dashboard')
+      })
     }
 
     initRoom()
@@ -168,6 +173,12 @@ export default function Room() {
   const handleLeave = () => {
     navigate('/dashboard')
   }
+
+  const handleKick = useCallback((targetUserId) => {
+    if (socket && window.confirm('Are you sure you want to kick this user?')) {
+      socket.emit('user:kick', { targetUserId })
+    }
+  }, [socket])
 
   if (!currentRoom) {
     return (
@@ -269,13 +280,23 @@ export default function Room() {
               .map(participant => (
                 <li
                   key={participant.id}
-                  className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded"
+                  className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded group"
                 >
                   <div
                     className="w-3 h-3 rounded-full flex-shrink-0"
                     style={{ backgroundColor: participant.color }}
                   />
-                  <span className="text-sm truncate">{participant.username}</span>
+                  <span className="text-sm truncate flex-1">{participant.username}</span>
+                  {/* Kick button - only visible to room owner */}
+                  {currentRoom?.owner === user?.id && (
+                    <button
+                      onClick={() => handleKick(participant.id)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-700 text-xs px-2 py-1 rounded hover:bg-red-50"
+                      title="Kick user"
+                    >
+                      ✕
+                    </button>
+                  )}
                 </li>
               ))
             }
