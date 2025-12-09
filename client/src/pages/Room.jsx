@@ -220,7 +220,8 @@ export default function Room() {
           <Canvas
             socket={socket}
             roomCode={code}
-            initialStrokes={strokes}
+            strokes={strokes}
+            onStrokeAdd={(stroke) => setStrokes(prev => [...prev, stroke])}
             cursors={cursors}
           />
         </div>

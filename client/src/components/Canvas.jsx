@@ -18,8 +18,8 @@ const COLORS = [
 export default function Canvas({ 
   socket, 
   roomCode, 
-  initialStrokes = [],
-  onStroke,
+  strokes = [],  // Renamed from initialStrokes - parent manages this
+  onStrokeAdd,   // Callback when user draws a stroke
   cursors = {}
 }) {
   const canvasRef = useRef(null)
@@ -28,7 +28,6 @@ export default function Canvas({
   const [tool, setTool] = useState(TOOLS.PEN)
   const [color, setColor] = useState('#000000')
   const [strokeWidth, setStrokeWidth] = useState(3)
-  const [strokes, setStrokes] = useState(initialStrokes)
   const currentStroke = useRef(null)
   const startPoint = useRef(null)
 
@@ -69,11 +68,6 @@ export default function Canvas({
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
-
-  // Update strokes from props
-  useEffect(() => {
-    setStrokes(initialStrokes)
-  }, [initialStrokes])
 
   // Redraw when strokes change
   useEffect(() => {
@@ -220,17 +214,15 @@ export default function Canvas({
         currentStroke.current.endPoint = { x, y }
       }
 
-      // Add to local strokes
-      setStrokes(prev => [...prev, currentStroke.current])
+      // Notify parent to add stroke (parent manages state)
+      if (onStrokeAdd) {
+        onStrokeAdd(currentStroke.current)
+      }
 
-      // Emit final stroke
+      // Emit final stroke to server
       if (socket) {
         socket.emit('draw:stroke', { stroke: currentStroke.current })
         socket.emit('draw:complete', { strokeId: currentStroke.current.id })
-      }
-
-      if (onStroke) {
-        onStroke(currentStroke.current)
       }
     }
 
@@ -239,11 +231,9 @@ export default function Canvas({
   }
 
   const handleClear = () => {
-    setStrokes([])
     if (socket) {
       socket.emit('draw:clear')
     }
-    redrawCanvas()
   }
 
   const handleUndo = () => {
