@@ -282,6 +282,78 @@ router.get('/:code/history', protect, async (req, res) => {
 });
 
 /**
+ * @route   PATCH /api/rooms/:code
+ * @desc    Update room settings (owner only)
+ * @access  Private
+ */
+router.patch('/:code', protect, async (req, res) => {
+  try {
+    const room = await Room.findOne({ code: req.params.code });
+
+    if (!room) {
+      return res.status(404).json({
+        success: false,
+        message: 'Room not found'
+      });
+    }
+
+    if (room.owner.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to update this room'
+      });
+    }
+
+    const { name, password, removePassword, isPublic, maxParticipants } = req.body;
+
+    // Update name
+    if (name !== undefined) {
+      room.name = name;
+    }
+
+    // Update password
+    if (removePassword) {
+      room.password = null;
+      room.isPasswordProtected = false;
+    } else if (password) {
+      room.password = await bcrypt.hash(password, 10);
+      room.isPasswordProtected = true;
+    }
+
+    // Update visibility
+    if (isPublic !== undefined) {
+      room.isPublic = isPublic;
+    }
+
+    // Update max participants
+    if (maxParticipants !== undefined) {
+      room.maxParticipants = Math.min(50, Math.max(2, maxParticipants));
+    }
+
+    await room.save();
+
+    res.json({
+      success: true,
+      data: {
+        room: {
+          id: room._id,
+          name: room.name,
+          code: room.code,
+          isPasswordProtected: room.isPasswordProtected,
+          isPublic: room.isPublic,
+          maxParticipants: room.maxParticipants
+        }
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+/**
  * @route   DELETE /api/rooms/:code
  * @desc    Delete a room (owner only)
  * @access  Private
