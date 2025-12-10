@@ -23,11 +23,15 @@ const roomSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    default: null // null means public room
+    default: null // null means no password required
   },
   isPasswordProtected: {
     type: Boolean,
     default: false
+  },
+  isPublic: {
+    type: Boolean,
+    default: false // false = private (joinable only via link/code), true = visible to everyone
   },
   maxParticipants: {
     type: Number,
