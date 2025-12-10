@@ -30,6 +30,8 @@ const { Room, SessionParticipant, SketchHistory, User } = require('../models');
 
 // In-memory store for active room states
 const roomStates = new Map();
+// In-memory store for undo history (per user per room)
+const undoStacks = new Map(); // key: `${roomCode}:${oderId}` -> array of strokes
 
 module.exports = (io) => {
   // Authentication middleware for sockets
@@ -278,7 +280,37 @@ module.exports = (io) => {
         const lastStroke = userStrokes[userStrokes.length - 1];
         roomState.strokes = roomState.strokes.filter(s => s.id !== lastStroke.id);
 
+        // Save to undo stack for redo
+        const undoKey = `${socket.roomCode}:${socket.user._id}`;
+        if (!undoStacks.has(undoKey)) {
+          undoStacks.set(undoKey, []);
+        }
+        undoStacks.get(undoKey).push(lastStroke);
+
         io.to(socket.roomCode).emit('draw:erase', { strokeId: lastStroke.id });
+      }
+    });
+
+    /**
+     * REDO (restore user's last undone stroke)
+     */
+    socket.on('draw:redo', async () => {
+      if (!socket.roomCode) return;
+
+      const roomState = roomStates.get(socket.roomCode);
+      if (!roomState) return;
+
+      const undoKey = `${socket.roomCode}:${socket.user._id}`;
+      const userUndoStack = undoStacks.get(undoKey);
+
+      if (userUndoStack && userUndoStack.length > 0) {
+        const strokeToRestore = userUndoStack.pop();
+        roomState.strokes.push(strokeToRestore);
+
+        io.to(socket.roomCode).emit('draw:stroke', {
+          stroke: strokeToRestore,
+          username: socket.user.username
+        });
       }
     });
 
