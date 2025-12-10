@@ -200,8 +200,38 @@ export default function Room() {
   const handleSave = useCallback(() => {
     if (socket) {
       socket.emit('room:save')
+      toast.success('Saved!')
     }
-  }, [socket])
+  }, [socket, toast])
+
+  // Auto-save every 2 minutes
+  useEffect(() => {
+    if (!socket || !connected) return
+    
+    const autoSaveInterval = setInterval(() => {
+      if (strokes.length > 0) {
+        socket.emit('room:save')
+        console.log('Auto-saved')
+      }
+    }, 2 * 60 * 1000) // 2 minutes
+    
+    return () => clearInterval(autoSaveInterval)
+  }, [socket, connected, strokes.length])
+
+  // Confirm before clear
+  const handleClear = useCallback(async () => {
+    const confirmed = await confirm({
+      title: 'Clear Canvas',
+      message: 'Are you sure you want to clear the entire canvas? This cannot be undone.',
+      confirmText: 'Clear',
+      cancelText: 'Cancel',
+      type: 'danger'
+    })
+    
+    if (confirmed && socket) {
+      socket.emit('draw:clear')
+    }
+  }, [socket, confirm])
 
   const copyInviteLink = () => {
     navigator.clipboard.writeText(`${window.location.origin}/join/${code}`)
@@ -305,6 +335,8 @@ export default function Room() {
             roomCode={code}
             strokes={strokes}
             onStrokeAdd={(stroke) => setStrokes(prev => [...prev, stroke])}
+            onClear={handleClear}
+            onSave={handleSave}
             cursors={cursors}
             showCursorNames={showParticipants}
           />

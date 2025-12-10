@@ -23,6 +23,8 @@ export default function Canvas({
   roomCode, 
   strokes = [],  // Renamed from initialStrokes - parent manages this
   onStrokeAdd,   // Callback when user draws a stroke
+  onClear,       // Callback for clear confirmation
+  onSave,        // Callback for save
   cursors = {},
   showCursorNames = true
 }) {
@@ -47,6 +49,9 @@ export default function Canvas({
   const pendingImagePosition = useRef(null)
   const imageCache = useRef(new Map()) // Cache loaded images by stroke ID
   
+  // Keyboard shortcuts modal
+  const [showShortcuts, setShowShortcuts] = useState(false)
+  
   // Zoom and pan state
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
@@ -62,9 +67,52 @@ export default function Canvas({
   // Handle spacebar for pan mode
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Ignore if typing in input/textarea
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+      
       if (e.code === 'Space' && !e.repeat) {
         e.preventDefault()
         setSpacePressed(true)
+      }
+      
+      // Keyboard shortcuts
+      if (e.ctrlKey || e.metaKey) {
+        switch (e.key.toLowerCase()) {
+          case 'z':
+            e.preventDefault()
+            if (e.shiftKey) {
+              handleRedo() // Ctrl+Shift+Z = Redo
+            } else {
+              handleUndo() // Ctrl+Z = Undo
+            }
+            break
+          case 'y':
+            e.preventDefault()
+            handleRedo() // Ctrl+Y = Redo
+            break
+          case 's':
+            e.preventDefault()
+            if (onSave) onSave() // Ctrl+S = Save
+            break
+          case 'e':
+            e.preventDefault()
+            handleExport() // Ctrl+E = Export
+            break
+        }
+      } else {
+        // Tool shortcuts (single keys)
+        switch (e.key.toLowerCase()) {
+          case 'p': setTool(TOOLS.PEN); break
+          case 'e': setTool(TOOLS.ERASER); break
+          case 'l': setTool(TOOLS.LINE); break
+          case 'r': setTool(TOOLS.RECTANGLE); break
+          case 'c': setTool(TOOLS.CIRCLE); break
+          case 't': setTool(TOOLS.TEXT); break
+          case 'i': setTool(TOOLS.IMAGE); break
+          case 'h': setTool(TOOLS.HAND); break
+          case '?': setShowShortcuts(prev => !prev); break
+          case 'escape': setShowShortcuts(false); break
+        }
       }
     }
     const handleKeyUp = (e) => {
@@ -79,7 +127,7 @@ export default function Canvas({
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
     }
-  }, [])
+  }, [onSave])
 
   // Keep strokesRef in sync with strokes prop
   useEffect(() => {
@@ -393,7 +441,9 @@ export default function Canvas({
   }
 
   const handleClear = () => {
-    if (socket) {
+    if (onClear) {
+      onClear() // Let parent handle confirmation
+    } else if (socket) {
       socket.emit('draw:clear')
     }
   }
@@ -960,10 +1010,61 @@ export default function Canvas({
           className="hidden"
         />
 
-        {/* Zoom hint */}
+        {/* Hints */}
         <div className="absolute bottom-4 left-4 text-xs text-gray-400 pointer-events-none select-none">
-          Scroll to zoom • Space+drag to pan • Pinch on mobile
+          <div>Scroll to zoom • Space+drag to pan • Pinch on mobile</div>
+          <div className="mt-1 opacity-75">Press ? for keyboard shortcuts</div>
         </div>
+
+        {/* Keyboard Shortcuts Modal */}
+        {showShortcuts && (
+          <div 
+            className="absolute inset-0 bg-black/50 flex items-center justify-center z-50"
+            onClick={() => setShowShortcuts(false)}
+          >
+            <div 
+              className="bg-white rounded-lg p-6 shadow-xl max-w-md"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">Keyboard Shortcuts</h3>
+                <button 
+                  onClick={() => setShowShortcuts(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <h4 className="font-medium mb-2 text-indigo-600">Tools</h4>
+                  <div className="space-y-1">
+                    <div><kbd className="bg-gray-100 px-1 rounded">P</kbd> Pen</div>
+                    <div><kbd className="bg-gray-100 px-1 rounded">E</kbd> Eraser</div>
+                    <div><kbd className="bg-gray-100 px-1 rounded">L</kbd> Line</div>
+                    <div><kbd className="bg-gray-100 px-1 rounded">R</kbd> Rectangle</div>
+                    <div><kbd className="bg-gray-100 px-1 rounded">C</kbd> Circle</div>
+                    <div><kbd className="bg-gray-100 px-1 rounded">T</kbd> Text</div>
+                    <div><kbd className="bg-gray-100 px-1 rounded">I</kbd> Image</div>
+                    <div><kbd className="bg-gray-100 px-1 rounded">H</kbd> Hand (pan)</div>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="font-medium mb-2 text-indigo-600">Actions</h4>
+                  <div className="space-y-1">
+                    <div><kbd className="bg-gray-100 px-1 rounded">Ctrl+Z</kbd> Undo</div>
+                    <div><kbd className="bg-gray-100 px-1 rounded">Ctrl+Y</kbd> Redo</div>
+                    <div><kbd className="bg-gray-100 px-1 rounded">Ctrl+S</kbd> Save</div>
+                    <div><kbd className="bg-gray-100 px-1 rounded">Ctrl+E</kbd> Export</div>
+                    <div><kbd className="bg-gray-100 px-1 rounded">Space</kbd> Pan</div>
+                    <div><kbd className="bg-gray-100 px-1 rounded">Scroll</kbd> Zoom</div>
+                    <div><kbd className="bg-gray-100 px-1 rounded">Esc</kbd> Close modal</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
