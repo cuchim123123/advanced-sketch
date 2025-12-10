@@ -338,6 +338,23 @@ export default function Canvas({
     }
   }
 
+  const handleRedo = () => {
+    if (socket) {
+      socket.emit('draw:redo')
+    }
+  }
+
+  const handleExport = () => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    // Create a temporary link to download
+    const link = document.createElement('a')
+    link.download = `sketch-${new Date().toISOString().slice(0, 10)}.png`
+    link.href = canvas.toDataURL('image/png')
+    link.click()
+  }
+
   // Handle mouse leaving canvas
   const handleMouseLeave = () => {
     if (isDrawing) {
@@ -616,14 +633,30 @@ export default function Canvas({
           <button
             onClick={handleUndo}
             className="px-3 py-1 text-sm bg-gray-100 rounded hover:bg-gray-200"
+            title="Undo"
           >
-            ↩️ Undo
+            ↩️
+          </button>
+          <button
+            onClick={handleRedo}
+            className="px-3 py-1 text-sm bg-gray-100 rounded hover:bg-gray-200"
+            title="Redo"
+          >
+            ↪️
           </button>
           <button
             onClick={handleClear}
             className="px-3 py-1 text-sm bg-red-100 text-red-600 rounded hover:bg-red-200"
+            title="Clear All"
           >
-            🗑️ Clear
+            🗑️
+          </button>
+          <button
+            onClick={handleExport}
+            className="px-3 py-1 text-sm bg-green-100 text-green-600 rounded hover:bg-green-200"
+            title="Export as PNG"
+          >
+            📥
           </button>
         </div>
 
