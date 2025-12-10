@@ -7,7 +7,7 @@ import { AuthLayout, AuthCard, AuthHeader, AuthContent, AuthFooter, PasswordInpu
 
 export default function Login() {
   const navigate = useNavigate()
-  const { login, loginAsGuest } = useAuthStore()
+  const { login, loginAsGuest, isGuest } = useAuthStore()
   const toast = useToast()
   
   const [loading, setLoading] = useState(false)
@@ -18,10 +18,14 @@ export default function Login() {
   const [error, setError] = useState('')
   const otpInputRefs = useRef([])
 
-  // Redirect if already logged in
+  // Redirect if already logged in (but NOT if guest - they can create account)
   useEffect(() => {
     const token = localStorage.getItem('authToken')
-    if (token) {
+    const authStorage = localStorage.getItem('auth-storage')
+    const isGuestUser = authStorage && JSON.parse(authStorage)?.state?.isGuest
+    
+    // Only redirect if logged in AND not a guest
+    if (token && !isGuestUser) {
       navigate('/dashboard')
     }
   }, [navigate])
@@ -231,7 +235,8 @@ export default function Login() {
                   onClick={() => {
                     loginAsGuest()
                     toast.success('Welcome, Guest! You can sketch but some features are limited.')
-                    navigate('/dashboard')
+                    // Navigate immediately - state is already set synchronously
+                    navigate('/dashboard', { replace: true })
                   }}
                   className="w-full h-12 glass-button text-white/90 hover:text-white font-semibold rounded-lg flex items-center justify-center gap-2"
                 >

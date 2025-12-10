@@ -21,7 +21,9 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    // Only logout and redirect for 401 if NOT a guest user
+    const { isGuest } = useAuthStore.getState()
+    if (error.response?.status === 401 && !isGuest) {
       useAuthStore.getState().logout()
       window.location.href = '/login'
     }

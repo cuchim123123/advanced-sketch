@@ -17,10 +17,14 @@ const Register = () => {
   const [checkingAvailability, setCheckingAvailability] = useState({})
   const navigate = useNavigate()
 
-  // Redirect if already logged in
+  // Redirect if already logged in (but NOT if guest - they can create account)
   useEffect(() => {
     const token = localStorage.getItem('authToken')
-    if (token) {
+    const authStorage = localStorage.getItem('auth-storage')
+    const isGuestUser = authStorage && JSON.parse(authStorage)?.state?.isGuest
+    
+    // Only redirect if logged in AND not a guest
+    if (token && !isGuestUser) {
       navigate('/dashboard')
     }
   }, [navigate])
