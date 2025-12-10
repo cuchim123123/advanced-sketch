@@ -4,32 +4,37 @@ import { useAuthStore } from '../store/authStore'
 import { useRoomStore } from '../store/roomStore'
 import { useToast } from '../components/Toast'
 import { useConfirm } from '../components/ConfirmModal'
+import { Globe, Lock, Users } from 'lucide-react'
 
 export default function Dashboard() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showJoinModal, setShowJoinModal] = useState(false)
   const [roomName, setRoomName] = useState('')
   const [roomPassword, setRoomPassword] = useState('')
+  const [isPublic, setIsPublic] = useState(false)
   const [joinCode, setJoinCode] = useState('')
   const [joinPassword, setJoinPassword] = useState('')
+  const [activeTab, setActiveTab] = useState('my') // 'my' or 'public'
   const toast = useToast()
   const confirm = useConfirm()
 
   const { user, logout } = useAuthStore()
-  const { rooms, fetchRooms, createRoom, joinRoom, deleteRoom, loading, error } = useRoomStore()
+  const { rooms, publicRooms, fetchRooms, fetchPublicRooms, createRoom, joinRoom, deleteRoom, loading, error } = useRoomStore()
   const navigate = useNavigate()
 
   useEffect(() => {
     fetchRooms()
+    fetchPublicRooms()
   }, [])
 
   const handleCreateRoom = async (e) => {
     e.preventDefault()
-    const result = await createRoom(roomName, roomPassword)
+    const result = await createRoom(roomName, roomPassword, undefined, isPublic)
     if (result.success) {
       setShowCreateModal(false)
       setRoomName('')
       setRoomPassword('')
+      setIsPublic(false)
       navigate(`/room/${result.room.code}`)
     }
   }
@@ -104,55 +109,141 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* Rooms List */}
-        <div className="bg-white rounded-xl shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">Your Rooms</h2>
-          
-          {loading ? (
-            <p className="text-gray-500">Loading...</p>
-          ) : rooms.length === 0 ? (
-            <p className="text-gray-500">No rooms yet. Create one to get started!</p>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {rooms.map((room) => (
-                <div
-                  key={room.id || room._id}
-                  className="border rounded-lg p-4 hover:shadow-md transition"
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-semibold text-lg">{room.name}</h3>
-                    {room.isPasswordProtected && (
-                      <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">
-                        🔒 Private
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-500 mb-4">Code: {room.code}</p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => navigate(`/room/${room.code}`)}
-                      className="flex-1 px-3 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700"
-                    >
-                      Enter
-                    </button>
-                    <button
-                      onClick={() => copyInviteLink(room.code)}
-                      className="px-3 py-2 bg-gray-100 text-gray-600 text-sm rounded hover:bg-gray-200"
-                    >
-                      📋
-                    </button>
-                    <button
-                      onClick={() => handleDeleteRoom(room.code)}
-                      className="px-3 py-2 bg-red-100 text-red-600 text-sm rounded hover:bg-red-200"
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+        {/* Tabs */}
+        <div className="flex gap-4 mb-6">
+          <button
+            onClick={() => setActiveTab('my')}
+            className={`px-4 py-2 rounded-lg font-medium transition ${
+              activeTab === 'my'
+                ? 'bg-indigo-600 text-white'
+                : 'bg-white text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <Lock className="inline w-4 h-4 mr-2" />
+            My Rooms
+          </button>
+          <button
+            onClick={() => setActiveTab('public')}
+            className={`px-4 py-2 rounded-lg font-medium transition ${
+              activeTab === 'public'
+                ? 'bg-indigo-600 text-white'
+                : 'bg-white text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <Globe className="inline w-4 h-4 mr-2" />
+            Public Rooms
+          </button>
         </div>
+
+        {/* My Rooms */}
+        {activeTab === 'my' && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <h2 className="text-xl font-semibold mb-4">Your Rooms</h2>
+            
+            {loading ? (
+              <p className="text-gray-500">Loading...</p>
+            ) : rooms.length === 0 ? (
+              <p className="text-gray-500">No rooms yet. Create one to get started!</p>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {rooms.map((room) => (
+                  <div
+                    key={room.id || room._id}
+                    className="border rounded-lg p-4 hover:shadow-md transition"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="font-semibold text-lg">{room.name}</h3>
+                      <div className="flex gap-1">
+                        {room.isPublic ? (
+                          <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded flex items-center gap-1">
+                            <Globe className="w-3 h-3" /> Public
+                          </span>
+                        ) : (
+                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded flex items-center gap-1">
+                            <Lock className="w-3 h-3" /> Private
+                          </span>
+                        )}
+                        {room.isPasswordProtected && (
+                          <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">
+                            🔒
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-500 mb-4">Code: {room.code}</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => navigate(`/room/${room.code}`)}
+                        className="flex-1 px-3 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700"
+                      >
+                        Enter
+                      </button>
+                      <button
+                        onClick={() => copyInviteLink(room.code)}
+                        className="px-3 py-2 bg-gray-100 text-gray-600 text-sm rounded hover:bg-gray-200"
+                      >
+                        📋
+                      </button>
+                      <button
+                        onClick={() => handleDeleteRoom(room.code)}
+                        className="px-3 py-2 bg-red-100 text-red-600 text-sm rounded hover:bg-red-200"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Public Rooms */}
+        {activeTab === 'public' && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <h2 className="text-xl font-semibold mb-4">Public Rooms</h2>
+            
+            {loading ? (
+              <p className="text-gray-500">Loading...</p>
+            ) : publicRooms.length === 0 ? (
+              <p className="text-gray-500">No public rooms available. Create one to share with everyone!</p>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {publicRooms.map((room) => (
+                  <div
+                    key={room.id || room._id}
+                    className="border rounded-lg p-4 hover:shadow-md transition"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="font-semibold text-lg">{room.name}</h3>
+                      <div className="flex gap-1 items-center">
+                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded flex items-center gap-1">
+                          <Users className="w-3 h-3" />
+                          {room.participantCount || 0}/{room.maxParticipants}
+                        </span>
+                        {room.isPasswordProtected && (
+                          <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">
+                            🔒
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-500 mb-1">
+                      by {room.owner?.username || 'Unknown'}
+                    </p>
+                    <p className="text-xs text-gray-400 mb-4">Code: {room.code}</p>
+                    <button
+                      onClick={() => navigate(`/join/${room.code}`)}
+                      className="w-full px-3 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700"
+                    >
+                      Join Room
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </main>
 
       {/* Create Room Modal */}
@@ -174,6 +265,46 @@ export default function Dashboard() {
                   required
                 />
               </div>
+              
+              {/* Visibility Toggle */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Room Visibility
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsPublic(false)}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition ${
+                      !isPublic
+                        ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
+                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    <Lock className="w-4 h-4" />
+                    <div className="text-left">
+                      <div className="font-medium">Private</div>
+                      <div className="text-xs opacity-75">Join via link only</div>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsPublic(true)}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition ${
+                      isPublic
+                        ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
+                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    <Globe className="w-4 h-4" />
+                    <div className="text-left">
+                      <div className="font-medium">Public</div>
+                      <div className="text-xs opacity-75">Visible to everyone</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Password (optional)
@@ -183,8 +314,13 @@ export default function Dashboard() {
                   value={roomPassword}
                   onChange={(e) => setRoomPassword(e.target.value)}
                   className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                  placeholder="Leave empty for public room"
+                  placeholder="Leave empty for no password"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  {isPublic 
+                    ? 'Public rooms with password still require it to join'
+                    : 'Add a password for extra security'}
+                </p>
               </div>
               <div className="flex gap-3 pt-2">
                 <button
