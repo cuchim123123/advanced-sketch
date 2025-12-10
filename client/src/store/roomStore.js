@@ -37,7 +37,7 @@ export const useRoomStore = create((set, get) => ({
     }
   },
 
-  createRoom: async (name, password, maxParticipants, isPublic = false) => {
+  createRoom: async (name, isPublic = false, maxParticipants) => {
     // Guests cannot create rooms
     const { isGuest } = useAuthStore.getState()
     if (isGuest) {
@@ -49,7 +49,6 @@ export const useRoomStore = create((set, get) => ({
     try {
       const { data } = await api.post('/rooms', {
         name,
-        password: password || undefined,
         maxParticipants,
         isPublic
       })
@@ -65,10 +64,10 @@ export const useRoomStore = create((set, get) => ({
     }
   },
 
-  joinRoom: async (code, password) => {
+  joinRoom: async (code) => {
     set({ loading: true, error: null })
     try {
-      const { data } = await api.post(`/rooms/${code}/join`, { password })
+      const { data } = await api.post(`/rooms/${code}/join`)
       set({ currentRoom: data.data.room, loading: false })
       return { success: true, room: data.data.room }
     } catch (error) {

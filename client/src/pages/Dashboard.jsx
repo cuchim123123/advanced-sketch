@@ -10,10 +10,8 @@ export default function Dashboard() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showJoinModal, setShowJoinModal] = useState(false)
   const [roomName, setRoomName] = useState('')
-  const [roomPassword, setRoomPassword] = useState('')
   const [isPublic, setIsPublic] = useState(false)
   const [joinCode, setJoinCode] = useState('')
-  const [joinPassword, setJoinPassword] = useState('')
   const [activeTab, setActiveTab] = useState('my') // 'my' or 'public'
   const toast = useToast()
   const confirm = useConfirm()
@@ -30,11 +28,10 @@ export default function Dashboard() {
 
   const handleCreateRoom = async (e) => {
     e.preventDefault()
-    const result = await createRoom(roomName, roomPassword, undefined, isPublic)
+    const result = await createRoom(roomName, isPublic)
     if (result.success) {
       setShowCreateModal(false)
       setRoomName('')
-      setRoomPassword('')
       setIsPublic(false)
       navigate(`/room/${result.room.code}`)
     }
@@ -42,11 +39,10 @@ export default function Dashboard() {
 
   const handleJoinRoom = async (e) => {
     e.preventDefault()
-    const result = await joinRoom(joinCode.toUpperCase(), joinPassword)
+    const result = await joinRoom(joinCode.toUpperCase())
     if (result.success) {
       setShowJoinModal(false)
       setJoinCode('')
-      setJoinPassword('')
       navigate(`/room/${joinCode.toUpperCase()}`)
     }
   }
@@ -226,11 +222,6 @@ export default function Dashboard() {
                             <Lock className="w-3 h-3" /> Private
                           </span>
                         )}
-                        {room.isPasswordProtected && (
-                          <span className="text-xs bg-amber-500/20 text-amber-300 px-2 py-1 rounded-lg border border-amber-500/30">
-                            🔒
-                          </span>
-                        )}
                       </div>
                     </div>
                     <p className="text-sm text-white/40 mb-4 font-mono">Code: {room.code}</p>
@@ -290,11 +281,6 @@ export default function Dashboard() {
                           <Users className="w-3 h-3" />
                           {room.participantCount || 0}/{room.maxParticipants}
                         </span>
-                        {room.isPasswordProtected && (
-                          <span className="text-xs bg-amber-500/20 text-amber-300 px-2 py-1 rounded-lg border border-amber-500/30">
-                            🔒
-                          </span>
-                        )}
                       </div>
                     </div>
                     <p className="text-sm text-white/50 mb-1">
@@ -375,23 +361,6 @@ export default function Dashboard() {
                 </div>
               </div>
               
-              <div>
-                <label className="block text-sm font-medium text-white/70 mb-1">
-                  Password (optional)
-                </label>
-                <input
-                  type="password"
-                  value={roomPassword}
-                  onChange={(e) => setRoomPassword(e.target.value)}
-                  className="w-full px-4 py-3 glass-input text-white"
-                  placeholder="Leave empty for no password"
-                />
-                <p className="text-xs text-white/40 mt-1">
-                  {isPublic 
-                    ? 'Public rooms with password still require it to join'
-                    : 'Add a password for extra security'}
-                </p>
-              </div>
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
@@ -437,18 +406,6 @@ export default function Dashboard() {
                   placeholder="ABCD1234"
                   required
                   maxLength={8}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-white/70 mb-1">
-                  Password (if required)
-                </label>
-                <input
-                  type="password"
-                  value={joinPassword}
-                  onChange={(e) => setJoinPassword(e.target.value)}
-                  className="w-full px-4 py-3 glass-input text-white"
-                  placeholder="Room password"
                 />
               </div>
               <div className="flex gap-3 pt-2">

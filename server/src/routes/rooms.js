@@ -1,5 +1,4 @@
 const express = require('express');
-const bcrypt = require('bcryptjs');
 const { Room, SketchHistory, SessionParticipant } = require('../models');
 const { protect } = require('../middleware/auth');
 
@@ -12,7 +11,7 @@ const router = express.Router();
  */
 router.post('/', protect, async (req, res) => {
   try {
-    const { name, password, maxParticipants, canvasSettings, isPublic } = req.body;
+    const { name, maxParticipants, canvasSettings, isPublic } = req.body;
 
     const roomData = {
       name,
@@ -20,12 +19,6 @@ router.post('/', protect, async (req, res) => {
       maxParticipants: maxParticipants || 10,
       isPublic: isPublic || false
     };
-
-    // Handle optional password
-    if (password) {
-      roomData.password = await bcrypt.hash(password, 10);
-      roomData.isPasswordProtected = true;
-    }
 
     if (canvasSettings) {
       roomData.canvasSettings = canvasSettings;
@@ -49,7 +42,6 @@ router.post('/', protect, async (req, res) => {
           id: room._id,
           name: room.name,
           code: room.code,
-          isPasswordProtected: room.isPasswordProtected,
           isPublic: room.isPublic,
           maxParticipants: room.maxParticipants,
           canvasSettings: room.canvasSettings,
@@ -112,7 +104,6 @@ router.get('/public', protect, async (req, res) => {
           name: room.name,
           code: room.code,
           owner: room.owner,
-          isPasswordProtected: room.isPasswordProtected,
           isPublic: room.isPublic,
           maxParticipants: room.maxParticipants,
           participantCount,
@@ -158,7 +149,6 @@ router.get('/:code', protect, async (req, res) => {
           name: room.name,
           code: room.code,
           owner: room.owner,
-          isPasswordProtected: room.isPasswordProtected,
           isPublic: room.isPublic,
           maxParticipants: room.maxParticipants,
           canvasSettings: room.canvasSettings,
@@ -181,7 +171,6 @@ router.get('/:code', protect, async (req, res) => {
  */
 router.post('/:code/join', protect, async (req, res) => {
   try {
-    const { password } = req.body;
     const room = await Room.findOne({ code: req.params.code });
 
     if (!room) {
@@ -196,24 +185,6 @@ router.post('/:code/join', protect, async (req, res) => {
         success: false,
         message: 'Room is no longer active'
       });
-    }
-
-    // Check password if required
-    if (room.isPasswordProtected) {
-      if (!password) {
-        return res.status(403).json({
-          success: false,
-          message: 'Password required'
-        });
-      }
-
-      const isMatch = await bcrypt.compare(password, room.password);
-      if (!isMatch) {
-        return res.status(403).json({
-          success: false,
-          message: 'Incorrect password'
-        });
-      }
     }
 
     // Get participant count
