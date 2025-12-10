@@ -14,8 +14,10 @@ import JoinRoom from './pages/JoinRoom'
 import Profile from './pages/Profile'
 
 function PrivateRoute({ children }) {
-  const { token } = useAuthStore()
-  return token ? children : <Navigate to="/login" />
+  const { token, isGuest } = useAuthStore()
+  // Allow access if user has token OR is a guest
+  const isAuthenticated = token || isGuest
+  return isAuthenticated ? children : <Navigate to="/login" />
 }
 
 function App() {
