@@ -86,6 +86,24 @@ export const useRoomStore = create((set, get) => ({
     }
   },
 
+  updateRoom: async (code, updates) => {
+    try {
+      const { data } = await api.patch(`/rooms/${code}`, updates)
+      const updatedRoom = data.data.room
+      set((state) => ({
+        rooms: state.rooms.map((r) => 
+          r.code === code ? { ...r, ...updatedRoom } : r
+        ),
+        currentRoom: state.currentRoom?.code === code 
+          ? { ...state.currentRoom, ...updatedRoom }
+          : state.currentRoom
+      }))
+      return { success: true, room: updatedRoom }
+    } catch (error) {
+      return { success: false, error: error.response?.data?.message }
+    }
+  },
+
   setParticipants: (participants) => set({ participants }),
 
   addParticipant: (participant) => {
