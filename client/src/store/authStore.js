@@ -26,8 +26,38 @@ export const useAuthStore = create(
       error: null,
       isGuest: false,
 
-      // Login as guest - no server call needed
+      // Login as guest - reuse existing guest data if available, otherwise create new
       loginAsGuest: () => {
+        const state = get()
+        
+        // If already a guest with existing data, just return success (reuse same identity)
+        if (state.isGuest && state.user && state.token) {
+          localStorage.setItem('authToken', state.token)
+          return { success: true }
+        }
+        
+        // Check if there's persisted guest data in localStorage
+        const authStorage = localStorage.getItem('auth-storage')
+        if (authStorage) {
+          try {
+            const parsed = JSON.parse(authStorage)
+            if (parsed?.state?.isGuest && parsed?.state?.user && parsed?.state?.token) {
+              // Restore existing guest session
+              localStorage.setItem('authToken', parsed.state.token)
+              set({
+                user: parsed.state.user,
+                token: parsed.state.token,
+                isGuest: true,
+                error: null
+              })
+              return { success: true }
+            }
+          } catch (e) {
+            // Invalid JSON, create new guest
+          }
+        }
+        
+        // Create new guest identity
         const guestId = generateGuestId()
         const guestName = generateGuestName()
         const guestToken = `guest_${guestId}_${Date.now()}`
