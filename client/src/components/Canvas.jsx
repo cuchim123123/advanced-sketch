@@ -8,6 +8,7 @@ const TOOLS = {
   RECTANGLE: 'rectangle',
   CIRCLE: 'circle',
   TEXT: 'text',
+  IMAGE: 'image',
   HAND: 'hand'  // Pan tool
 }
 
@@ -40,6 +41,11 @@ export default function Canvas({
   // Text input state
   const [textInput, setTextInput] = useState({ show: false, x: 0, y: 0, value: '' })
   const textInputRef = useRef(null)
+  
+  // Image upload ref
+  const imageInputRef = useRef(null)
+  const pendingImagePosition = useRef(null)
+  const imageCache = useRef(new Map()) // Cache loaded images by stroke ID
   
   // Zoom and pan state
   const [zoom, setZoom] = useState(1)
@@ -180,6 +186,35 @@ export default function Canvas({
       ctx.fillStyle = stroke.color || '#000000'
       ctx.fillText(stroke.text || '', stroke.startPoint.x, stroke.startPoint.y)
       return
+    } else if (stroke.tool === TOOLS.IMAGE && stroke.imageData) {
+      // Draw image with caching
+      const cachedImg = imageCache.current.get(stroke.id)
+      
+      if (cachedImg && cachedImg.complete) {
+        // Use cached image
+        ctx.drawImage(
+          cachedImg,
+          stroke.startPoint.x,
+          stroke.startPoint.y,
+          stroke.width || cachedImg.width,
+          stroke.height || cachedImg.height
+        )
+      } else {
+        // Load and cache image
+        const img = new Image()
+        img.onload = () => {
+          imageCache.current.set(stroke.id, img)
+          ctx.drawImage(
+            img,
+            stroke.startPoint.x,
+            stroke.startPoint.y,
+            stroke.width || img.width,
+            stroke.height || img.height
+          )
+        }
+        img.src = stroke.imageData
+      }
+      return
     } else {
       // Pen or eraser - draw path
       if (stroke.points && stroke.points.length > 0) {
@@ -219,6 +254,14 @@ export default function Canvas({
       const { x, y } = getCoordinates(e)
       const screenPos = canvasToScreen(x, y)
       setTextInput({ show: true, x, y, screenX: screenPos.x, screenY: screenPos.y, value: '' })
+      return
+    }
+
+    // Handle image tool - open file picker
+    if (tool === TOOLS.IMAGE) {
+      const { x, y } = getCoordinates(e)
+      pendingImagePosition.current = { x, y }
+      imageInputRef.current?.click()
       return
     }
 
@@ -543,6 +586,82 @@ export default function Canvas({
     }
   }
 
+  // Image upload handler
+  const handleImageUpload = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file')
+      return
+    }
+
+    // Limit file size (max 2MB for base64 efficiency)
+    const maxSize = 2 * 1024 * 1024
+    if (file.size > maxSize) {
+      alert('Image too large. Please select an image under 2MB.')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const imageData = event.target.result
+      const img = new Image()
+      
+      img.onload = () => {
+        // Scale down if too large
+        let width = img.width
+        let height = img.height
+        const maxDimension = 500
+        
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = (height / width) * maxDimension
+            width = maxDimension
+          } else {
+            width = (width / height) * maxDimension
+            height = maxDimension
+          }
+        }
+
+        const position = pendingImagePosition.current || { x: 100, y: 100 }
+        
+        const imageStroke = {
+          id: uuidv4(),
+          tool: TOOLS.IMAGE,
+          imageData,
+          width,
+          height,
+          startPoint: position
+        }
+
+        // Add to local state
+        if (onStrokeAdd) {
+          onStrokeAdd(imageStroke)
+        }
+
+        // Emit to server
+        if (socket) {
+          socket.emit('draw:stroke', { stroke: imageStroke })
+          socket.emit('draw:complete', { strokeId: imageStroke.id })
+        }
+
+        // Redraw to show image
+        redrawWithStrokes([...strokesRef.current, imageStroke])
+        
+        pendingImagePosition.current = null
+      }
+      
+      img.src = imageData
+    }
+    
+    reader.readAsDataURL(file)
+    
+    // Reset input so same file can be selected again
+    e.target.value = ''
+  }
+
   // Focus text input when shown
   useEffect(() => {
     if (textInput.show && textInputRef.current) {
@@ -571,6 +690,7 @@ export default function Canvas({
               {value === 'rectangle' && '⬜'}
               {value === 'circle' && '⭕'}
               {value === 'text' && '🔤'}
+              {value === 'image' && '🖼️'}
               {value === 'hand' && '✋'}
             </button>
           ))}
@@ -801,6 +921,15 @@ export default function Canvas({
             />
           </div>
         )}
+
+        {/* Hidden Image Input */}
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleImageUpload}
+          className="hidden"
+        />
 
         {/* Zoom hint */}
         <div className="absolute bottom-4 left-4 text-xs text-gray-400 pointer-events-none select-none">
