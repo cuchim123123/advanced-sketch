@@ -36,17 +36,16 @@ export const useAuthStore = create(
           return { success: true }
         }
         
-        // Check if there's persisted guest data in localStorage
-        const authStorage = localStorage.getItem('auth-storage')
-        if (authStorage) {
+        // Check if there's saved guest data from previous session
+        const savedGuestData = localStorage.getItem('guestData')
+        if (savedGuestData) {
           try {
-            const parsed = JSON.parse(authStorage)
-            if (parsed?.state?.isGuest && parsed?.state?.user && parsed?.state?.token) {
-              // Restore existing guest session
-              localStorage.setItem('authToken', parsed.state.token)
+            const { user, token } = JSON.parse(savedGuestData)
+            if (user && token) {
+              localStorage.setItem('authToken', token)
               set({
-                user: parsed.state.user,
-                token: parsed.state.token,
+                user,
+                token,
                 isGuest: true,
                 error: null
               })
@@ -150,8 +149,23 @@ export const useAuthStore = create(
       },
 
       logout: () => {
+        const state = get()
+        
+        // If guest, preserve guest data in a separate key so they can rejoin with same identity
+        if (state.isGuest && state.user) {
+          localStorage.setItem('guestData', JSON.stringify({
+            user: state.user,
+            token: state.token
+          }))
+        }
+        
         localStorage.removeItem('authToken')
         set({ user: null, token: null, error: null, isGuest: false })
+      },
+      
+      // Completely clear guest data (used when guest registers/logs in as real user)
+      clearGuestData: () => {
+        localStorage.removeItem('guestData')
       },
 
       clearError: () => set({ error: null }),

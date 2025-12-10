@@ -53,6 +53,26 @@ export default function VerifyEmail() {
 
           return () => clearInterval(timer)
         } else {
+          // Check if email is already verified - treat as success
+          if (data.message?.toLowerCase().includes('already verified')) {
+            setStatus('success')
+            setMessage('Your email is already verified! You can login now.')
+            
+            // Redirect to login after countdown
+            const timer = setInterval(() => {
+              setCountdown(prev => {
+                if (prev <= 1) {
+                  clearInterval(timer)
+                  navigate('/login')
+                  return 0
+                }
+                return prev - 1
+              })
+            }, 1000)
+            
+            return () => clearInterval(timer)
+          }
+          
           setStatus('error')
           setMessage(data.message || 'Verification failed. The link may have expired.')
         }
