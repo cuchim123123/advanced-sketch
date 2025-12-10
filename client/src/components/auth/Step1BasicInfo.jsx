@@ -1,119 +1,87 @@
-import React, { useState, useEffect } from 'react'
-import { Check, X, Loader2 } from 'lucide-react'
-import api from '../../services/api'
+import React from 'react'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
+import { Check, X, ArrowRight, Loader2 } from 'lucide-react'
 
 export const Step1BasicInfo = ({ 
-  username,
-  onUsernameChange,
-  isUsernameAvailable,
-  setIsUsernameAvailable
+  formData, 
+  validationErrors, 
+  touchedFields,
+  checkingAvailability = {},
+  onInputChange, 
+  onBlur, 
+  onNext 
 }) => {
-  const [isChecking, setIsChecking] = useState(false)
-  const [touched, setTouched] = useState(false)
-  const [error, setError] = useState('')
-
-  // Debounced username check
-  useEffect(() => {
-    if (!username || username.length < 3) {
-      setIsUsernameAvailable(null)
-      setError(username && username.length < 3 ? 'Username must be at least 3 characters' : '')
-      return
-    }
-
-    const timer = setTimeout(async () => {
-      setIsChecking(true)
-      try {
-        const response = await api.get(`/auth/check-username/${username}`)
-        setIsUsernameAvailable(response.data.available)
-        setError(response.data.available ? '' : 'Username is already taken')
-      } catch (err) {
-        setIsUsernameAvailable(false)
-        setError('Error checking username')
-      } finally {
-        setIsChecking(false)
-      }
-    }, 500)
-
-    return () => clearTimeout(timer)
-  }, [username, setIsUsernameAvailable])
-
-  const handleChange = (e) => {
-    onUsernameChange(e.target.value)
-  }
-
-  const handleBlur = () => {
-    setTouched(true)
-  }
-
-  const getInputClasses = () => {
-    const base = 'w-full h-11 pr-10 px-4 rounded-lg transition-all bg-white/10 border text-white placeholder:text-white/50 focus:bg-white/20 focus:outline-none focus:ring-2'
-    
-    if (!touched) {
-      return `${base} border-white/20 focus:ring-white/50`
-    }
-    
-    if (isChecking) {
-      return `${base} border-blue-400 focus:ring-blue-400`
-    }
-    
-    if (error || isUsernameAvailable === false) {
-      return `${base} border-red-400 focus:ring-red-400`
-    }
-    
-    if (isUsernameAvailable === true) {
-      return `${base} border-green-400 focus:ring-green-400`
-    }
-    
-    return `${base} border-white/20 focus:ring-white/50`
-  }
+  const isStepValid = formData.username && 
+    !validationErrors.username &&
+    !checkingAvailability.username
 
   return (
-    <div className="space-y-2">
-      <label htmlFor="username" className="text-sm font-semibold text-white [text-shadow:_0_1px_2px_rgb(0_0_0_/_50%)] block">
-        Username
-      </label>
-      <div className="relative">
-        <input
-          id="username"
-          name="username"
-          type="text"
-          placeholder="johndoe123"
-          value={username}
-          onChange={handleChange}
-          onBlur={handleBlur}
-          className={getInputClasses()}
-          required
-        />
-        {touched && (
-          <div className="absolute right-3 top-1/2 -translate-y-1/2">
-            {isChecking ? (
-              <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
-            ) : error || isUsernameAvailable === false ? (
-              <X className="w-5 h-5 text-red-500" />
-            ) : isUsernameAvailable === true ? (
-              <Check className="w-5 h-5 text-green-500" />
-            ) : null}
-          </div>
+    <div className="space-y-5">
+      <div className="text-center mb-4">
+        <h3 className="text-lg font-semibold text-white [text-shadow:_0_1px_2px_rgb(0_0_0_/_50%)]">Basic Information</h3>
+        <p className="text-sm text-white/70 mt-1">Choose your username</p>
+      </div>
+
+      {/* Username */}
+      <div className='space-y-2'>
+        <Label htmlFor="username" className="text-sm font-semibold text-white [text-shadow:_0_1px_2px_rgb(0_0_0_/_50%)]">Username</Label>
+        <div className="relative">
+          <Input
+            id="username"
+            name="username"
+            type="text"
+            placeholder="johndoe123"
+            value={formData.username}
+            onChange={onInputChange}
+            onBlur={onBlur}
+            className={`pr-10 transition-all bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:bg-white/20 ${
+              touchedFields.username
+                ? validationErrors.username
+                  ? 'border-red-400 focus:ring-red-400'
+                  : checkingAvailability.username
+                  ? 'border-blue-400 focus:ring-blue-400'
+                  : 'border-green-400 focus:ring-green-400'
+                : ''
+            }`}
+            required
+          />
+          {touchedFields.username && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              {checkingAvailability.username ? (
+                <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
+              ) : validationErrors.username ? (
+                <X className="w-5 h-5 text-red-500" />
+              ) : (
+                <Check className="w-5 h-5 text-green-500" />
+              )}
+            </div>
+          )}
+        </div>
+        {checkingAvailability.username && (
+          <p className="text-xs text-blue-300 flex items-center gap-1">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            Checking availability...
+          </p>
+        )}
+        {touchedFields.username && validationErrors.username && !checkingAvailability.username && (
+          <p className="text-xs text-red-300 flex items-center gap-1">
+            <X className="w-3 h-3" />
+            {validationErrors.username}
+          </p>
         )}
       </div>
-      {isChecking && (
-        <p className="text-xs text-blue-300 flex items-center gap-1">
-          <Loader2 className="w-3 h-3 animate-spin" />
-          Checking availability...
-        </p>
-      )}
-      {touched && error && !isChecking && (
-        <p className="text-xs text-red-300 flex items-center gap-1">
-          <X className="w-3 h-3" />
-          {error}
-        </p>
-      )}
-      {touched && isUsernameAvailable === true && !isChecking && (
-        <p className="text-xs text-green-300 flex items-center gap-1">
-          <Check className="w-3 h-3" />
-          Username is available
-        </p>
-      )}
+
+      <Button
+        type="button"
+        onClick={onNext}
+        disabled={!isStepValid}
+        className="w-full h-12 bg-white/90 hover:bg-white text-gray-900 font-semibold shadow-lg hover:shadow-xl transition-all border border-white/50 backdrop-blur-sm"
+      >
+        Continue
+        <ArrowRight className="w-5 h-5 ml-2" />
+      </Button>
     </div>
   )
 }

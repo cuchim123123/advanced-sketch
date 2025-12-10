@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Mail, Shield } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { AuthCard, AuthHeader, AuthContent, AuthFooter } from './AuthCard'
+import { Mail, Shield } from 'lucide-react'
 
 export const VerificationNotice = ({ userEmail }) => {
   const [countdown, setCountdown] = useState(900) // 15 minutes
@@ -75,23 +76,25 @@ export const VerificationNotice = ({ userEmail }) => {
 
           <div className="text-center space-y-2">
             <p className="text-sm text-white/90 [text-shadow:_0_1px_2px_rgb(0_0_0_/_40%)]">Didn't receive the email?</p>
-            <button
-              type="button"
-              className="text-white [text-shadow:_0_1px_2px_rgb(0_0_0_/_50%)] hover:text-white hover:bg-white/10 px-4 py-2 rounded-lg transition-colors"
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-white [text-shadow:_0_1px_2px_rgb(0_0_0_/_50%)] hover:text-white hover:bg-white/10"
             >
               Resend verification email
-            </button>
+            </Button>
           </div>
         </div>
       </AuthContent>
 
       <AuthFooter>
-        <button
+        <Button
           onClick={() => navigate('/login')}
-          className="w-full h-12 bg-white/90 hover:bg-white text-gray-900 font-semibold rounded-lg shadow-lg border border-white/50 backdrop-blur-sm transition-all"
+          className="w-full bg-white/90 hover:bg-white text-gray-900 shadow-lg border border-white/50 backdrop-blur-sm"
+          size="lg"
         >
           Go to Login
-        </button>
+        </Button>
         <p className="text-xs text-center text-white/60 [text-shadow:_0_1px_2px_rgb(0_0_0_/_40%)]">
           Check your spam folder if you don't see the email
         </p>

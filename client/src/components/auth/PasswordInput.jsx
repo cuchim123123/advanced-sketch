@@ -1,5 +1,7 @@
 import React, { useState } from 'react'
-import { Eye, EyeOff, Check, X } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Eye, EyeOff } from 'lucide-react'
 
 export const PasswordInput = ({ 
   id, 
@@ -8,19 +10,23 @@ export const PasswordInput = ({
   value, 
   onChange, 
   onBlur, 
-  error, 
+  placeholder = "••••••••",
+  className = "",
+  error,
   touched,
-  placeholder = "••••••••"
+  required = true 
 }) => {
   const [showPassword, setShowPassword] = useState(false)
 
   return (
-    <div className="space-y-2">
-      <label htmlFor={id} className="text-sm font-semibold text-white [text-shadow:_0_1px_2px_rgb(0_0_0_/_50%)] block">
-        {label}
-      </label>
+    <div className='space-y-2'>
+      {label && (
+        <Label htmlFor={id} className="text-sm font-semibold text-white [text-shadow:_0_1px_2px_rgb(0_0_0_/_50%)]">
+          {label}
+        </Label>
+      )}
       <div className="relative">
-        <input
+        <Input
           id={id}
           name={name}
           type={showPassword ? "text" : "password"}
@@ -28,14 +34,11 @@ export const PasswordInput = ({
           value={value}
           onChange={onChange}
           onBlur={onBlur}
-          className={`w-full h-11 pr-10 px-4 rounded-lg transition-all bg-white/10 border text-white placeholder:text-white/50 focus:bg-white/20 focus:outline-none focus:ring-2 ${
-            touched
-              ? error
-                ? 'border-red-400 focus:ring-red-400'
-                : 'border-green-400 focus:ring-green-400'
-              : 'border-white/20 focus:ring-white/50'
-          }`}
-          required
+          maxLength={32}
+          className={`pr-10 bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:bg-white/20 ${
+            touched && error ? 'border-red-400' : ''
+          } ${className}`}
+          required={required}
         />
         <button
           type="button"

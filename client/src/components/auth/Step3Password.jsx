@@ -1,113 +1,74 @@
-import React, { useState, useEffect } from 'react'
-import { Check, X, Eye, EyeOff } from 'lucide-react'
+import React from 'react'
+import { Button } from '@/components/ui/button'
+import { Check, X, ArrowLeft, Loader2 } from 'lucide-react'
+import { PasswordInput } from './PasswordInput'
 
 export const Step3Password = ({ 
-  password,
-  confirmPassword,
-  onPasswordChange,
-  onConfirmPasswordChange,
-  onValidationChange
+  formData, 
+  validationErrors, 
+  touchedFields,
+  passwordStrength,
+  loading,
+  onInputChange, 
+  onBlur, 
+  onSubmit,
+  onBack 
 }) => {
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [passwordTouched, setPasswordTouched] = useState(false)
-  const [confirmTouched, setConfirmTouched] = useState(false)
-
-  // Calculate password strength
-  const calculateStrength = (pwd) => {
-    if (!pwd) return { strength: 0, checks: {} }
-    
-    const checks = {
-      length: pwd.length >= 6,
-      uppercase: /[A-Z]/.test(pwd),
-      lowercase: /[a-z]/.test(pwd),
-      number: /[0-9]/.test(pwd)
-    }
-    
-    const passed = Object.values(checks).filter(Boolean).length
-    const strength = (passed / 4) * 100
-    
-    return { strength, checks }
-  }
-
-  const passwordStrength = calculateStrength(password)
-  const doPasswordsMatch = password && confirmPassword && password === confirmPassword
-  const isPasswordValid = passwordStrength.strength >= 75
-
-  // Notify parent of validation changes
-  useEffect(() => {
-    onValidationChange(isPasswordValid, doPasswordsMatch)
-  }, [password, confirmPassword, isPasswordValid, doPasswordsMatch, onValidationChange])
-
-  const getStrengthColor = () => {
-    if (passwordStrength.strength < 50) return 'text-red-300'
-    if (passwordStrength.strength < 75) return 'text-orange-300'
-    if (passwordStrength.strength < 100) return 'text-yellow-300'
-    return 'text-green-300'
-  }
-
-  const getStrengthLabel = () => {
-    if (passwordStrength.strength < 50) return 'Weak password'
-    if (passwordStrength.strength < 75) return 'Fair password'
-    if (passwordStrength.strength < 100) return 'Good password'
-    return 'Strong password'
-  }
-
-  const getBarColor = (index) => {
-    if (index >= passwordStrength.strength / 25) return 'bg-gray-600'
-    if (passwordStrength.strength < 50) return 'bg-red-500'
-    if (passwordStrength.strength < 75) return 'bg-orange-500'
-    if (passwordStrength.strength < 100) return 'bg-yellow-500'
-    return 'bg-green-500'
-  }
+  const isStepValid = formData.password && formData.confirmPassword && 
+    !validationErrors.password && !validationErrors.confirmPassword && 
+    passwordStrength?.strength >= 75
 
   return (
-    <div className="space-y-4">
-      {/* Password */}
-      <div className="space-y-2">
-        <label htmlFor="password" className="text-sm font-semibold text-white [text-shadow:_0_1px_2px_rgb(0_0_0_/_50%)] block">
-          Password
-        </label>
-        <div className="relative">
-          <input
-            id="password"
-            name="password"
-            type={showPassword ? "text" : "password"}
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => onPasswordChange(e.target.value)}
-            onBlur={() => setPasswordTouched(true)}
-            className={`w-full h-11 pr-10 px-4 rounded-lg transition-all bg-white/10 border text-white placeholder:text-white/50 focus:bg-white/20 focus:outline-none focus:ring-2 ${
-              passwordTouched
-                ? isPasswordValid
-                  ? 'border-green-400 focus:ring-green-400'
-                  : 'border-red-400 focus:ring-red-400'
-                : 'border-white/20 focus:ring-white/50'
-            }`}
-            required
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white"
-          >
-            {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-          </button>
-        </div>
+    <div className="space-y-5">
+      <div className="text-center mb-4">
+        <h3 className="text-lg font-semibold text-white [text-shadow:_0_1px_2px_rgb(0_0_0_/_50%)]">Secure Your Account</h3>
+        <p className="text-sm text-white/70 mt-1">Create a strong password</p>
+      </div>
+
+      {/* Password with Strength Meter */}
+      <div className='space-y-2'>
+        <PasswordInput
+          id="password"
+          name="password"
+          label="Password"
+          value={formData.password}
+          onChange={onInputChange}
+          onBlur={onBlur}
+          error={validationErrors.password}
+          touched={touchedFields.password}
+        />
         
         {/* Password Strength Meter */}
-        {password && (
-          <div className="space-y-2">
+        {formData.password && passwordStrength && (
+          <div className="space-y-2 animate-in slide-in-from-top-2">
             <div className="flex gap-1">
               {[...Array(4)].map((_, i) => (
                 <div
                   key={i}
-                  className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${getBarColor(i)}`}
+                  className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
+                    i < (passwordStrength.strength / 25)
+                      ? passwordStrength.strength < 50
+                        ? 'bg-red-500'
+                        : passwordStrength.strength < 75
+                        ? 'bg-orange-500'
+                        : passwordStrength.strength < 100
+                        ? 'bg-yellow-500'
+                        : 'bg-green-500'
+                      : 'bg-gray-600'
+                  }`}
                 />
               ))}
             </div>
-            <p className={`text-xs font-semibold ${getStrengthColor()}`}>
-              {getStrengthLabel()}
+            <p className={`text-xs font-semibold ${
+              passwordStrength.strength < 50 ? 'text-red-300' :
+              passwordStrength.strength < 75 ? 'text-orange-300' :
+              passwordStrength.strength < 100 ? 'text-yellow-300' :
+              'text-green-300'
+            }`}>
+              {passwordStrength.strength < 50 ? 'Weak password' :
+               passwordStrength.strength < 75 ? 'Fair password' :
+               passwordStrength.strength < 100 ? 'Good password' :
+               'Strong password'}
             </p>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className={`flex items-center gap-1 ${passwordStrength.checks.length ? 'text-green-300' : 'text-white/40'}`}>
@@ -129,53 +90,74 @@ export const Step3Password = ({
             </div>
           </div>
         )}
+        
+        {touchedFields.password && validationErrors.password && (
+          <p className="text-xs text-red-300 flex items-center gap-1">
+            <X className="w-3 h-3" />
+            {validationErrors.password}
+          </p>
+        )}
       </div>
 
       {/* Confirm Password */}
-      <div className="space-y-2">
-        <label htmlFor="confirmPassword" className="text-sm font-semibold text-white [text-shadow:_0_1px_2px_rgb(0_0_0_/_50%)] block">
-          Confirm Password
-        </label>
-        <div className="relative">
-          <input
-            id="confirmPassword"
-            name="confirmPassword"
-            type={showConfirmPassword ? "text" : "password"}
-            placeholder="••••••••"
-            value={confirmPassword}
-            onChange={(e) => onConfirmPasswordChange(e.target.value)}
-            onBlur={() => setConfirmTouched(true)}
-            className={`w-full h-11 pr-10 px-4 rounded-lg transition-all bg-white/10 border text-white placeholder:text-white/50 focus:bg-white/20 focus:outline-none focus:ring-2 ${
-              confirmTouched
-                ? doPasswordsMatch
-                  ? 'border-green-400 focus:ring-green-400'
-                  : 'border-red-400 focus:ring-red-400'
-                : 'border-white/20 focus:ring-white/50'
-            }`}
-            required
-          />
-          <button
-            type="button"
-            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white"
-          >
-            {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-          </button>
-        </div>
-        {confirmTouched && confirmPassword && (
-          doPasswordsMatch ? (
-            <p className="text-xs text-green-300 flex items-center gap-1">
-              <Check className="w-3 h-3" />
-              Passwords match
-            </p>
-          ) : (
-            <p className="text-xs text-red-300 flex items-center gap-1">
-              <X className="w-3 h-3" />
-              Passwords do not match
-            </p>
-          )
+      <div className='space-y-2'>
+        <PasswordInput
+          id="confirmPassword"
+          name="confirmPassword"
+          label="Confirm Password"
+          value={formData.confirmPassword || ''}
+          onChange={onInputChange}
+          onBlur={onBlur}
+          error={validationErrors.confirmPassword}
+          touched={touchedFields.confirmPassword}
+        />
+        {touchedFields.confirmPassword && validationErrors.confirmPassword && (
+          <p className="text-xs text-red-300 flex items-center gap-1">
+            <X className="w-3 h-3" />
+            {validationErrors.confirmPassword}
+          </p>
+        )}
+        {touchedFields.confirmPassword && !validationErrors.confirmPassword && formData.confirmPassword && (
+          <p className="text-xs text-green-300 flex items-center gap-1">
+            <Check className="w-3 h-3" />
+            Passwords match
+          </p>
         )}
       </div>
+
+      <div className="flex gap-3">
+        <Button
+          type="button"
+          onClick={onBack}
+          variant="outline"
+          disabled={loading}
+          className="flex-1 h-12 bg-white/5 border-white/40 hover:bg-white/15 text-white [text-shadow:_0_1px_2px_rgb(0_0_0_/_50%)] backdrop-blur-sm"
+        >
+          <ArrowLeft className="w-5 h-5 mr-2" />
+          Back
+        </Button>
+        <Button
+          type="submit"
+          onClick={onSubmit}
+          disabled={loading || !isStepValid}
+          className="flex-1 h-12 bg-white/90 hover:bg-white text-gray-900 font-semibold shadow-lg hover:shadow-xl transition-all border border-white/50 backdrop-blur-sm"
+        >
+          {loading ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span className="ml-2">Creating...</span>
+            </>
+          ) : (
+            'Create Account'
+          )}
+        </Button>
+      </div>
+
+      {passwordStrength?.strength < 75 && formData.password && (
+        <p className="text-xs text-center text-orange-300">
+          Please create a stronger password to continue
+        </p>
+      )}
     </div>
   )
 }
