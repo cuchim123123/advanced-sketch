@@ -7,6 +7,7 @@ const TOOLS = {
   LINE: 'line',
   RECTANGLE: 'rectangle',
   CIRCLE: 'circle',
+  TEXT: 'text',
   HAND: 'hand'  // Pan tool
 }
 
@@ -32,8 +33,13 @@ export default function Canvas({
   const [tool, setTool] = useState(TOOLS.PEN)
   const [color, setColor] = useState('#000000')
   const [strokeWidth, setStrokeWidth] = useState(3)
+  const [fontSize, setFontSize] = useState(16)
   const currentStroke = useRef(null)
   const startPoint = useRef(null)
+  
+  // Text input state
+  const [textInput, setTextInput] = useState({ show: false, x: 0, y: 0, value: '' })
+  const textInputRef = useRef(null)
   
   // Zoom and pan state
   const [zoom, setZoom] = useState(1)
@@ -168,6 +174,12 @@ export default function Canvas({
       if (clampedRadius > 0) {
         ctx.arc(stroke.startPoint.x, stroke.startPoint.y, clampedRadius, 0, 2 * Math.PI)
       }
+    } else if (stroke.tool === TOOLS.TEXT) {
+      // Draw text
+      ctx.font = `${stroke.fontSize || 16}px Arial, sans-serif`
+      ctx.fillStyle = stroke.color || '#000000'
+      ctx.fillText(stroke.text || '', stroke.startPoint.x, stroke.startPoint.y)
+      return
     } else {
       // Pen or eraser - draw path
       if (stroke.points && stroke.points.length > 0) {
@@ -202,6 +214,14 @@ export default function Canvas({
   }
 
   const startDrawing = (e) => {
+    // Handle text tool - show input instead of drawing
+    if (tool === TOOLS.TEXT) {
+      const { x, y } = getCoordinates(e)
+      const screenPos = canvasToScreen(x, y)
+      setTextInput({ show: true, x, y, screenX: screenPos.x, screenY: screenPos.y, value: '' })
+      return
+    }
+
     const { x, y } = getCoordinates(e)
     setIsDrawing(true)
     startPoint.current = { x, y }
@@ -467,6 +487,52 @@ export default function Canvas({
     setPan({ x: 0, y: 0 })
   }
 
+  // Text input handlers
+  const handleTextSubmit = () => {
+    if (!textInput.value.trim()) {
+      setTextInput({ show: false, x: 0, y: 0, value: '' })
+      return
+    }
+
+    const textStroke = {
+      id: uuidv4(),
+      tool: TOOLS.TEXT,
+      color,
+      fontSize,
+      text: textInput.value,
+      startPoint: { x: textInput.x, y: textInput.y }
+    }
+
+    // Add to local state
+    if (onStrokeAdd) {
+      onStrokeAdd(textStroke)
+    }
+
+    // Emit to server
+    if (socket) {
+      socket.emit('draw:stroke', { stroke: textStroke })
+      socket.emit('draw:complete', { strokeId: textStroke.id })
+    }
+
+    setTextInput({ show: false, x: 0, y: 0, value: '' })
+  }
+
+  const handleTextKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleTextSubmit()
+    } else if (e.key === 'Escape') {
+      setTextInput({ show: false, x: 0, y: 0, value: '' })
+    }
+  }
+
+  // Focus text input when shown
+  useEffect(() => {
+    if (textInput.show && textInputRef.current) {
+      textInputRef.current.focus()
+    }
+  }, [textInput.show])
+
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
@@ -487,6 +553,7 @@ export default function Canvas({
               {value === 'line' && '📏'}
               {value === 'rectangle' && '⬜'}
               {value === 'circle' && '⭕'}
+              {value === 'text' && '🔤'}
               {value === 'hand' && '✋'}
             </button>
           ))}
@@ -512,19 +579,34 @@ export default function Canvas({
         {/* Divider */}
         <div className="w-px h-8 bg-gray-200" />
 
-        {/* Stroke Width */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-500">Size:</span>
-          <input
-            type="range"
-            min="1"
-            max="20"
-            value={strokeWidth}
-            onChange={(e) => setStrokeWidth(parseInt(e.target.value))}
-            className="w-24"
-          />
-          <span className="text-sm w-6">{strokeWidth}</span>
-        </div>
+        {/* Stroke Width / Font Size */}
+        {tool === TOOLS.TEXT ? (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500">Font:</span>
+            <input
+              type="range"
+              min="12"
+              max="72"
+              value={fontSize}
+              onChange={(e) => setFontSize(parseInt(e.target.value))}
+              className="w-24"
+            />
+            <span className="text-sm w-6">{fontSize}</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500">Size:</span>
+            <input
+              type="range"
+              min="1"
+              max="20"
+              value={strokeWidth}
+              onChange={(e) => setStrokeWidth(parseInt(e.target.value))}
+              className="w-24"
+            />
+            <span className="text-sm w-6">{strokeWidth}</span>
+          </div>
+        )}
 
         {/* Divider */}
         <div className="w-px h-8 bg-gray-200" />
@@ -659,6 +741,33 @@ export default function Canvas({
             </div>
           )
         })}
+
+        {/* Text Input Overlay */}
+        {textInput.show && (
+          <div
+            className="absolute z-20"
+            style={{
+              left: textInput.screenX,
+              top: textInput.screenY,
+              transform: 'translate(-4px, -50%)'
+            }}
+          >
+            <input
+              ref={textInputRef}
+              type="text"
+              value={textInput.value}
+              onChange={(e) => setTextInput(prev => ({ ...prev, value: e.target.value }))}
+              onKeyDown={handleTextKeyDown}
+              onBlur={handleTextSubmit}
+              placeholder="Type text..."
+              className="px-2 py-1 border-2 border-indigo-500 rounded outline-none min-w-[150px]"
+              style={{ 
+                fontSize: `${fontSize}px`,
+                color: color
+              }}
+            />
+          </div>
+        )}
 
         {/* Zoom hint */}
         <div className="absolute bottom-4 left-4 text-xs text-gray-400 pointer-events-none select-none">
