@@ -406,6 +406,9 @@ export default function Canvas({
     setIsPanning(false)
   }
 
+  // Throttle cursor updates (client-side)
+  const lastCursorEmit = useRef(0)
+  
   // Handle cursor move without drawing
   const handleMouseMove = (e) => {
     // Handle panning (space+drag, middle mouse, or hand tool)
@@ -418,8 +421,11 @@ export default function Canvas({
     }
     
     const { x, y } = getCoordinates(e)
-    if (socket && !isDrawing && !isPanning) {
+    // Throttle cursor emit to 30fps (33ms) to reduce network traffic
+    const now = Date.now()
+    if (socket && !isDrawing && !isPanning && now - lastCursorEmit.current > 33) {
       socket.emit('cursor:move', { x, y })
+      lastCursorEmit.current = now
     }
     if (isDrawing) {
       draw(e)

@@ -25,7 +25,8 @@ export default function Dashboard() {
   useEffect(() => {
     fetchRooms()
     fetchPublicRooms()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Zustand functions are stable
 
   const handleCreateRoom = async (e) => {
     e.preventDefault()

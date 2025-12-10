@@ -160,6 +160,11 @@ module.exports = (io) => {
         roomState.strokes[existingIndex] = fullStroke;
       } else {
         roomState.strokes.push(fullStroke);
+        // Clear redo stack when new stroke is added (standard undo/redo behavior)
+        const undoKey = `${socket.roomCode}:${socket.user._id}`;
+        if (undoStacks.has(undoKey)) {
+          undoStacks.set(undoKey, []);
+        }
       }
 
       // Broadcast to others (not back to sender)
@@ -280,12 +285,14 @@ module.exports = (io) => {
         const lastStroke = userStrokes[userStrokes.length - 1];
         roomState.strokes = roomState.strokes.filter(s => s.id !== lastStroke.id);
 
-        // Save to undo stack for redo
+        // Save to undo stack for redo (limit to 50 items to prevent memory leak)
         const undoKey = `${socket.roomCode}:${socket.user._id}`;
         if (!undoStacks.has(undoKey)) {
           undoStacks.set(undoKey, []);
         }
-        undoStacks.get(undoKey).push(lastStroke);
+        const stack = undoStacks.get(undoKey);
+        stack.push(lastStroke);
+        if (stack.length > 50) stack.shift(); // Remove oldest if over limit
 
         io.to(socket.roomCode).emit('draw:erase', { strokeId: lastStroke.id });
       }
@@ -400,6 +407,12 @@ module.exports = (io) => {
      */
     socket.on('disconnect', async () => {
       console.log(`User disconnected: ${socket.user.username}`);
+
+      // Clean up user's undo stack
+      if (socket.roomCode) {
+        const undoKey = `${socket.roomCode}:${socket.user._id}`;
+        undoStacks.delete(undoKey);
+      }
 
       if (socket.roomCode) {
         // Update participant status

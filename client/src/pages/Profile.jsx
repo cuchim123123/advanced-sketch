@@ -116,10 +116,16 @@ export default function Profile() {
               <div className="flex items-center gap-4">
                 <div className="w-20 h-20 rounded-full bg-indigo-100 flex items-center justify-center text-2xl font-bold text-indigo-600 overflow-hidden">
                   {avatar ? (
-                    <img src={avatar} alt="Avatar" className="w-full h-full object-cover" />
-                  ) : (
-                    username?.charAt(0)?.toUpperCase() || 'U'
-                  )}
+                    <img 
+                      src={avatar} 
+                      alt="Avatar" 
+                      className="w-full h-full object-cover"
+                      onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }}
+                    />
+                  ) : null}
+                  <span style={{ display: avatar ? 'none' : 'block' }}>
+                    {username?.charAt(0)?.toUpperCase() || 'U'}
+                  </span>
                 </div>
                 <div className="flex-1">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
