@@ -10,6 +10,7 @@ import ResetPassword from './pages/ResetPassword'
 import Dashboard from './pages/Dashboard'
 import Room from './pages/Room'
 import JoinRoom from './pages/JoinRoom'
+import Profile from './pages/Profile'
 
 function PrivateRoute({ children }) {
   const { token } = useAuthStore()
@@ -41,6 +42,14 @@ function App() {
           element={
             <PrivateRoute>
               <Room />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <PrivateRoute>
+              <Profile />
             </PrivateRoute>
           }
         />
