@@ -1,95 +1,130 @@
-import React from 'react'
-import { Check, X, ArrowRight, ArrowLeft, Loader2 } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { Check, X, Loader2 } from 'lucide-react'
+import api from '../../services/api'
 
 export const Step2ContactInfo = ({ 
-  formData, 
-  validationErrors, 
-  touchedFields,
-  checkingAvailability = {},
-  onInputChange, 
-  onBlur, 
-  onNext,
-  onBack 
+  email,
+  onEmailChange,
+  isEmailAvailable,
+  setIsEmailAvailable
 }) => {
-  const isStepValid = formData.email && 
-    !validationErrors.email &&
-    !checkingAvailability.email
+  const [isChecking, setIsChecking] = useState(false)
+  const [touched, setTouched] = useState(false)
+  const [error, setError] = useState('')
+
+  // Email validation regex
+  const isValidEmail = (email) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  }
+
+  // Debounced email check
+  useEffect(() => {
+    if (!email) {
+      setIsEmailAvailable(null)
+      setError('')
+      return
+    }
+
+    if (!isValidEmail(email)) {
+      setIsEmailAvailable(null)
+      setError('Please enter a valid email address')
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      setIsChecking(true)
+      try {
+        const response = await api.get(`/auth/check-email/${email}`)
+        setIsEmailAvailable(response.data.available)
+        setError(response.data.available ? '' : 'Email is already registered')
+      } catch (err) {
+        setIsEmailAvailable(false)
+        setError('Error checking email')
+      } finally {
+        setIsChecking(false)
+      }
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [email, setIsEmailAvailable])
+
+  const handleChange = (e) => {
+    onEmailChange(e.target.value)
+  }
+
+  const handleBlur = () => {
+    setTouched(true)
+  }
+
+  const getInputClasses = () => {
+    const base = 'w-full h-11 pr-10 px-4 rounded-lg transition-all bg-white/10 border text-white placeholder:text-white/50 focus:bg-white/20 focus:outline-none focus:ring-2'
+    
+    if (!touched) {
+      return `${base} border-white/20 focus:ring-white/50`
+    }
+    
+    if (isChecking) {
+      return `${base} border-blue-400 focus:ring-blue-400`
+    }
+    
+    if (error || isEmailAvailable === false) {
+      return `${base} border-red-400 focus:ring-red-400`
+    }
+    
+    if (isEmailAvailable === true) {
+      return `${base} border-green-400 focus:ring-green-400`
+    }
+    
+    return `${base} border-white/20 focus:ring-white/50`
+  }
 
   return (
-    <div className="space-y-5">
-      <div className="text-center mb-4">
-        <h3 className="text-lg font-semibold text-white [text-shadow:_0_1px_2px_rgb(0_0_0_/_50%)]">Contact Information</h3>
-        <p className="text-sm text-white/70 mt-1">How can we reach you?</p>
-      </div>
-
-      {/* Email */}
-      <div className='space-y-2'>
-        <label htmlFor="email" className="text-sm font-semibold text-white [text-shadow:_0_1px_2px_rgb(0_0_0_/_50%)] block">Email Address</label>
-        <div className="relative">
-          <input
-            id="email"
-            name="email"
-            type="email"
-            placeholder="john@example.com"
-            value={formData.email}
-            onChange={onInputChange}
-            onBlur={onBlur}
-            className={`w-full h-11 pr-10 px-4 rounded-lg transition-all bg-white/10 border text-white placeholder:text-white/50 focus:bg-white/20 focus:outline-none focus:ring-2 ${
-              touchedFields.email
-                ? validationErrors.email
-                  ? 'border-red-400 focus:ring-red-400'
-                  : checkingAvailability.email
-                  ? 'border-blue-400 focus:ring-blue-400'
-                  : 'border-green-400 focus:ring-green-400'
-                : 'border-white/20 focus:ring-white/50'
-            }`}
-            required
-          />
-          {touchedFields.email && (
-            <div className="absolute right-3 top-1/2 -translate-y-1/2">
-              {checkingAvailability.email ? (
-                <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
-              ) : validationErrors.email ? (
-                <X className="w-5 h-5 text-red-500" />
-              ) : (
-                <Check className="w-5 h-5 text-green-500" />
-              )}
-            </div>
-          )}
-        </div>
-        {checkingAvailability.email && (
-          <p className="text-xs text-blue-300 flex items-center gap-1">
-            <Loader2 className="w-3 h-3 animate-spin" />
-            Checking availability...
-          </p>
-        )}
-        {touchedFields.email && validationErrors.email && !checkingAvailability.email && (
-          <p className="text-xs text-red-300 flex items-center gap-1">
-            <X className="w-3 h-3" />
-            {validationErrors.email}
-          </p>
+    <div className="space-y-2">
+      <label htmlFor="email" className="text-sm font-semibold text-white [text-shadow:_0_1px_2px_rgb(0_0_0_/_50%)] block">
+        Email Address
+      </label>
+      <div className="relative">
+        <input
+          id="email"
+          name="email"
+          type="email"
+          placeholder="john@example.com"
+          value={email}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          className={getInputClasses()}
+          required
+        />
+        {touched && (
+          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+            {isChecking ? (
+              <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
+            ) : error || isEmailAvailable === false ? (
+              <X className="w-5 h-5 text-red-500" />
+            ) : isEmailAvailable === true ? (
+              <Check className="w-5 h-5 text-green-500" />
+            ) : null}
+          </div>
         )}
       </div>
-
-      <div className="flex gap-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="flex-1 h-12 bg-white/5 border border-white/40 hover:bg-white/15 text-white font-semibold rounded-lg backdrop-blur-sm flex items-center justify-center gap-2"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          Back
-        </button>
-        <button
-          type="button"
-          onClick={onNext}
-          disabled={!isStepValid}
-          className="flex-1 h-12 bg-white/90 hover:bg-white text-gray-900 font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all border border-white/50 backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-        >
-          Continue
-          <ArrowRight className="w-5 h-5" />
-        </button>
-      </div>
+      {isChecking && (
+        <p className="text-xs text-blue-300 flex items-center gap-1">
+          <Loader2 className="w-3 h-3 animate-spin" />
+          Checking availability...
+        </p>
+      )}
+      {touched && error && !isChecking && (
+        <p className="text-xs text-red-300 flex items-center gap-1">
+          <X className="w-3 h-3" />
+          {error}
+        </p>
+      )}
+      {touched && isEmailAvailable === true && !isChecking && (
+        <p className="text-xs text-green-300 flex items-center gap-1">
+          <Check className="w-3 h-3" />
+          Email is available
+        </p>
+      )}
     </div>
   )
 }
