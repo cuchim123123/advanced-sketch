@@ -7,6 +7,7 @@ import { useToast } from '../components/Toast'
 import { useConfirm } from '../components/ConfirmModal'
 import Canvas from '../components/Canvas'
 import RoomSettingsModal from '../components/RoomSettingsModal'
+import { ArrowLeft, Save, Link2, Settings, Users, Sparkles } from 'lucide-react'
 
 export default function Room() {
   const { code } = useParams()
@@ -272,56 +273,70 @@ export default function Room() {
 
   if (!currentRoom) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin h-8 w-8 border-4 border-indigo-500 border-t-transparent rounded-full"></div>
+      <div className="min-h-screen animated-gradient flex items-center justify-center">
+        <div className="glass-card p-8 flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+          <span className="text-white/60">Loading room...</span>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-slate-900 via-purple-900/50 to-slate-900">
       {/* Header */}
-      <header className="bg-white border-b px-2 sm:px-4 py-2 flex items-center justify-between flex-shrink-0">
+      <header className="glass border-b border-white/10 px-2 sm:px-4 py-2 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
           <button
             onClick={handleLeave}
-            className="text-gray-500 hover:text-gray-700 flex-shrink-0"
+            className="glass-button p-2 text-white/60 hover:text-white"
           >
-            ← <span className="hidden sm:inline">Back</span>
+            <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="font-semibold text-base sm:text-lg truncate">{currentRoom.name}</h1>
-          <span className="text-xs sm:text-sm text-gray-400 hidden sm:inline">({code})</span>
-          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-white" />
+            </div>
+            <h1 className="font-semibold text-base sm:text-lg text-white truncate">{currentRoom.name}</h1>
+          </div>
+          <span className="text-xs sm:text-sm text-white/30 hidden sm:inline font-mono">({code})</span>
+          <div className="flex items-center gap-1.5">
+            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${connected ? 'bg-green-400 glow-cyan' : 'bg-red-400'}`} />
+            <span className="text-xs text-white/40 hidden sm:inline">{connected ? 'Connected' : 'Disconnected'}</span>
+          </div>
         </div>
 
-        <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0">
+        <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
           <button
             onClick={handleSave}
-            className="px-2 sm:px-3 py-1 text-xs sm:text-sm bg-green-100 text-green-600 rounded hover:bg-green-200"
+            className="glass-button px-3 py-1.5 text-xs sm:text-sm text-green-300 hover:text-green-200 flex items-center gap-1.5"
           >
-            💾 <span className="hidden sm:inline">Save</span>
+            <Save className="w-4 h-4" />
+            <span className="hidden sm:inline">Save</span>
           </button>
           <button
             onClick={copyInviteLink}
-            className="px-2 sm:px-3 py-1 text-xs sm:text-sm bg-indigo-100 text-indigo-600 rounded hover:bg-indigo-200"
+            className="glass-button px-3 py-1.5 text-xs sm:text-sm text-purple-300 hover:text-purple-200 flex items-center gap-1.5"
           >
-            📋 <span className="hidden sm:inline">Invite</span>
+            <Link2 className="w-4 h-4" />
+            <span className="hidden sm:inline">Invite</span>
           </button>
           {/* Settings button - only for room owner */}
           {(currentRoom?.owner === user?.id || currentRoom?.owner?._id === user?.id || currentRoom?.isOwner) && (
             <button
               onClick={() => setShowSettings(true)}
-              className="px-2 sm:px-3 py-1 text-xs sm:text-sm bg-gray-100 rounded hover:bg-gray-200"
+              className="glass-button px-3 py-1.5 text-xs sm:text-sm text-white/60 hover:text-white flex items-center gap-1.5"
               title="Room Settings"
             >
-              ⚙️
+              <Settings className="w-4 h-4" />
             </button>
           )}
           <button
             onClick={() => setShowParticipants(!showParticipants)}
-            className="px-2 sm:px-3 py-1 text-xs sm:text-sm bg-gray-100 rounded hover:bg-gray-200"
+            className="glass-button px-3 py-1.5 text-xs sm:text-sm text-cyan-300 hover:text-cyan-200 flex items-center gap-1.5"
           >
-            👥 {participants.filter(p => p.id !== user?.id).length + 1}
+            <Users className="w-4 h-4" />
+            <span>{participants.filter(p => p.id !== user?.id).length + 1}</span>
           </button>
         </div>
       </header>
@@ -345,7 +360,7 @@ export default function Room() {
         {/* Backdrop for mobile */}
         {showParticipants && (
           <div 
-            className="fixed inset-0 bg-black/20 z-10 md:hidden"
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-10 md:hidden"
             onClick={() => setShowParticipants(false)}
           />
         )}
@@ -354,26 +369,29 @@ export default function Room() {
         <div 
           className={`
             fixed md:relative right-0 top-0 h-full z-20
-            bg-white border-l shadow-lg md:shadow-none
+            glass border-l border-white/10
             transform transition-transform duration-300 ease-in-out
             w-64 p-4 overflow-y-auto
             ${showParticipants ? 'translate-x-0' : 'translate-x-full md:hidden'}
           `}
         >
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold">Participants</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold text-white flex items-center gap-2">
+              <Users className="w-4 h-4 text-cyan-400" />
+              Participants
+            </h2>
             <button 
               onClick={() => setShowParticipants(false)}
-              className="md:hidden text-gray-400 hover:text-gray-600 text-xl leading-none"
+              className="md:hidden text-white/40 hover:text-white/60 text-xl leading-none glass-button w-8 h-8 flex items-center justify-center"
             >
               ×
             </button>
           </div>
           <ul className="space-y-2">
             {/* Current user */}
-            <li className="flex items-center gap-2 p-2 bg-indigo-50 rounded">
-              <div className="w-3 h-3 rounded-full bg-indigo-500 flex-shrink-0" />
-              <span className="text-sm font-medium truncate">{user?.username} (you)</span>
+            <li className="flex items-center gap-2 p-2.5 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-xl border border-purple-500/30">
+              <div className="w-3 h-3 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 flex-shrink-0" />
+              <span className="text-sm font-medium text-white truncate">{user?.username} (you)</span>
             </li>
             
             {/* Other participants */}
@@ -382,18 +400,18 @@ export default function Room() {
               .map(participant => (
                 <li
                   key={participant.id}
-                  className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded group"
+                  className="flex items-center gap-2 p-2.5 glass rounded-xl hover:bg-white/10 transition-all duration-300 group"
                 >
                   <div
                     className="w-3 h-3 rounded-full flex-shrink-0"
                     style={{ backgroundColor: participant.color }}
                   />
-                  <span className="text-sm truncate flex-1">{participant.username}</span>
+                  <span className="text-sm truncate flex-1 text-white/80">{participant.username}</span>
                   {/* Kick button - only visible to room owner */}
                   {(currentRoom?.owner === user?.id || currentRoom?.owner?._id === user?.id || currentRoom?.isOwner) && (
                     <button
                       onClick={() => handleKick(participant.id)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-700 text-xs px-2 py-1 rounded hover:bg-red-50"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded-lg hover:bg-red-500/20"
                       title="Kick user"
                     >
                       ✕
@@ -405,7 +423,7 @@ export default function Room() {
           </ul>
 
           {participants.filter(p => p.id !== user?.id).length === 0 && (
-            <p className="text-sm text-gray-400 mt-4">
+            <p className="text-sm text-white/30 mt-4 text-center">
               No one else is here yet. Share the invite link!
             </p>
           )}

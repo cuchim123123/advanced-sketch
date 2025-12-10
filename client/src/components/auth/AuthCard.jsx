@@ -2,7 +2,7 @@ import React from 'react'
 
 export const AuthCard = ({ children, className = "" }) => {
   return (
-    <div className={`w-full max-w-[500px] mx-auto shadow-2xl border border-white/20 bg-white/10 backdrop-blur-xl rounded-xl animate-in fade-in duration-500 ${className}`}>
+    <div className={`w-full max-w-[500px] mx-auto glass-card animate-scale-in ${className}`}>
       {children}
     </div>
   )
@@ -11,11 +11,11 @@ export const AuthCard = ({ children, className = "" }) => {
 export const AuthHeader = ({ title, subtitle }) => {
   return (
     <div className="space-y-2 pb-4 sm:pb-6 px-6 pt-6">
-      <h1 className="text-2xl sm:text-3xl text-center font-bold text-white [text-shadow:_0_2px_8px_rgb(0_0_0_/_40%)]">
+      <h1 className="text-2xl sm:text-3xl text-center font-bold gradient-text">
         {title}
       </h1>
       {subtitle && (
-        <p className="text-center text-sm sm:text-base text-white/95 [text-shadow:_0_1px_4px_rgb(0_0_0_/_30%)]">
+        <p className="text-center text-sm sm:text-base text-white/60">
           {subtitle}
         </p>
       )}
@@ -29,7 +29,7 @@ export const AuthContent = ({ children }) => {
 
 export const AuthFooter = ({ children }) => {
   return (
-    <div className="flex flex-col gap-2 pt-6 pb-6 px-6 border-t border-white/20">
+    <div className="flex flex-col gap-2 pt-6 pb-6 px-6 border-t border-white/10">
       {children}
     </div>
   )

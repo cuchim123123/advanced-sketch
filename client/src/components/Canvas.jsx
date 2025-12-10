@@ -749,17 +749,19 @@ export default function Canvas({
   }, [textInput.show])
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-gradient-to-br from-slate-800/50 to-purple-900/30">
       {/* Toolbar */}
-      <div className="bg-white border-b p-3 flex flex-wrap items-center gap-4">
+      <div className="glass border-b border-white/10 p-3 flex flex-wrap items-center gap-4">
         {/* Tools */}
-        <div className="flex gap-1">
+        <div className="flex gap-1 p-1 glass rounded-xl">
           {Object.entries(TOOLS).map(([key, value]) => (
             <button
               key={key}
               onClick={() => setTool(value)}
-              className={`p-2 rounded ${
-                tool === value ? 'bg-indigo-100 text-indigo-600' : 'hover:bg-gray-100'
+              className={`p-2.5 rounded-lg transition-all duration-200 ${
+                tool === value 
+                  ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg' 
+                  : 'text-white/60 hover:bg-white/10 hover:text-white'
               }`}
               title={key}
             >
@@ -776,16 +778,18 @@ export default function Canvas({
         </div>
 
         {/* Divider */}
-        <div className="w-px h-8 bg-gray-200" />
+        <div className="w-px h-8 bg-white/20" />
 
         {/* Colors */}
-        <div className="flex gap-1">
+        <div className="flex gap-1.5 p-1 glass rounded-xl">
           {COLORS.map((c) => (
             <button
               key={c}
               onClick={() => setColor(c)}
-              className={`w-6 h-6 rounded-full border-2 ${
-                color === c ? 'border-indigo-500' : 'border-transparent'
+              className={`w-7 h-7 rounded-lg transition-all duration-200 ${
+                color === c 
+                  ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-800 scale-110' 
+                  : 'hover:scale-110'
               }`}
               style={{ backgroundColor: c }}
             />
@@ -793,12 +797,12 @@ export default function Canvas({
         </div>
 
         {/* Divider */}
-        <div className="w-px h-8 bg-gray-200" />
+        <div className="w-px h-8 bg-white/20" />
 
         {/* Stroke Width / Font Size */}
         {tool === TOOLS.TEXT ? (
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500">Font:</span>
+          <div className="flex items-center gap-2 glass rounded-xl px-3 py-2">
+            <span className="text-sm text-white/50">Font:</span>
             <input
               type="range"
               min="12"
@@ -807,11 +811,11 @@ export default function Canvas({
               onChange={(e) => setFontSize(parseInt(e.target.value))}
               className="w-24"
             />
-            <span className="text-sm w-6">{fontSize}</span>
+            <span className="text-sm text-white/70 w-6">{fontSize}</span>
           </div>
         ) : (
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500">Size:</span>
+          <div className="flex items-center gap-2 glass rounded-xl px-3 py-2">
+            <span className="text-sm text-white/50">Size:</span>
             <input
               type="range"
               min="1"
@@ -820,67 +824,69 @@ export default function Canvas({
               onChange={(e) => setStrokeWidth(parseInt(e.target.value))}
               className="w-24"
             />
-            <span className="text-sm w-6">{strokeWidth}</span>
+            <span className="text-sm text-white/70 w-6">{strokeWidth}</span>
           </div>
         )}
 
         {/* Divider */}
-        <div className="w-px h-8 bg-gray-200" />
+        <div className="w-px h-8 bg-white/20" />
 
         {/* Actions */}
-        <div className="flex gap-2">
+        <div className="flex gap-1.5">
           <button
             onClick={handleUndo}
-            className="px-3 py-1 text-sm bg-gray-100 rounded hover:bg-gray-200"
-            title="Undo"
+            className="glass-button px-3 py-2 text-sm text-white/60 hover:text-white"
+            title="Undo (Ctrl+Z)"
           >
             ↩️
           </button>
           <button
             onClick={handleRedo}
-            className="px-3 py-1 text-sm bg-gray-100 rounded hover:bg-gray-200"
-            title="Redo"
+            className="glass-button px-3 py-2 text-sm text-white/60 hover:text-white"
+            title="Redo (Ctrl+Y)"
           >
             ↪️
           </button>
           <button
             onClick={handleClear}
-            className="px-3 py-1 text-sm bg-red-100 text-red-600 rounded hover:bg-red-200"
+            className="px-3 py-2 text-sm bg-red-500/20 text-red-300 rounded-xl border border-red-500/30 
+                     hover:bg-red-500/30 transition-all duration-200"
             title="Clear All"
           >
             🗑️
           </button>
           <button
             onClick={handleExport}
-            className="px-3 py-1 text-sm bg-green-100 text-green-600 rounded hover:bg-green-200"
-            title="Export as PNG"
+            className="px-3 py-2 text-sm bg-green-500/20 text-green-300 rounded-xl border border-green-500/30 
+                     hover:bg-green-500/30 transition-all duration-200"
+            title="Export as PNG (Ctrl+E)"
           >
             📥
           </button>
         </div>
 
         {/* Divider */}
-        <div className="w-px h-8 bg-gray-200" />
+        <div className="w-px h-8 bg-white/20" />
 
         {/* Zoom Controls */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 glass rounded-xl p-1">
           <button
             onClick={handleZoomOut}
-            className="p-2 rounded hover:bg-gray-100"
+            className="p-2 rounded-lg text-white/60 hover:bg-white/10 hover:text-white transition-all duration-200"
             title="Zoom Out"
           >
             ➖
           </button>
           <button
             onClick={handleResetZoom}
-            className="px-2 py-1 text-sm bg-gray-100 rounded hover:bg-gray-200 min-w-[60px]"
+            className="px-3 py-1.5 text-sm text-white/70 hover:bg-white/10 rounded-lg min-w-[60px] transition-all duration-200"
             title="Reset Zoom"
           >
             {Math.round(zoom * 100)}%
           </button>
           <button
             onClick={handleZoomIn}
-            className="p-2 rounded hover:bg-gray-100"
+            className="p-2 rounded-lg text-white/60 hover:bg-white/10 hover:text-white transition-all duration-200"
             title="Zoom In"
           >
             ➕
@@ -891,7 +897,7 @@ export default function Canvas({
       {/* Canvas Container */}
       <div 
         ref={containerRef}
-        className={`flex-1 relative overflow-hidden bg-gray-100 ${
+        className={`flex-1 relative overflow-hidden bg-white/5 ${
           isPanning ? 'cursor-grabbing' : 
           (spacePressed || tool === TOOLS.HAND) ? 'cursor-grab' : ''
         }`}
@@ -1011,54 +1017,54 @@ export default function Canvas({
         />
 
         {/* Hints */}
-        <div className="absolute bottom-4 left-4 text-xs text-gray-400 pointer-events-none select-none">
+        <div className="absolute bottom-4 left-4 glass rounded-xl px-4 py-2 text-xs text-white/50 pointer-events-none select-none">
           <div>Scroll to zoom • Space+drag to pan • Pinch on mobile</div>
-          <div className="mt-1 opacity-75">Press ? for keyboard shortcuts</div>
+          <div className="mt-1 text-white/30">Press ? for keyboard shortcuts</div>
         </div>
 
         {/* Keyboard Shortcuts Modal */}
         {showShortcuts && (
           <div 
-            className="absolute inset-0 bg-black/50 flex items-center justify-center z-50"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in"
             onClick={() => setShowShortcuts(false)}
           >
             <div 
-              className="bg-white rounded-lg p-6 shadow-xl max-w-md"
+              className="glass-card p-6 max-w-md animate-scale-in"
               onClick={e => e.stopPropagation()}
             >
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">Keyboard Shortcuts</h3>
+                <h3 className="text-lg font-semibold text-white">Keyboard Shortcuts</h3>
                 <button 
                   onClick={() => setShowShortcuts(false)}
-                  className="text-gray-500 hover:text-gray-700"
+                  className="glass-button w-8 h-8 flex items-center justify-center text-white/50 hover:text-white"
                 >
                   ✕
                 </button>
               </div>
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-2 gap-6 text-sm">
                 <div>
-                  <h4 className="font-medium mb-2 text-indigo-600">Tools</h4>
-                  <div className="space-y-1">
-                    <div><kbd className="bg-gray-100 px-1 rounded">P</kbd> Pen</div>
-                    <div><kbd className="bg-gray-100 px-1 rounded">E</kbd> Eraser</div>
-                    <div><kbd className="bg-gray-100 px-1 rounded">L</kbd> Line</div>
-                    <div><kbd className="bg-gray-100 px-1 rounded">R</kbd> Rectangle</div>
-                    <div><kbd className="bg-gray-100 px-1 rounded">C</kbd> Circle</div>
-                    <div><kbd className="bg-gray-100 px-1 rounded">T</kbd> Text</div>
-                    <div><kbd className="bg-gray-100 px-1 rounded">I</kbd> Image</div>
-                    <div><kbd className="bg-gray-100 px-1 rounded">H</kbd> Hand (pan)</div>
+                  <h4 className="font-medium mb-3 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">Tools</h4>
+                  <div className="space-y-2 text-white/70">
+                    <div><kbd className="bg-white/10 px-2 py-0.5 rounded-lg border border-white/20 mr-2">P</kbd> Pen</div>
+                    <div><kbd className="bg-white/10 px-2 py-0.5 rounded-lg border border-white/20 mr-2">E</kbd> Eraser</div>
+                    <div><kbd className="bg-white/10 px-2 py-0.5 rounded-lg border border-white/20 mr-2">L</kbd> Line</div>
+                    <div><kbd className="bg-white/10 px-2 py-0.5 rounded-lg border border-white/20 mr-2">R</kbd> Rectangle</div>
+                    <div><kbd className="bg-white/10 px-2 py-0.5 rounded-lg border border-white/20 mr-2">C</kbd> Circle</div>
+                    <div><kbd className="bg-white/10 px-2 py-0.5 rounded-lg border border-white/20 mr-2">T</kbd> Text</div>
+                    <div><kbd className="bg-white/10 px-2 py-0.5 rounded-lg border border-white/20 mr-2">I</kbd> Image</div>
+                    <div><kbd className="bg-white/10 px-2 py-0.5 rounded-lg border border-white/20 mr-2">H</kbd> Hand (pan)</div>
                   </div>
                 </div>
                 <div>
-                  <h4 className="font-medium mb-2 text-indigo-600">Actions</h4>
-                  <div className="space-y-1">
-                    <div><kbd className="bg-gray-100 px-1 rounded">Ctrl+Z</kbd> Undo</div>
-                    <div><kbd className="bg-gray-100 px-1 rounded">Ctrl+Y</kbd> Redo</div>
-                    <div><kbd className="bg-gray-100 px-1 rounded">Ctrl+S</kbd> Save</div>
-                    <div><kbd className="bg-gray-100 px-1 rounded">Ctrl+E</kbd> Export</div>
-                    <div><kbd className="bg-gray-100 px-1 rounded">Space</kbd> Pan</div>
-                    <div><kbd className="bg-gray-100 px-1 rounded">Scroll</kbd> Zoom</div>
-                    <div><kbd className="bg-gray-100 px-1 rounded">Esc</kbd> Close modal</div>
+                  <h4 className="font-medium mb-3 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400">Actions</h4>
+                  <div className="space-y-2 text-white/70">
+                    <div><kbd className="bg-white/10 px-2 py-0.5 rounded-lg border border-white/20 mr-2">Ctrl+Z</kbd> Undo</div>
+                    <div><kbd className="bg-white/10 px-2 py-0.5 rounded-lg border border-white/20 mr-2">Ctrl+Y</kbd> Redo</div>
+                    <div><kbd className="bg-white/10 px-2 py-0.5 rounded-lg border border-white/20 mr-2">Ctrl+S</kbd> Save</div>
+                    <div><kbd className="bg-white/10 px-2 py-0.5 rounded-lg border border-white/20 mr-2">Ctrl+E</kbd> Export</div>
+                    <div><kbd className="bg-white/10 px-2 py-0.5 rounded-lg border border-white/20 mr-2">Space</kbd> Pan</div>
+                    <div><kbd className="bg-white/10 px-2 py-0.5 rounded-lg border border-white/20 mr-2">Scroll</kbd> Zoom</div>
+                    <div><kbd className="bg-white/10 px-2 py-0.5 rounded-lg border border-white/20 mr-2">Esc</kbd> Close modal</div>
                   </div>
                 </div>
               </div>

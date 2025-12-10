@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useToast } from '../components/Toast'
-import { User, Lock, ArrowLeft, Check } from 'lucide-react'
+import { User, Lock, ArrowLeft, Check, Sparkles } from 'lucide-react'
 
 export default function Profile() {
   const navigate = useNavigate()
@@ -65,29 +65,38 @@ export default function Profile() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen animated-gradient relative overflow-hidden">
+      {/* Floating orbs */}
+      <div className="orb orb-purple w-80 h-80 -top-40 -right-40 animate-float" />
+      <div className="orb orb-cyan w-64 h-64 bottom-20 -left-32 animate-float" style={{ animationDelay: '-3s' }} />
+
       {/* Header */}
-      <header className="bg-white shadow">
+      <header className="glass border-b border-white/10 sticky top-0 z-30">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-4">
           <button
             onClick={() => navigate('/dashboard')}
-            className="text-gray-500 hover:text-gray-700"
+            className="glass-button p-2 text-white/60 hover:text-white"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-xl font-bold text-gray-800">Account Settings</h1>
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-white" />
+            </div>
+            <h1 className="text-xl font-bold text-white">Account Settings</h1>
+          </div>
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 py-8">
+      <main className="max-w-3xl mx-auto px-4 py-8 relative z-10">
         {/* Tabs */}
         <div className="flex gap-2 mb-6">
           <button
             onClick={() => setActiveTab('profile')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium transition-all duration-300 ${
               activeTab === 'profile'
-                ? 'bg-indigo-600 text-white'
-                : 'bg-white text-gray-600 hover:bg-gray-50'
+                ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg glow-purple'
+                : 'glass-button text-white/70 hover:text-white'
             }`}
           >
             <User className="w-4 h-4" />
@@ -95,10 +104,10 @@ export default function Profile() {
           </button>
           <button
             onClick={() => setActiveTab('password')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium transition-all duration-300 ${
               activeTab === 'password'
-                ? 'bg-indigo-600 text-white'
-                : 'bg-white text-gray-600 hover:bg-gray-50'
+                ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg glow-purple'
+                : 'glass-button text-white/70 hover:text-white'
             }`}
           >
             <Lock className="w-4 h-4" />
@@ -108,13 +117,16 @@ export default function Profile() {
 
         {/* Profile Tab */}
         {activeTab === 'profile' && (
-          <div className="bg-white rounded-xl shadow p-6">
-            <h2 className="text-lg font-semibold mb-4">Profile Information</h2>
+          <div className="glass rounded-2xl p-6 border border-white/10 animate-fade-in">
+            <h2 className="text-lg font-semibold mb-6 text-white flex items-center gap-2">
+              <User className="w-5 h-5 text-purple-400" />
+              Profile Information
+            </h2>
             
-            <form onSubmit={handleUpdateProfile} className="space-y-4">
+            <form onSubmit={handleUpdateProfile} className="space-y-6">
               {/* Avatar Preview */}
-              <div className="flex items-center gap-4">
-                <div className="w-20 h-20 rounded-full bg-indigo-100 flex items-center justify-center text-2xl font-bold text-indigo-600 overflow-hidden">
+              <div className="flex items-center gap-6">
+                <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-purple-500/30 to-pink-500/30 flex items-center justify-center text-3xl font-bold text-white overflow-hidden border-2 border-white/20 shadow-lg">
                   {avatar ? (
                     <img 
                       src={avatar} 
@@ -128,7 +140,7 @@ export default function Profile() {
                   </span>
                 </div>
                 <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-white/80 mb-2">
                     Avatar URL
                   </label>
                   <input
@@ -136,44 +148,44 @@ export default function Profile() {
                     value={avatar}
                     onChange={(e) => setAvatar(e.target.value)}
                     placeholder="https://example.com/avatar.jpg"
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                    className="w-full px-4 py-3 glass-input rounded-xl text-white placeholder-white/40 border border-white/10 focus:border-purple-400/50 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all"
                   />
                 </div>
               </div>
 
               {/* Username */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-white/80 mb-2">
                   Username
                 </label>
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full px-4 py-3 glass-input rounded-xl text-white placeholder-white/40 border border-white/10 focus:border-purple-400/50 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all"
                   required
                   minLength={3}
                   maxLength={30}
                   pattern="^[a-zA-Z0-9_]+$"
                   title="Username must be alphanumeric (letters, numbers, underscores)"
                 />
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-white/50 mt-2">
                   3-30 characters, letters, numbers and underscores only
                 </p>
               </div>
 
               {/* Email (read-only) */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-white/80 mb-2">
                   Email
                 </label>
                 <input
                   type="email"
                   value={user?.email || ''}
                   disabled
-                  className="w-full px-4 py-2 border rounded-lg bg-gray-50 text-gray-500"
+                  className="w-full px-4 py-3 glass rounded-xl text-white/50 border border-white/5 cursor-not-allowed"
                 />
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-white/50 mt-2">
                   Email cannot be changed
                 </p>
               </div>
@@ -181,7 +193,7 @@ export default function Profile() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full px-4 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 flex items-center justify-center gap-2 font-medium shadow-lg glow-purple transition-all duration-300"
               >
                 {loading ? 'Saving...' : (
                   <>
@@ -196,53 +208,57 @@ export default function Profile() {
 
         {/* Password Tab */}
         {activeTab === 'password' && (
-          <div className="bg-white rounded-xl shadow p-6">
-            <h2 className="text-lg font-semibold mb-4">Change Password</h2>
+          <div className="glass rounded-2xl p-6 border border-white/10 animate-fade-in">
+            <h2 className="text-lg font-semibold mb-6 text-white flex items-center gap-2">
+              <Lock className="w-5 h-5 text-cyan-400" />
+              Change Password
+            </h2>
             
-            <form onSubmit={handleChangePassword} className="space-y-4">
+            <form onSubmit={handleChangePassword} className="space-y-5">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-white/80 mb-2">
                   Current Password
                 </label>
                 <input
                   type="password"
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full px-4 py-3 glass-input rounded-xl text-white placeholder-white/40 border border-white/10 focus:border-purple-400/50 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-white/80 mb-2">
                   New Password
                 </label>
                 <input
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full px-4 py-3 glass-input rounded-xl text-white placeholder-white/40 border border-white/10 focus:border-purple-400/50 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all"
                   required
                   minLength={6}
                 />
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-white/50 mt-2">
                   Minimum 6 characters
                 </p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-white/80 mb-2">
                   Confirm New Password
                 </label>
                 <input
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full px-4 py-3 glass-input rounded-xl text-white placeholder-white/40 border border-white/10 focus:border-purple-400/50 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all"
                   required
                 />
                 {confirmPassword && newPassword !== confirmPassword && (
-                  <p className="text-xs text-red-500 mt-1">
+                  <p className="text-xs text-red-400 mt-2 flex items-center gap-1">
+                    <span className="w-1 h-1 rounded-full bg-red-400" />
                     Passwords do not match
                   </p>
                 )}
@@ -251,7 +267,7 @@ export default function Profile() {
               <button
                 type="submit"
                 disabled={loading || newPassword !== confirmPassword}
-                className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full px-4 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-xl hover:from-cyan-600 hover:to-blue-600 disabled:opacity-50 flex items-center justify-center gap-2 font-medium shadow-lg glow-cyan transition-all duration-300"
               >
                 {loading ? 'Changing...' : (
                   <>

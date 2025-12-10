@@ -9,28 +9,85 @@
 
   body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    @apply bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 min-h-screen;
   }
 
-  /* Custom scrollbar - can't be done purely with Tailwind */
+  /* Custom scrollbar - glassmorphism style */
   ::-webkit-scrollbar {
     @apply w-2 h-2;
   }
 
   ::-webkit-scrollbar-track {
-    @apply bg-gray-100;
+    @apply bg-white/5 rounded-full;
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-gray-400 rounded;
+    @apply bg-white/20 rounded-full;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-gray-500;
+    @apply bg-white/30;
   }
 }
 
 @layer components {
-  /* Canvas cursor styles - custom SVG cursors (can't be done with Tailwind) */
+  /* Glassmorphism utilities */
+  .glass {
+    @apply bg-white/10 backdrop-blur-xl border border-white/20 shadow-xl;
+  }
+  
+  .glass-light {
+    @apply bg-white/80 backdrop-blur-xl border border-white/50 shadow-xl;
+  }
+  
+  .glass-dark {
+    @apply bg-black/20 backdrop-blur-xl border border-white/10 shadow-xl;
+  }
+
+  .glass-card {
+    @apply bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl;
+  }
+
+  .glass-button {
+    @apply bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 
+           transition-all duration-300 rounded-xl shadow-lg hover:shadow-xl
+           hover:border-white/30 active:scale-95;
+  }
+
+  .glass-input {
+    @apply bg-white/10 backdrop-blur-md border border-white/20 rounded-xl 
+           focus:border-purple-400/50 focus:bg-white/15 focus:ring-2 focus:ring-purple-400/20
+           transition-all duration-300 outline-none placeholder-white/40;
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    @apply bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent;
+  }
+
+  /* Glow effects */
+  .glow-purple {
+    box-shadow: 0 0 20px rgba(168, 85, 247, 0.4), 0 0 40px rgba(168, 85, 247, 0.2);
+  }
+
+  .glow-cyan {
+    box-shadow: 0 0 20px rgba(34, 211, 238, 0.4), 0 0 40px rgba(34, 211, 238, 0.2);
+  }
+
+  .glow-pink {
+    box-shadow: 0 0 20px rgba(236, 72, 153, 0.4), 0 0 40px rgba(236, 72, 153, 0.2);
+  }
+
+  .glow-green {
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.4), 0 0 40px rgba(34, 197, 94, 0.2);
+  }
+
+  /* Glass strong variant */
+  .glass-strong {
+    @apply bg-white/15 backdrop-blur-2xl border border-white/25 shadow-2xl;
+  }
+
+  /* Canvas cursor styles - custom SVG cursors */
   .cursor-pen {
     cursor: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><line x1="12" y1="2" x2="12" y2="22" stroke="white" stroke-width="3"/><line x1="2" y1="12" x2="22" y2="12" stroke="white" stroke-width="3"/><line x1="12" y1="2" x2="12" y2="22" stroke="%23333" stroke-width="1.5"/><line x1="2" y1="12" x2="22" y2="12" stroke="%23333" stroke-width="1.5"/><circle cx="12" cy="12" r="2" fill="%23333" stroke="white" stroke-width="1"/></svg>') 12 12, crosshair !important;
   }
@@ -46,6 +103,54 @@
   .cursor-grabbing {
     cursor: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M7 12V15C7 18.31 9.69 21 13 21H14C17.31 21 20 18.31 20 15V10.5C20 9.67 19.33 9 18.5 9S17 9.67 17 10.5V12M17 10.5V9.5C17 8.67 16.33 8 15.5 8S14 8.67 14 9.5V11M14 9.5V8.5C14 7.67 13.33 7 12.5 7S11 7.67 11 8.5V11M11 9V8.5C11 7.67 10.33 7 9.5 7S8 7.67 8 8.5V12" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 12V15C7 18.31 9.69 21 13 21H14C17.31 21 20 18.31 20 15V10.5C20 9.67 19.33 9 18.5 9S17 9.67 17 10.5V12M17 10.5V9.5C17 8.67 16.33 8 15.5 8S14 8.67 14 9.5V11M14 9.5V8.5C14 7.67 13.33 7 12.5 7S11 7.67 11 8.5V11M11 9V8.5C11 7.67 10.33 7 9.5 7S8 7.67 8 8.5V12" stroke="%23333" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>') 12 12, grabbing !important;
   }
+
+  /* Animated gradient background */
+  .animated-gradient {
+    background: linear-gradient(-45deg, #0f172a, #581c87, #1e1b4b, #0f172a);
+    background-size: 400% 400%;
+    animation: gradientShift 15s ease infinite;
+  }
+
+  @keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  /* Floating orbs for background decoration */
+  .orb {
+    @apply absolute rounded-full blur-3xl opacity-30 pointer-events-none;
+  }
+
+  .orb-purple {
+    @apply bg-purple-500;
+  }
+
+  .orb-cyan {
+    @apply bg-cyan-500;
+  }
+
+  .orb-pink {
+    @apply bg-pink-500;
+  }
+}
+
+/* Range slider styling for glassmorphism */
+input[type="range"] {
+  @apply appearance-none h-2 rounded-full bg-white/20;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  @apply appearance-none w-4 h-4 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 cursor-pointer
+         shadow-lg border-2 border-white/50 transition-transform duration-200;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  @apply scale-110;
+}
+
+input[type="range"]::-moz-range-thumb {
+  @apply w-4 h-4 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 cursor-pointer border-2 border-white/50;
 }
 
 /* Progress bar animation - needs dynamic duration via style prop */

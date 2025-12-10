@@ -2,35 +2,35 @@ import { createContext, useContext, useState, useCallback } from 'react'
 
 const ToastContext = createContext(null)
 
-// Toast types with their styles
+// Toast types with their styles - glassmorphism
 const toastStyles = {
   success: {
-    bg: 'bg-green-50 border-green-200',
+    bg: 'bg-green-500/20 backdrop-blur-xl border-green-500/30',
     icon: '✓',
-    iconBg: 'bg-green-500',
-    text: 'text-green-800',
-    progress: 'bg-green-500'
+    iconBg: 'bg-gradient-to-r from-green-400 to-emerald-500',
+    text: 'text-green-200',
+    progress: 'bg-gradient-to-r from-green-400 to-emerald-500'
   },
   error: {
-    bg: 'bg-red-50 border-red-200',
+    bg: 'bg-red-500/20 backdrop-blur-xl border-red-500/30',
     icon: '✕',
-    iconBg: 'bg-red-500',
-    text: 'text-red-800',
-    progress: 'bg-red-500'
+    iconBg: 'bg-gradient-to-r from-red-400 to-rose-500',
+    text: 'text-red-200',
+    progress: 'bg-gradient-to-r from-red-400 to-rose-500'
   },
   warning: {
-    bg: 'bg-amber-50 border-amber-200',
+    bg: 'bg-amber-500/20 backdrop-blur-xl border-amber-500/30',
     icon: '⚠',
-    iconBg: 'bg-amber-500',
-    text: 'text-amber-800',
-    progress: 'bg-amber-500'
+    iconBg: 'bg-gradient-to-r from-amber-400 to-orange-500',
+    text: 'text-amber-200',
+    progress: 'bg-gradient-to-r from-amber-400 to-orange-500'
   },
   info: {
-    bg: 'bg-blue-50 border-blue-200',
+    bg: 'bg-blue-500/20 backdrop-blur-xl border-blue-500/30',
     icon: 'ℹ',
-    iconBg: 'bg-blue-500',
-    text: 'text-blue-800',
-    progress: 'bg-blue-500'
+    iconBg: 'bg-gradient-to-r from-blue-400 to-cyan-500',
+    text: 'text-blue-200',
+    progress: 'bg-gradient-to-r from-blue-400 to-cyan-500'
   }
 }
 
@@ -42,21 +42,21 @@ function ToastItem({ toast, onDismiss }) {
       className={`
         relative overflow-hidden
         flex items-start gap-3 p-4 pr-10
-        border rounded-lg shadow-lg
+        border rounded-2xl shadow-2xl
         animate-slide-in
         ${style.bg}
       `}
       role="alert"
     >
       {/* Icon */}
-      <div className={`flex-shrink-0 w-6 h-6 rounded-full ${style.iconBg} flex items-center justify-center`}>
+      <div className={`flex-shrink-0 w-7 h-7 rounded-lg ${style.iconBg} flex items-center justify-center shadow-lg`}>
         <span className="text-white text-sm font-bold">{style.icon}</span>
       </div>
       
       {/* Content */}
       <div className="flex-1 min-w-0">
         {toast.title && (
-          <p className={`font-semibold ${style.text}`}>{toast.title}</p>
+          <p className={`font-semibold text-white`}>{toast.title}</p>
         )}
         <p className={`text-sm ${style.text} ${toast.title ? 'mt-1' : ''}`}>
           {toast.message}
@@ -66,7 +66,7 @@ function ToastItem({ toast, onDismiss }) {
       {/* Close button */}
       <button
         onClick={() => onDismiss(toast.id)}
-        className={`absolute top-3 right-3 ${style.text} hover:opacity-70 transition-opacity`}
+        className={`absolute top-3 right-3 text-white/50 hover:text-white transition-colors`}
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -75,7 +75,7 @@ function ToastItem({ toast, onDismiss }) {
       
       {/* Progress bar */}
       {toast.duration > 0 && (
-        <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/5">
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/10">
           <div
             className={`h-full ${style.progress} animate-progress`}
             style={{ animationDuration: `${toast.duration}ms` }}
