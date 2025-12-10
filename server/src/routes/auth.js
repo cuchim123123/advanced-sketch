@@ -4,6 +4,7 @@ const { User } = require('../models');
 const { protect } = require('../middleware/auth');
 const { sendOTPHandler, verifyOTPHandler } = require('../controllers/otp.controller');
 const { register, login, verifyEmail, verifyLoginOtp, resendLoginOtp } = require('../controllers/auth.controller');
+const { forgotPassword, resetPassword } = require('../controllers/password.controller');
 
 const router = express.Router();
 
@@ -57,6 +58,8 @@ router.get('/verify-email', verifyEmail);
 router.post('/login', login);
 router.post('/verify-login-otp', verifyLoginOtp);
 router.post('/resend-login-otp', resendLoginOtp);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
 
 router.get('/me', protect, async (req, res) => {
   res.json({
