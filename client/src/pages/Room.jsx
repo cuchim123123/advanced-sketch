@@ -6,12 +6,13 @@ import { connectSocket, getSocket, disconnectSocket } from '../services/socket'
 import { useToast } from '../components/Toast'
 import { useConfirm } from '../components/ConfirmModal'
 import Canvas from '../components/Canvas'
+import RoomSettingsModal from '../components/RoomSettingsModal'
 
 export default function Room() {
   const { code } = useParams()
   const navigate = useNavigate()
   const { user } = useAuthStore()
-  const { currentRoom, getRoom, setParticipants, addParticipant, removeParticipant, participants, clearRoom } = useRoomStore()
+  const { currentRoom, getRoom, setParticipants, addParticipant, removeParticipant, participants, clearRoom, updateRoom } = useRoomStore()
   const toast = useToast()
   const confirm = useConfirm()
   const kickedRef = useRef(false)
@@ -21,6 +22,8 @@ export default function Room() {
   const [cursors, setCursors] = useState({})
   const [connected, setConnected] = useState(false)
   const [showParticipants, setShowParticipants] = useState(true)
+  const [showSettings, setShowSettings] = useState(false)
+  const [settingsLoading, setSettingsLoading] = useState(false)
 
   // Initialize socket and join room
   useEffect(() => {
@@ -217,6 +220,19 @@ export default function Room() {
     }
   }, [socket, confirm, toast])
 
+  const handleSaveSettings = useCallback(async (updates) => {
+    setSettingsLoading(true)
+    const result = await updateRoom(code, updates)
+    setSettingsLoading(false)
+    
+    if (result.success) {
+      toast.success('Room settings updated')
+      setShowSettings(false)
+    } else {
+      toast.error(result.error || 'Failed to update settings')
+    }
+  }, [code, updateRoom, toast])
+
   if (!currentRoom) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -254,6 +270,16 @@ export default function Room() {
           >
             📋 <span className="hidden sm:inline">Invite</span>
           </button>
+          {/* Settings button - only for room owner */}
+          {(currentRoom?.owner === user?.id || currentRoom?.owner?._id === user?.id || currentRoom?.isOwner) && (
+            <button
+              onClick={() => setShowSettings(true)}
+              className="px-2 sm:px-3 py-1 text-xs sm:text-sm bg-gray-100 rounded hover:bg-gray-200"
+              title="Room Settings"
+            >
+              ⚙️
+            </button>
+          )}
           <button
             onClick={() => setShowParticipants(!showParticipants)}
             className="px-2 sm:px-3 py-1 text-xs sm:text-sm bg-gray-100 rounded hover:bg-gray-200"
@@ -346,6 +372,15 @@ export default function Room() {
           )}
         </div>
       </div>
+
+      {/* Room Settings Modal */}
+      <RoomSettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        room={currentRoom}
+        onSave={handleSaveSettings}
+        loading={settingsLoading}
+      />
     </div>
   )
 }
