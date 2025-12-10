@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useRoomStore } from '../store/roomStore'
 import { useAuthStore } from '../store/authStore'
@@ -111,22 +111,29 @@ export default function Room() {
         setStrokes([])
       })
 
+      // Batch cursor updates using RAF for performance
+      let cursorUpdatePending = false
+      const pendingCursors = {}
+      
       sock.on('cursor:move', ({ userId, x, y }) => {
-        setCursors(prev => {
-          // Get participant info from store or previous cursor data
-          const { participants } = useRoomStore.getState()
-          const participant = participants.find(p => p.id === userId)
-          const existingCursor = prev[userId]
-          return {
-            ...prev,
-            [userId]: {
-              x,
-              y,
-              color: participant?.color || existingCursor?.color || '#888',
-              username: participant?.username || existingCursor?.username || 'User'
-            }
-          }
-        })
+        // Queue cursor update
+        const { participants } = useRoomStore.getState()
+        const participant = participants.find(p => p.id === userId)
+        pendingCursors[userId] = {
+          x,
+          y,
+          color: participant?.color || pendingCursors[userId]?.color || '#888',
+          username: participant?.username || pendingCursors[userId]?.username || 'User'
+        }
+        
+        // Batch updates with RAF
+        if (!cursorUpdatePending) {
+          cursorUpdatePending = true
+          requestAnimationFrame(() => {
+            cursorUpdatePending = false
+            setCursors(prev => ({ ...prev, ...pendingCursors }))
+          })
+        }
       })
 
       sock.on('room:saved', ({ version }) => {

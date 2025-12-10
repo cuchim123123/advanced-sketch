@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback } from 'react'
+import { useRef, useEffect, useState, useCallback, useMemo, memo } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 
 const TOOLS = {
@@ -287,58 +287,76 @@ export default function Canvas({
     }
   }
 
+  // Use RAF for smoother drawing
+  const rafRef = useRef(null)
+  const pendingPoint = useRef(null)
+  
   const draw = (e) => {
     if (!isDrawing) return
 
     const { x, y } = getCoordinates(e)
+    pendingPoint.current = { x, y }
 
-    // Emit cursor position
-    if (socket) {
-      socket.emit('cursor:move', { x, y })
+    // Use requestAnimationFrame for smoother rendering
+    if (!rafRef.current) {
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null
+        if (!pendingPoint.current || !isDrawing) return
+        
+        const point = pendingPoint.current
+
+        if (tool === TOOLS.PEN || tool === TOOLS.ERASER) {
+          const ctx = contextRef.current
+          ctx.lineTo(point.x, point.y)
+          ctx.stroke()
+          currentStroke.current.points.push(point)
+
+          // Emit stroke update every 5 points for better batching
+          if (socket && currentStroke.current.points.length % 5 === 0) {
+            socket.emit('draw:stroke', { stroke: currentStroke.current })
+          }
+        } else {
+          drawShapePreview(point)
+        }
+      })
     }
+  }
+  
+  // Extracted shape preview for cleaner code
+  const drawShapePreview = (point) => {
+    const { x, y } = point
+    if (tool === TOOLS.PEN || tool === TOOLS.ERASER) return
+    
+    // For shapes, preview by redrawing
+    redrawCanvas()
+    const ctx = contextRef.current
+    ctx.beginPath()
+    ctx.strokeStyle = color
+    ctx.lineWidth = strokeWidth
 
-    if (tool === TOOLS.PEN || tool === TOOLS.ERASER) {
-      const ctx = contextRef.current
+    if (tool === TOOLS.LINE) {
+      ctx.moveTo(startPoint.current.x, startPoint.current.y)
       ctx.lineTo(x, y)
       ctx.stroke()
-      currentStroke.current.points.push({ x, y })
-
-      // Emit stroke update
-      if (socket && currentStroke.current.points.length % 3 === 0) {
-        socket.emit('draw:stroke', { stroke: currentStroke.current })
-      }
-    } else {
-      // For shapes, preview by redrawing
-      redrawCanvas()
-      const ctx = contextRef.current
-      ctx.beginPath()
-      ctx.strokeStyle = color
-      ctx.lineWidth = strokeWidth
-
-      if (tool === TOOLS.LINE) {
-        ctx.moveTo(startPoint.current.x, startPoint.current.y)
-        ctx.lineTo(x, y)
+    } else if (tool === TOOLS.RECTANGLE) {
+      const width = x - startPoint.current.x
+      const height = y - startPoint.current.y
+      // Limit size to prevent browser crash
+      const maxSize = CANVAS_SIZE * 2
+      const clampedWidth = Math.max(-maxSize, Math.min(maxSize, width))
+      const clampedHeight = Math.max(-maxSize, Math.min(maxSize, height))
+      ctx.strokeRect(startPoint.current.x, startPoint.current.y, clampedWidth, clampedHeight)
+    } else if (tool === TOOLS.CIRCLE) {
+      const radius = Math.sqrt(
+        Math.pow(x - startPoint.current.x, 2) +
+        Math.pow(y - startPoint.current.y, 2)
+      )
+      // Limit radius to prevent browser crash
+      const maxRadius = CANVAS_SIZE
+      const clampedRadius = Math.min(maxRadius, Math.max(0, radius))
+      if (clampedRadius > 0) {
+        ctx.arc(startPoint.current.x, startPoint.current.y, clampedRadius, 0, 2 * Math.PI)
         ctx.stroke()
-      } else if (tool === TOOLS.RECTANGLE) {
-        const width = x - startPoint.current.x
-        const height = y - startPoint.current.y
-        // Limit size to prevent browser crash
-        const maxSize = CANVAS_SIZE * 2
-        const clampedWidth = Math.max(-maxSize, Math.min(maxSize, width))
-        const clampedHeight = Math.max(-maxSize, Math.min(maxSize, height))
-        ctx.strokeRect(startPoint.current.x, startPoint.current.y, clampedWidth, clampedHeight)
-      } else if (tool === TOOLS.CIRCLE) {
-        const radius = Math.sqrt(
-          Math.pow(x - startPoint.current.x, 2) +
-          Math.pow(y - startPoint.current.y, 2)
-        )
-        // Limit radius to prevent browser crash
-        const maxRadius = CANVAS_SIZE
-        const clampedRadius = Math.min(maxRadius, Math.max(0, radius))
-        if (clampedRadius > 0) {
-          ctx.arc(startPoint.current.x, startPoint.current.y, clampedRadius, 0, 2 * Math.PI)
-          ctx.stroke()
-        }
       }
     }
   }
@@ -367,6 +385,11 @@ export default function Canvas({
 
     currentStroke.current = null
     startPoint.current = null
+    // Cancel any pending RAF
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
   }
 
   const handleClear = () => {

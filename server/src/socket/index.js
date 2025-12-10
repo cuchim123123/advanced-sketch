@@ -126,9 +126,14 @@ module.exports = (io) => {
           color: participant.color
         });
 
-        // Update room activity
-        room.lastActiveAt = new Date();
-        await room.save();
+        // Debounce room activity update (avoid DB hammering)
+        if (!room._activityTimeout) {
+          room._activityTimeout = setTimeout(async () => {
+            room.lastActiveAt = new Date();
+            await room.save();
+            room._activityTimeout = null;
+          }, 5000); // Update at most every 5 seconds
+        }
 
       } catch (error) {
         console.error('Room join error:', error);
@@ -154,13 +159,24 @@ module.exports = (io) => {
         timestamp: new Date()
       };
 
-      // Update existing stroke or add new (prevents duplicates)
-      const existingIndex = roomState.strokes.findIndex(s => s.id === stroke.id);
-      if (existingIndex >= 0) {
-        roomState.strokes[existingIndex] = fullStroke;
+      // Use strokeMap for O(1) lookup instead of O(n) findIndex
+      if (!roomState.strokeMap) {
+        roomState.strokeMap = new Map();
+        roomState.strokes.forEach(s => roomState.strokeMap.set(s.id, s));
+      }
+
+      // Update existing stroke or add new
+      if (roomState.strokeMap.has(stroke.id)) {
+        // Update in place
+        const existingIndex = roomState.strokes.findIndex(s => s.id === stroke.id);
+        if (existingIndex >= 0) {
+          roomState.strokes[existingIndex] = fullStroke;
+        }
+        roomState.strokeMap.set(stroke.id, fullStroke);
       } else {
         roomState.strokes.push(fullStroke);
-        // Clear redo stack when new stroke is added (standard undo/redo behavior)
+        roomState.strokeMap.set(stroke.id, fullStroke);
+        // Clear redo stack when new stroke is added
         const undoKey = `${socket.roomCode}:${socket.user._id}`;
         if (undoStacks.has(undoKey)) {
           undoStacks.set(undoKey, []);
@@ -195,6 +211,9 @@ module.exports = (io) => {
 
       // Remove stroke from state
       roomState.strokes = roomState.strokes.filter(s => s.id !== strokeId);
+      if (roomState.strokeMap) {
+        roomState.strokeMap.delete(strokeId);
+      }
 
       // Broadcast to all
       io.to(socket.roomCode).emit('draw:erase', { strokeId });
