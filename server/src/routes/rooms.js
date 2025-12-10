@@ -12,12 +12,13 @@ const router = express.Router();
  */
 router.post('/', protect, async (req, res) => {
   try {
-    const { name, password, maxParticipants, canvasSettings } = req.body;
+    const { name, password, maxParticipants, canvasSettings, isPublic } = req.body;
 
     const roomData = {
       name,
       owner: req.user._id,
-      maxParticipants: maxParticipants || 10
+      maxParticipants: maxParticipants || 10,
+      isPublic: isPublic || false
     };
 
     // Handle optional password
@@ -49,6 +50,7 @@ router.post('/', protect, async (req, res) => {
           name: room.name,
           code: room.code,
           isPasswordProtected: room.isPasswordProtected,
+          isPublic: room.isPublic,
           maxParticipants: room.maxParticipants,
           canvasSettings: room.canvasSettings,
           inviteLink: room.getInviteLink(process.env.CLIENT_URL || 'http://localhost:3000')
@@ -87,6 +89,51 @@ router.get('/', protect, async (req, res) => {
 });
 
 /**
+ * @route   GET /api/rooms/public
+ * @desc    Get all public rooms
+ * @access  Private
+ */
+router.get('/public', protect, async (req, res) => {
+  try {
+    const rooms = await Room.find({ isPublic: true, isActive: true })
+      .populate('owner', 'username')
+      .sort({ createdAt: -1 })
+      .select('-password');
+
+    // Get participant counts for each room
+    const roomsWithCounts = await Promise.all(
+      rooms.map(async (room) => {
+        const participantCount = await SessionParticipant.countDocuments({
+          room: room._id,
+          isActive: true
+        });
+        return {
+          id: room._id,
+          name: room.name,
+          code: room.code,
+          owner: room.owner,
+          isPasswordProtected: room.isPasswordProtected,
+          isPublic: room.isPublic,
+          maxParticipants: room.maxParticipants,
+          participantCount,
+          createdAt: room.createdAt
+        };
+      })
+    );
+
+    res.json({
+      success: true,
+      data: { rooms: roomsWithCounts }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+/**
  * @route   GET /api/rooms/:code
  * @desc    Get room by code
  * @access  Private
@@ -112,6 +159,7 @@ router.get('/:code', protect, async (req, res) => {
           code: room.code,
           owner: room.owner,
           isPasswordProtected: room.isPasswordProtected,
+          isPublic: room.isPublic,
           maxParticipants: room.maxParticipants,
           canvasSettings: room.canvasSettings,
           isOwner: room.owner._id.toString() === req.user._id.toString()
