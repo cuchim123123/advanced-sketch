@@ -89,6 +89,36 @@ export const useAuthStore = create(
           localStorage.setItem('authToken', token)
         }
         set({ user, token })
+      },
+
+      updateProfile: async (updates) => {
+        set({ loading: true, error: null })
+        try {
+          const { data } = await api.patch('/auth/profile', updates)
+          set({ user: data.data.user, loading: false })
+          return { success: true }
+        } catch (error) {
+          set({ 
+            error: error.response?.data?.message || 'Update failed', 
+            loading: false 
+          })
+          return { success: false, error: error.response?.data?.message }
+        }
+      },
+
+      changePassword: async (currentPassword, newPassword) => {
+        set({ loading: true, error: null })
+        try {
+          await api.post('/auth/change-password', { currentPassword, newPassword })
+          set({ loading: false })
+          return { success: true }
+        } catch (error) {
+          set({ 
+            error: error.response?.data?.message || 'Password change failed', 
+            loading: false 
+          })
+          return { success: false, error: error.response?.data?.message }
+        }
       }
     }),
     {
