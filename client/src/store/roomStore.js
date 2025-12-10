@@ -3,6 +3,7 @@ import api from '../services/api'
 
 export const useRoomStore = create((set, get) => ({
   rooms: [],
+  publicRooms: [],
   currentRoom: null,
   participants: [],
   loading: false,
@@ -18,13 +19,24 @@ export const useRoomStore = create((set, get) => ({
     }
   },
 
-  createRoom: async (name, password, maxParticipants) => {
+  fetchPublicRooms: async () => {
+    set({ loading: true })
+    try {
+      const { data } = await api.get('/rooms/public')
+      set({ publicRooms: data.data.rooms, loading: false })
+    } catch (error) {
+      set({ error: error.response?.data?.message, loading: false })
+    }
+  },
+
+  createRoom: async (name, password, maxParticipants, isPublic = false) => {
     set({ loading: true, error: null })
     try {
       const { data } = await api.post('/rooms', {
         name,
         password: password || undefined,
-        maxParticipants
+        maxParticipants,
+        isPublic
       })
       const newRoom = data.data.room
       set((state) => ({
