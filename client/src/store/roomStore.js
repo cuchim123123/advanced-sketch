@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import api from '../services/api'
+import { useAuthStore } from './authStore'
 
 export const useRoomStore = create((set, get) => ({
   rooms: [],
@@ -10,6 +11,13 @@ export const useRoomStore = create((set, get) => ({
   error: null,
 
   fetchRooms: async () => {
+    // Skip for guests - they don't have "My Rooms"
+    const { isGuest } = useAuthStore.getState()
+    if (isGuest) {
+      set({ rooms: [], loading: false })
+      return
+    }
+    
     set({ loading: true })
     try {
       const { data } = await api.get('/rooms')
@@ -30,6 +38,13 @@ export const useRoomStore = create((set, get) => ({
   },
 
   createRoom: async (name, password, maxParticipants, isPublic = false) => {
+    // Guests cannot create rooms
+    const { isGuest } = useAuthStore.getState()
+    if (isGuest) {
+      set({ error: 'Guests cannot create rooms. Please create an account.', loading: false })
+      return { success: false, error: 'Guests cannot create rooms' }
+    }
+    
     set({ loading: true, error: null })
     try {
       const { data } = await api.post('/rooms', {

@@ -12,7 +12,7 @@ import { ArrowLeft, Save, Link2, Settings, Users, Sparkles } from 'lucide-react'
 export default function Room() {
   const { code } = useParams()
   const navigate = useNavigate()
-  const { user } = useAuthStore()
+  const { user, isGuest } = useAuthStore()
   const { currentRoom, getRoom, setParticipants, addParticipant, removeParticipant, participants, clearRoom, updateRoom } = useRoomStore()
   const toast = useToast()
   const confirm = useConfirm()
@@ -391,7 +391,10 @@ export default function Room() {
             {/* Current user */}
             <li className="flex items-center gap-2 p-2.5 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-xl border border-purple-500/30">
               <div className="w-3 h-3 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 flex-shrink-0" />
-              <span className="text-sm font-medium text-white truncate">{user?.username} (you)</span>
+              <span className="text-sm font-medium text-white truncate">
+                {user?.username} (you)
+                {isGuest && <span className="ml-1 text-xs text-yellow-300/70">guest</span>}
+              </span>
             </li>
             
             {/* Other participants */}
@@ -406,7 +409,12 @@ export default function Room() {
                     className="w-3 h-3 rounded-full flex-shrink-0"
                     style={{ backgroundColor: participant.color }}
                   />
-                  <span className="text-sm truncate flex-1 text-white/80">{participant.username}</span>
+                  <span className="text-sm truncate flex-1 text-white/80">
+                    {participant.username}
+                    {participant.isGuest && (
+                      <span className="ml-1 text-xs text-yellow-300/70">(guest)</span>
+                    )}
+                  </span>
                   {/* Kick button - only visible to room owner */}
                   {(currentRoom?.owner === user?.id || currentRoom?.owner?._id === user?.id || currentRoom?.isOwner) && (
                     <button

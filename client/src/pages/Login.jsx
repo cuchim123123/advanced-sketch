@@ -2,12 +2,12 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useToast } from '../components/Toast'
-import { Mail, AlertCircle, Loader2, Shield } from 'lucide-react'
+import { Mail, AlertCircle, Loader2, Shield, UserCircle } from 'lucide-react'
 import { AuthLayout, AuthCard, AuthHeader, AuthContent, AuthFooter, PasswordInput } from '../components/auth'
 
 export default function Login() {
   const navigate = useNavigate()
-  const { login } = useAuthStore()
+  const { login, loginAsGuest } = useAuthStore()
   const toast = useToast()
   
   const [loading, setLoading] = useState(false)
@@ -213,6 +213,30 @@ export default function Login() {
                   ) : (
                     'Sign In'
                   )}
+                </button>
+
+                {/* Divider */}
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-white/20"></div>
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-4 bg-transparent text-white/60">or</span>
+                  </div>
+                </div>
+
+                {/* Guest Login Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    loginAsGuest()
+                    toast.success('Welcome, Guest! You can sketch but some features are limited.')
+                    navigate('/dashboard')
+                  }}
+                  className="w-full h-12 glass-button text-white/90 hover:text-white font-semibold rounded-lg flex items-center justify-center gap-2"
+                >
+                  <UserCircle className="w-5 h-5" />
+                  Continue as Guest
                 </button>
               </form>
             </AuthContent>

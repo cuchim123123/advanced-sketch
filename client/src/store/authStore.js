@@ -2,6 +2,21 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import api from '../services/api'
 
+// Generate a random guest ID
+const generateGuestId = () => {
+  return 'guest_' + Math.random().toString(36).substring(2, 10)
+}
+
+// Generate a random fun guest name
+const generateGuestName = () => {
+  const adjectives = ['Happy', 'Clever', 'Swift', 'Brave', 'Calm', 'Bright', 'Cool', 'Kind', 'Quick', 'Smart']
+  const nouns = ['Artist', 'Sketcher', 'Painter', 'Doodler', 'Creator', 'Designer', 'Drawer', 'Maker']
+  const adj = adjectives[Math.floor(Math.random() * adjectives.length)]
+  const noun = nouns[Math.floor(Math.random() * nouns.length)]
+  const num = Math.floor(Math.random() * 1000)
+  return `${adj}${noun}${num}`
+}
+
 export const useAuthStore = create(
   persist(
     (set, get) => ({
@@ -9,6 +24,33 @@ export const useAuthStore = create(
       token: null,
       loading: false,
       error: null,
+      isGuest: false,
+
+      // Login as guest - no server call needed
+      loginAsGuest: () => {
+        const guestId = generateGuestId()
+        const guestName = generateGuestName()
+        const guestToken = `guest_${guestId}_${Date.now()}`
+        
+        const guestUser = {
+          _id: guestId,
+          id: guestId,
+          username: guestName,
+          email: null,
+          avatar: null,
+          isGuest: true
+        }
+        
+        localStorage.setItem('authToken', guestToken)
+        set({ 
+          user: guestUser, 
+          token: guestToken, 
+          isGuest: true,
+          error: null 
+        })
+        
+        return { success: true }
+      },
 
       register: async (username, email, password) => {
         set({ loading: true, error: null })
@@ -79,7 +121,7 @@ export const useAuthStore = create(
 
       logout: () => {
         localStorage.removeItem('authToken')
-        set({ user: null, token: null, error: null })
+        set({ user: null, token: null, error: null, isGuest: false })
       },
 
       clearError: () => set({ error: null }),
@@ -88,10 +130,14 @@ export const useAuthStore = create(
         if (token) {
           localStorage.setItem('authToken', token)
         }
-        set({ user, token })
+        set({ user, token, isGuest: user?.isGuest || false })
       },
 
       updateProfile: async (updates) => {
+        // Guests cannot update profile
+        if (get().isGuest) {
+          return { success: false, error: 'Guests cannot update profile. Please create an account.' }
+        }
         set({ loading: true, error: null })
         try {
           const { data } = await api.patch('/auth/profile', updates)
@@ -107,6 +153,10 @@ export const useAuthStore = create(
       },
 
       changePassword: async (currentPassword, newPassword) => {
+        // Guests cannot change password
+        if (get().isGuest) {
+          return { success: false, error: 'Guests cannot change password. Please create an account.' }
+        }
         set({ loading: true, error: null })
         try {
           await api.post('/auth/change-password', { currentPassword, newPassword })
@@ -123,7 +173,7 @@ export const useAuthStore = create(
     }),
     {
       name: 'auth-storage',
-      partialize: (state) => ({ user: state.user, token: state.token })
+      partialize: (state) => ({ user: state.user, token: state.token, isGuest: state.isGuest })
     }
   )
 )

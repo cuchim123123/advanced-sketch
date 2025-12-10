@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useRoomStore } from '../store/roomStore'
 import { useToast } from '../components/Toast'
 import { useConfirm } from '../components/ConfirmModal'
-import { Globe, Lock, Users, Plus, LogIn, LogOut, User, Sparkles } from 'lucide-react'
+import { Globe, Lock, Users, Plus, LogIn, LogOut, User, Sparkles, UserCircle } from 'lucide-react'
 
 export default function Dashboard() {
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -18,7 +18,7 @@ export default function Dashboard() {
   const toast = useToast()
   const confirm = useConfirm()
 
-  const { user, logout } = useAuthStore()
+  const { user, logout, isGuest } = useAuthStore()
   const { rooms, publicRooms, fetchRooms, fetchPublicRooms, createRoom, joinRoom, deleteRoom, loading, error } = useRoomStore()
   const navigate = useNavigate()
 
@@ -92,38 +92,73 @@ export default function Dashboard() {
             <h1 className="text-2xl font-bold gradient-text">CoPad</h1>
           </div>
           <div className="flex items-center gap-4">
+            {isGuest && (
+              <span className="px-3 py-1 text-xs font-medium bg-yellow-500/20 text-yellow-300 rounded-full border border-yellow-500/30">
+                Guest
+              </span>
+            )}
             <button
               onClick={() => navigate('/profile')}
               className="glass-button px-4 py-2 flex items-center gap-2 text-white/80 hover:text-white"
             >
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-cyan-400 flex items-center justify-center text-sm font-bold text-white">
-                {user?.username?.charAt(0)?.toUpperCase() || 'U'}
+                {isGuest ? <UserCircle className="w-5 h-5" /> : (user?.username?.charAt(0)?.toUpperCase() || 'U')}
               </div>
               <span className="hidden sm:inline">{user?.username}</span>
             </button>
-            <button
-              onClick={logout}
-              className="glass-button px-4 py-2 text-white/60 hover:text-white flex items-center gap-2"
-            >
-              <LogOut className="w-4 h-4" />
-              <span className="hidden sm:inline">Logout</span>
-            </button>
+            {isGuest ? (
+              <Link
+                to="/login"
+                className="glass-button px-4 py-2 text-white/60 hover:text-white flex items-center gap-2"
+              >
+                <LogIn className="w-4 h-4" />
+                <span className="hidden sm:inline">Sign In</span>
+              </Link>
+            ) : (
+              <button
+                onClick={logout}
+                className="glass-button px-4 py-2 text-white/60 hover:text-white flex items-center gap-2"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Logout</span>
+              </button>
+            )}
           </div>
         </div>
       </header>
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8 relative z-10">
+        {/* Guest notice */}
+        {isGuest && (
+          <div className="glass-strong rounded-xl p-4 mb-6 border border-yellow-500/30 bg-yellow-500/10 flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-3">
+              <UserCircle className="w-6 h-6 text-yellow-300" />
+              <p className="text-yellow-200">
+                You're browsing as a guest. Create an account to save your rooms and sketches!
+              </p>
+            </div>
+            <Link
+              to="/register"
+              className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 font-medium text-sm shadow-lg transition-all"
+            >
+              Create Account
+            </Link>
+          </div>
+        )}
+
         <div className="flex gap-4 mb-8">
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold 
-                     hover:from-purple-600 hover:to-pink-600 transition-all duration-300 shadow-lg hover:shadow-xl
-                     hover:scale-105 active:scale-95 flex items-center gap-2 glow-purple"
-          >
-            <Plus className="w-5 h-5" />
-            Create Room
-          </button>
+          {!isGuest && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold 
+                       hover:from-purple-600 hover:to-pink-600 transition-all duration-300 shadow-lg hover:shadow-xl
+                       hover:scale-105 active:scale-95 flex items-center gap-2 glow-purple"
+            >
+              <Plus className="w-5 h-5" />
+              Create Room
+            </button>
+          )}
           <button
             onClick={() => setShowJoinModal(true)}
             className="glass-button px-6 py-3 text-white font-semibold flex items-center gap-2"
@@ -135,21 +170,23 @@ export default function Dashboard() {
 
         {/* Tabs */}
         <div className="flex gap-4 mb-6">
-          <button
-            onClick={() => setActiveTab('my')}
-            className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 flex items-center gap-2 ${
-              activeTab === 'my'
-                ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg glow-purple'
-                : 'glass-button text-white/70 hover:text-white'
-            }`}
-          >
-            <Lock className="w-4 h-4" />
-            My Rooms
-          </button>
+          {!isGuest && (
+            <button
+              onClick={() => setActiveTab('my')}
+              className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 flex items-center gap-2 ${
+                activeTab === 'my'
+                  ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg glow-purple'
+                  : 'glass-button text-white/70 hover:text-white'
+              }`}
+            >
+              <Lock className="w-4 h-4" />
+              My Rooms
+            </button>
+          )}
           <button
             onClick={() => setActiveTab('public')}
             className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 flex items-center gap-2 ${
-              activeTab === 'public'
+              activeTab === 'public' || isGuest
                 ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg glow-cyan'
                 : 'glass-button text-white/70 hover:text-white'
             }`}
@@ -160,7 +197,7 @@ export default function Dashboard() {
         </div>
 
         {/* My Rooms */}
-        {activeTab === 'my' && (
+        {activeTab === 'my' && !isGuest && (
           <div className="glass-card p-6">
             <h2 className="text-xl font-semibold mb-4 text-white">Your Rooms</h2>
             
@@ -229,7 +266,7 @@ export default function Dashboard() {
         )}
 
         {/* Public Rooms */}
-        {activeTab === 'public' && (
+        {(activeTab === 'public' || isGuest) && (
           <div className="glass-card p-6">
             <h2 className="text-xl font-semibold mb-4 text-white">Public Rooms</h2>
             

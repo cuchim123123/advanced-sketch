@@ -32,6 +32,16 @@ const { Room, SessionParticipant, SketchHistory, User } = require('../models');
 const roomStates = new Map();
 // In-memory store for undo history (per user per room)
 const undoStacks = new Map(); // key: `${roomCode}:${oderId}` -> array of strokes
+// In-memory store for guest users
+const guestUsers = new Map();
+// In-memory store for guest participants per room
+const guestParticipants = new Map(); // key: roomCode -> Map of guestId -> participant info
+
+// Generate random color for participants
+const generateColor = () => {
+  const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'];
+  return colors[Math.floor(Math.random() * colors.length)];
+};
 
 module.exports = (io) => {
   // Authentication middleware for sockets
@@ -43,6 +53,37 @@ module.exports = (io) => {
         return next(new Error('Authentication required'));
       }
 
+      // Check if guest token
+      if (token.startsWith('guest_')) {
+        const parts = token.split('_');
+        const guestId = `${parts[0]}_${parts[1]}`;
+        
+        // Get or create guest user
+        let guestUser = guestUsers.get(guestId);
+        if (!guestUser) {
+          // Extract guest name from localStorage would be sent, but we generate one
+          const adjectives = ['Happy', 'Clever', 'Swift', 'Brave', 'Calm', 'Bright', 'Cool', 'Kind', 'Quick', 'Smart'];
+          const nouns = ['Artist', 'Sketcher', 'Painter', 'Doodler', 'Creator', 'Designer', 'Drawer', 'Maker'];
+          const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+          const noun = nouns[Math.floor(Math.random() * nouns.length)];
+          const num = Math.floor(Math.random() * 1000);
+          
+          guestUser = {
+            _id: guestId,
+            id: guestId,
+            username: `${adj}${noun}${num}`,
+            avatar: null,
+            isGuest: true
+          };
+          guestUsers.set(guestId, guestUser);
+        }
+        
+        socket.user = guestUser;
+        socket.isGuest = true;
+        return next();
+      }
+
+      // Regular JWT authentication
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       const user = await User.findById(decoded.id);
       
@@ -51,6 +92,7 @@ module.exports = (io) => {
       }
 
       socket.user = user;
+      socket.isGuest = false;
       next();
     } catch (error) {
       next(new Error('Invalid token'));
@@ -78,16 +120,38 @@ module.exports = (io) => {
         socket.join(roomCode);
         socket.roomCode = roomCode;
 
-        // Create or update participant
-        const participant = await SessionParticipant.findOneAndUpdate(
-          { room: room._id, user: socket.user._id },
-          {
+        let participantColor;
+        
+        if (socket.isGuest) {
+          // Handle guest participant (in-memory only)
+          if (!guestParticipants.has(roomCode)) {
+            guestParticipants.set(roomCode, new Map());
+          }
+          
+          const roomGuests = guestParticipants.get(roomCode);
+          participantColor = generateColor();
+          
+          roomGuests.set(socket.user._id, {
+            id: socket.user._id,
+            username: socket.user.username,
+            avatar: null,
+            color: participantColor,
             socketId: socket.id,
-            isActive: true,
-            lastActiveAt: new Date()
-          },
-          { upsert: true, new: true }
-        );
+            isGuest: true
+          });
+        } else {
+          // Create or update participant in DB for registered users
+          const participant = await SessionParticipant.findOneAndUpdate(
+            { room: room._id, user: socket.user._id },
+            {
+              socketId: socket.id,
+              isActive: true,
+              lastActiveAt: new Date()
+            },
+            { upsert: true, new: true }
+          );
+          participantColor = participant.color;
+        }
 
         // Initialize room state if needed
         if (!roomStates.has(roomCode)) {
@@ -100,22 +164,32 @@ module.exports = (io) => {
           });
         }
 
-        // Get all active participants
-        const participants = await SessionParticipant.find({
+        // Get all active participants (DB + guests)
+        const dbParticipants = await SessionParticipant.find({
           room: room._id,
           isActive: true
         }).populate('user', 'username avatar');
 
+        const dbParticipantsList = dbParticipants.map(p => ({
+          id: p.user._id,
+          username: p.user.username,
+          avatar: p.user.avatar,
+          color: p.color,
+          cursor: p.cursor,
+          isGuest: false
+        }));
+
+        // Add guest participants
+        const guestList = guestParticipants.has(roomCode) 
+          ? Array.from(guestParticipants.get(roomCode).values())
+          : [];
+
+        const allParticipants = [...dbParticipantsList, ...guestList];
+
         // Send current state to joining user
         socket.emit('room:state', {
           strokes: roomStates.get(roomCode).strokes,
-          participants: participants.map(p => ({
-            id: p.user._id,
-            username: p.user.username,
-            avatar: p.user.avatar,
-            color: p.color,
-            cursor: p.cursor
-          }))
+          participants: allParticipants
         });
 
         // Notify others
@@ -123,7 +197,8 @@ module.exports = (io) => {
           id: socket.user._id,
           username: socket.user.username,
           avatar: socket.user.avatar,
-          color: participant.color
+          color: participantColor,
+          isGuest: socket.isGuest
         });
 
         // Debounce room activity update (avoid DB hammering)
@@ -425,7 +500,7 @@ module.exports = (io) => {
      * Clean up participant and notify room
      */
     socket.on('disconnect', async () => {
-      console.log(`User disconnected: ${socket.user.username}`);
+      console.log(`User disconnected: ${socket.user.username}${socket.isGuest ? ' (guest)' : ''}`);
 
       // Clean up user's undo stack
       if (socket.roomCode) {
@@ -434,25 +509,42 @@ module.exports = (io) => {
       }
 
       if (socket.roomCode) {
-        // Update participant status
-        await SessionParticipant.findOneAndUpdate(
-          { socketId: socket.id },
-          { isActive: false }
-        );
+        if (socket.isGuest) {
+          // Clean up guest participant from memory
+          const roomGuests = guestParticipants.get(socket.roomCode);
+          if (roomGuests) {
+            roomGuests.delete(socket.user._id);
+            if (roomGuests.size === 0) {
+              guestParticipants.delete(socket.roomCode);
+            }
+          }
+        } else {
+          // Update participant status in DB for registered users
+          await SessionParticipant.findOneAndUpdate(
+            { socketId: socket.id },
+            { isActive: false }
+          );
+        }
 
         // Notify room
         socket.to(socket.roomCode).emit('user:left', {
           id: socket.user._id,
-          username: socket.user.username
+          username: socket.user.username,
+          isGuest: socket.isGuest
         });
 
-        // Check if room is empty, save state
+        // Check if room is empty, save state (only count DB participants)
         const activeCount = await SessionParticipant.countDocuments({
           room: await Room.findOne({ code: socket.roomCode }).then(r => r?._id),
           isActive: true
         });
+        
+        // Also count remaining guests
+        const guestCount = guestParticipants.has(socket.roomCode) 
+          ? guestParticipants.get(socket.roomCode).size 
+          : 0;
 
-        if (activeCount === 0) {
+        if (activeCount === 0 && guestCount === 0) {
           // Save final state and clean up
           const room = await Room.findOne({ code: socket.roomCode });
           const roomState = roomStates.get(socket.roomCode);

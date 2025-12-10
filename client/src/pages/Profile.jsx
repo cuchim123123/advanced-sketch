@@ -1,13 +1,13 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useToast } from '../components/Toast'
-import { User, Lock, ArrowLeft, Check, Sparkles } from 'lucide-react'
+import { User, Lock, ArrowLeft, Check, Sparkles, UserCircle, LogIn } from 'lucide-react'
 
 export default function Profile() {
   const navigate = useNavigate()
   const toast = useToast()
-  const { user, updateProfile, changePassword, loading } = useAuthStore()
+  const { user, updateProfile, changePassword, loading, isGuest } = useAuthStore()
 
   const [activeTab, setActiveTab] = useState('profile') // 'profile' or 'password'
   
@@ -22,6 +22,11 @@ export default function Profile() {
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault()
+    
+    if (isGuest) {
+      toast.error('Guests cannot update profile. Please create an account.')
+      return
+    }
     
     const updates = {}
     if (username !== user?.username) updates.username = username
@@ -43,6 +48,11 @@ export default function Profile() {
   const handleChangePassword = async (e) => {
     e.preventDefault()
     
+    if (isGuest) {
+      toast.error('Guests cannot change password. Please create an account.')
+      return
+    }
+    
     if (newPassword !== confirmPassword) {
       toast.error('New passwords do not match')
       return
@@ -62,6 +72,71 @@ export default function Profile() {
     } else {
       toast.error(result.error || 'Failed to change password')
     }
+  }
+
+  // Guest view - prompt to create account
+  if (isGuest) {
+    return (
+      <div className="min-h-screen animated-gradient relative overflow-hidden">
+        {/* Floating orbs */}
+        <div className="orb orb-purple w-80 h-80 -top-40 -right-40 animate-float" />
+        <div className="orb orb-cyan w-64 h-64 bottom-20 -left-32 animate-float" style={{ animationDelay: '-3s' }} />
+
+        {/* Header */}
+        <header className="glass border-b border-white/10 sticky top-0 z-30">
+          <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-4">
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="glass-button p-2 text-white/60 hover:text-white"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-white" />
+              </div>
+              <h1 className="text-xl font-bold text-white">Account Settings</h1>
+            </div>
+          </div>
+        </header>
+
+        <main className="max-w-3xl mx-auto px-4 py-8 relative z-10">
+          <div className="glass rounded-2xl p-8 border border-white/10 animate-fade-in text-center">
+            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-purple-500/30 to-pink-500/30 flex items-center justify-center border-2 border-white/20">
+              <UserCircle className="w-10 h-10 text-white/70" />
+            </div>
+            
+            <h2 className="text-2xl font-bold text-white mb-2">You're a Guest</h2>
+            <p className="text-white/60 mb-6">
+              Guest accounts have limited features. Create an account to save your settings, access your rooms from any device, and more!
+            </p>
+
+            <div className="glass-strong rounded-xl p-4 mb-6 border border-yellow-500/30 bg-yellow-500/10">
+              <p className="text-yellow-300 text-sm">
+                ⚠️ Your sketches in rooms will not be saved to your account as a guest.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link
+                to="/register"
+                className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl hover:from-purple-600 hover:to-pink-600 font-medium shadow-lg glow-purple transition-all flex items-center justify-center gap-2"
+              >
+                <User className="w-4 h-4" />
+                Create Account
+              </Link>
+              <Link
+                to="/login"
+                className="px-6 py-3 glass-button text-white/80 hover:text-white rounded-xl font-medium flex items-center justify-center gap-2"
+              >
+                <LogIn className="w-4 h-4" />
+                Sign In
+              </Link>
+            </div>
+          </div>
+        </main>
+      </div>
+    )
   }
 
   return (
