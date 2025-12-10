@@ -2,6 +2,8 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
 const { protect } = require('../middleware/auth');
+const { sendOTPHandler, verifyOTPHandler } = require('../controllers/otp.controller');
+const { register, login, verifyEmail, verifyLoginOtp, resendLoginOtp } = require('../controllers/auth.controller');
 
 const router = express.Router();
 
@@ -12,124 +14,50 @@ const generateToken = (id) => {
   });
 };
 
-/**
- * @route   POST /api/auth/register
- * @desc    Register a new user
- * @access  Public
- */
-router.post('/register', async (req, res) => {
+// Check username availability
+router.get('/check-username/:username', async (req, res) => {
   try {
-    const { username, email, password } = req.body;
-
-    // Check if user exists
-    const existingUser = await User.findOne({
-      $or: [{ email }, { username }]
-    });
-
-    if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: existingUser.email === email 
-          ? 'Email already registered' 
-          : 'Username already taken'
-      });
+    const { username } = req.params;
+    
+    if (!username || username.length < 3) {
+      return res.json({ available: false, message: 'Username must be at least 3 characters' });
     }
-
-    // Create user
-    const user = await User.create({
-      username,
-      email,
-      password
-    });
-
-    // Generate token
-    const token = generateToken(user._id);
-
-    res.status(201).json({
-      success: true,
-      data: {
-        user: {
-          id: user._id,
-          username: user.username,
-          email: user.email,
-          avatar: user.avatar
-        },
-        token
-      }
-    });
+    
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      return res.json({ available: false, message: 'Username must be alphanumeric' });
+    }
+    
+    const existingUser = await User.findOne({ username: new RegExp(`^${username}$`, 'i') });
+    res.json({ available: !existingUser });
   } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: error.message
-    });
+    console.error('Check username error:', error);
+    res.status(500).json({ available: false, message: 'Server error' });
   }
 });
 
-/**
- * @route   POST /api/auth/login
- * @desc    Login user
- * @access  Public
- */
-router.post('/login', async (req, res) => {
+// Check email availability
+router.get('/check-email/:email', async (req, res) => {
   try {
-    const { email, password } = req.body;
-
-    // Validate input
-    if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please provide email and password'
-      });
+    const { email } = req.params;
+    
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.json({ available: false, message: 'Invalid email format' });
     }
-
-    // Find user with password
-    const user = await User.findOne({ email }).select('+password');
-
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
-    }
-
-    // Check password
-    const isMatch = await user.comparePassword(password);
-
-    if (!isMatch) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
-    }
-
-    // Generate token
-    const token = generateToken(user._id);
-
-    res.json({
-      success: true,
-      data: {
-        user: {
-          id: user._id,
-          username: user.username,
-          email: user.email,
-          avatar: user.avatar
-        },
-        token
-      }
-    });
+    
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    res.json({ available: !existingUser });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    console.error('Check email error:', error);
+    res.status(500).json({ available: false, message: 'Server error' });
   }
 });
 
-/**
- * @route   GET /api/auth/me
- * @desc    Get current user
- * @access  Private
- */
+router.post('/register', register);
+router.get('/verify-email', verifyEmail);
+router.post('/login', login);
+router.post('/verify-login-otp', verifyLoginOtp);
+router.post('/resend-login-otp', resendLoginOtp);
+
 router.get('/me', protect, async (req, res) => {
   res.json({
     success: true,
@@ -143,5 +71,8 @@ router.get('/me', protect, async (req, res) => {
     }
   });
 });
+
+router.post('/send-otp', sendOTPHandler);
+router.post('/verify-otp', verifyOTPHandler);
 
 module.exports = router;
