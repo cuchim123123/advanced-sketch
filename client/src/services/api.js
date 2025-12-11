@@ -21,11 +21,14 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Only logout and redirect for 401 if NOT a guest user
-    const { isGuest } = useAuthStore.getState()
-    if (error.response?.status === 401 && !isGuest) {
-      useAuthStore.getState().logout()
-      window.location.href = '/login'
+    if (error.response?.status === 401) {
+      const { isGuest, logout } = useAuthStore.getState()
+      // Only logout and redirect if NOT a guest
+      // Guests are expected to get 401 on protected routes
+      if (!isGuest) {
+        logout()
+        window.location.href = '/login'
+      }
     }
     return Promise.reject(error)
   }

@@ -17,13 +17,19 @@ import Profile from './pages/Profile'
 function PrivateRoute({ children }) {
   const token = useAuthStore((state) => state.token)
   const isGuest = useAuthStore((state) => state.isGuest)
+  const user = useAuthStore((state) => state.user)
 
-  // Also check localStorage directly as fallback during hydration
-  const localToken = localStorage.getItem('authToken')
+  // Debug log
+  console.log('PrivateRoute check:', { token, isGuest, hasUser: !!user })
   
-  // Allow access if user has token OR is a guest OR has authToken in localStorage
-  const isAuthenticated = token || isGuest || localToken
-  return isAuthenticated ? children : <Navigate to="/login" replace />
+  // Allow access if user has token OR is a guest OR has user object
+  if (token || isGuest || user) {
+    console.log('PrivateRoute: ALLOWING ACCESS')
+    return <>{children}</>
+  }
+  
+  console.log('PrivateRoute: REDIRECTING TO LOGIN')
+  return <Navigate to="/login" replace />
 }
 
 // Wrapper to wait for hydration before rendering routes
@@ -42,8 +48,8 @@ function HydratedApp() {
 
   if (!hasHydrated) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-sky-200 border-t-sky-500 rounded-full animate-spin"></div>
       </div>
     )
   }
