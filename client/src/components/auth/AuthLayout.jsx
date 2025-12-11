@@ -7,15 +7,16 @@ export const AuthLayout = ({ children }) => {
 
   return (
     <div 
-      className="flex items-center justify-center min-h-screen py-4 sm:py-8 px-4 bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 relative overflow-y-auto"
+      className="flex items-center justify-center min-h-screen py-4 sm:py-8 px-4 bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50 relative overflow-y-auto"
     >
-      {/* Overlay for better readability */}
-      <div className="absolute inset-0 bg-gradient-to-br from-purple-900/10 via-purple-800/80 to-indigo-900/80"></div>
+      {/* Decorative orbs */}
+      <div className="absolute top-20 -left-20 w-72 h-72 bg-sky-300 rounded-full blur-3xl opacity-20"></div>
+      <div className="absolute bottom-20 -right-20 w-72 h-72 bg-emerald-300 rounded-full blur-3xl opacity-20"></div>
       
       {/* Back to Dashboard Button */}
       <button
         onClick={() => navigate('/')}
-        className="absolute top-4 left-4 sm:top-6 sm:left-6 z-20 flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base text-white/90 hover:text-white bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-lg transition-all duration-200 group border border-white/20 hover:border-white/30 shadow-lg hover:shadow-xl"
+        className="absolute top-4 left-4 sm:top-6 sm:left-6 z-20 flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base text-slate-600 hover:text-slate-800 bg-white/80 hover:bg-white backdrop-blur-sm rounded-lg transition-all duration-200 group border border-slate-200 hover:border-slate-300 shadow-lg hover:shadow-xl"
         aria-label="Back to dashboard"
       >
         <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 group-hover:-translate-x-0.5 transition-transform duration-200" />

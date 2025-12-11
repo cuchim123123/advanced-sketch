@@ -3,7 +3,7 @@ import { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent }
 
 export const AuthCard = ({ children, className = "" }) => {
   return (
-    <Card className={`w-full max-w-[500px] mx-auto shadow-2xl border border-white/20 bg-white/10 backdrop-blur-xl animate-in fade-in duration-500 ${className}`}>
+    <Card className={`w-full max-w-[500px] mx-auto shadow-2xl border border-slate-200 bg-white/80 backdrop-blur-xl animate-in fade-in duration-500 ${className}`}>
       {children}
     </Card>
   )
@@ -12,11 +12,11 @@ export const AuthCard = ({ children, className = "" }) => {
 export const AuthHeader = ({ title, subtitle }) => {
   return (
     <CardHeader className="space-y-2 pb-4 sm:pb-6">
-      <CardTitle className="text-2xl sm:text-3xl text-center font-bold text-white [text-shadow:_0_2px_8px_rgb(0_0_0_/_40%)]">
+      <CardTitle className="text-2xl sm:text-3xl text-center font-bold text-slate-800">
         {title}
       </CardTitle>
       {subtitle && (
-        <CardDescription className="text-center text-sm sm:text-base text-white/95 [text-shadow:_0_1px_4px_rgb(0_0_0_/_30%)]">
+        <CardDescription className="text-center text-sm sm:text-base text-slate-600">
           {subtitle}
         </CardDescription>
       )}
@@ -30,7 +30,7 @@ export const AuthContent = ({ children }) => {
 
 export const AuthFooter = ({ children }) => {
   return (
-    <CardFooter className="flex flex-col gap-2 pt-6 border-t border-white/20">
+    <CardFooter className="flex flex-col gap-2 pt-6 border-t border-slate-200">
       {children}
     </CardFooter>
   )

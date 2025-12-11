@@ -55,7 +55,7 @@ export function ConfirmProvider({ children }) {
               <div className={`mx-auto w-14 h-14 rounded-2xl flex items-center justify-center mb-4 ${
                 confirmState.type === 'danger' 
                   ? 'bg-gradient-to-br from-red-500 to-rose-600 shadow-lg shadow-red-500/30' 
-                  : 'bg-gradient-to-br from-purple-500 to-pink-500 shadow-lg shadow-purple-500/30'
+                  : 'bg-gradient-to-br from-sky-500 to-emerald-500 shadow-lg shadow-sky-500/30'
               }`}>
                 {confirmState.type === 'danger' ? (
                   <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -69,21 +69,21 @@ export function ConfirmProvider({ children }) {
               </div>
               
               {/* Title */}
-              <h3 className="text-xl font-semibold text-white text-center mb-2">
+              <h3 className="text-xl font-semibold text-slate-800 text-center mb-2">
                 {confirmState.title}
               </h3>
               
               {/* Message */}
-              <p className="text-white/60 text-center">
+              <p className="text-slate-500 text-center">
                 {confirmState.message}
               </p>
             </div>
             
             {/* Actions */}
-            <div className="flex gap-3 p-4 border-t border-white/10">
+            <div className="flex gap-3 p-4 border-t border-slate-200">
               <button
                 onClick={confirmState.onCancel}
-                className="flex-1 px-4 py-3 glass-button text-white/70 font-medium"
+                className="flex-1 px-4 py-3 glass-button font-medium"
               >
                 {confirmState.cancelText}
               </button>
@@ -92,7 +92,7 @@ export function ConfirmProvider({ children }) {
                 className={`flex-1 px-4 py-3 text-white rounded-xl font-medium transition-all duration-300 ${
                   confirmState.type === 'danger' 
                     ? 'bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 shadow-lg shadow-red-500/30' 
-                    : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 shadow-lg shadow-purple-500/30'
+                    : 'bg-gradient-to-r from-sky-500 to-emerald-500 hover:from-sky-600 hover:to-emerald-600 shadow-lg shadow-sky-500/30'
                 }`}
               >
                 {confirmState.confirmText}

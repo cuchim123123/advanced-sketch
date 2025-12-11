@@ -749,9 +749,9 @@ export default function Canvas({
   }, [textInput.show])
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-br from-slate-800/50 to-purple-900/30">
+    <div className="flex flex-col h-full bg-slate-100">
       {/* Toolbar */}
-      <div className="glass border-b border-white/10 p-3 flex flex-wrap items-center gap-4">
+      <div className="glass border-b border-slate-200 p-3 flex flex-wrap items-center gap-4">
         {/* Tools */}
         <div className="flex gap-1 p-1 glass rounded-xl">
           {Object.entries(TOOLS).map(([key, value]) => (
@@ -760,8 +760,8 @@ export default function Canvas({
               onClick={() => setTool(value)}
               className={`p-2.5 rounded-lg transition-all duration-200 ${
                 tool === value 
-                  ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg' 
-                  : 'text-white/60 hover:bg-white/10 hover:text-white'
+                  ? 'bg-gradient-to-r from-sky-500 to-emerald-500 text-white shadow-lg' 
+                  : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
               }`}
               title={key}
             >
@@ -778,7 +778,7 @@ export default function Canvas({
         </div>
 
         {/* Divider */}
-        <div className="w-px h-8 bg-white/20" />
+        <div className="w-px h-8 bg-slate-200" />
 
         {/* Colors */}
         <div className="flex gap-1.5 p-1 glass rounded-xl">
@@ -788,7 +788,7 @@ export default function Canvas({
               onClick={() => setColor(c)}
               className={`w-7 h-7 rounded-lg transition-all duration-200 ${
                 color === c 
-                  ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-800 scale-110' 
+                  ? 'ring-2 ring-sky-500 ring-offset-2 ring-offset-white scale-110' 
                   : 'hover:scale-110'
               }`}
               style={{ backgroundColor: c }}
@@ -797,12 +797,12 @@ export default function Canvas({
         </div>
 
         {/* Divider */}
-        <div className="w-px h-8 bg-white/20" />
+        <div className="w-px h-8 bg-slate-200" />
 
         {/* Stroke Width / Font Size */}
         {tool === TOOLS.TEXT ? (
           <div className="flex items-center gap-2 glass rounded-xl px-3 py-2">
-            <span className="text-sm text-white/50">Font:</span>
+            <span className="text-sm text-slate-500">Font:</span>
             <input
               type="range"
               min="12"
@@ -811,11 +811,11 @@ export default function Canvas({
               onChange={(e) => setFontSize(parseInt(e.target.value))}
               className="w-24"
             />
-            <span className="text-sm text-white/70 w-6">{fontSize}</span>
+            <span className="text-sm text-slate-600 w-6">{fontSize}</span>
           </div>
         ) : (
           <div className="flex items-center gap-2 glass rounded-xl px-3 py-2">
-            <span className="text-sm text-white/50">Size:</span>
+            <span className="text-sm text-slate-500">Size:</span>
             <input
               type="range"
               min="1"
@@ -824,41 +824,41 @@ export default function Canvas({
               onChange={(e) => setStrokeWidth(parseInt(e.target.value))}
               className="w-24"
             />
-            <span className="text-sm text-white/70 w-6">{strokeWidth}</span>
+            <span className="text-sm text-slate-600 w-6">{strokeWidth}</span>
           </div>
         )}
 
         {/* Divider */}
-        <div className="w-px h-8 bg-white/20" />
+        <div className="w-px h-8 bg-slate-200" />
 
         {/* Actions */}
         <div className="flex gap-1.5">
           <button
             onClick={handleUndo}
-            className="glass-button px-3 py-2 text-sm text-white/60 hover:text-white"
+            className="glass-button px-3 py-2 text-sm"
             title="Undo (Ctrl+Z)"
           >
             ↩️
           </button>
           <button
             onClick={handleRedo}
-            className="glass-button px-3 py-2 text-sm text-white/60 hover:text-white"
+            className="glass-button px-3 py-2 text-sm"
             title="Redo (Ctrl+Y)"
           >
             ↪️
           </button>
           <button
             onClick={handleClear}
-            className="px-3 py-2 text-sm bg-red-500/20 text-red-300 rounded-xl border border-red-500/30 
-                     hover:bg-red-500/30 transition-all duration-200"
+            className="px-3 py-2 text-sm bg-red-100 text-red-600 rounded-xl border border-red-200 
+                     hover:bg-red-200 transition-all duration-200"
             title="Clear All"
           >
             🗑️
           </button>
           <button
             onClick={handleExport}
-            className="px-3 py-2 text-sm bg-green-500/20 text-green-300 rounded-xl border border-green-500/30 
-                     hover:bg-green-500/30 transition-all duration-200"
+            className="px-3 py-2 text-sm bg-emerald-100 text-emerald-600 rounded-xl border border-emerald-200 
+                     hover:bg-emerald-200 transition-all duration-200"
             title="Export as PNG (Ctrl+E)"
           >
             📥
@@ -866,27 +866,27 @@ export default function Canvas({
         </div>
 
         {/* Divider */}
-        <div className="w-px h-8 bg-white/20" />
+        <div className="w-px h-8 bg-slate-200" />
 
         {/* Zoom Controls */}
         <div className="flex items-center gap-1 glass rounded-xl p-1">
           <button
             onClick={handleZoomOut}
-            className="p-2 rounded-lg text-white/60 hover:bg-white/10 hover:text-white transition-all duration-200"
+            className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-all duration-200"
             title="Zoom Out"
           >
             ➖
           </button>
           <button
             onClick={handleResetZoom}
-            className="px-3 py-1.5 text-sm text-white/70 hover:bg-white/10 rounded-lg min-w-[60px] transition-all duration-200"
+            className="px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 rounded-lg min-w-[60px] transition-all duration-200"
             title="Reset Zoom"
           >
             {Math.round(zoom * 100)}%
           </button>
           <button
             onClick={handleZoomIn}
-            className="p-2 rounded-lg text-white/60 hover:bg-white/10 hover:text-white transition-all duration-200"
+            className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-all duration-200"
             title="Zoom In"
           >
             ➕
@@ -897,7 +897,7 @@ export default function Canvas({
       {/* Canvas Container */}
       <div 
         ref={containerRef}
-        className={`flex-1 relative overflow-hidden bg-white/5 ${
+        className={`flex-1 relative overflow-hidden bg-slate-50 ${
           isPanning ? 'cursor-grabbing' : 
           (spacePressed || tool === TOOLS.HAND) ? 'cursor-grab' : ''
         }`}
