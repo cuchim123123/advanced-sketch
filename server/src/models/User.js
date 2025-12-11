@@ -28,40 +28,6 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
-  // Email verification
-  isEmailVerified: {
-    type: Boolean,
-    default: false
-  },
-  emailVerificationToken: {
-    type: String,
-    select: false
-  },
-  emailVerificationTokenExpiresAt: {
-    type: Date,
-    select: false
-  },
-  // Login attempt tracking for OTP
-  failedLoginAttempts: {
-    type: Number,
-    default: 0
-  },
-  loginOtpRequired: {
-    type: Boolean,
-    default: false
-  },
-  lastFailedLoginAt: {
-    type: Date
-  },
-  // Password reset
-  resetPasswordToken: {
-    type: String,
-    select: false
-  },
-  resetPasswordTokenExpiresAt: {
-    type: Date,
-    select: false
-  },
   createdAt: {
     type: Date,
     default: Date.now
