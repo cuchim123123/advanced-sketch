@@ -1,6 +1,5 @@
 import { create } from 'zustand'
 import api from '../services/api'
-import { useAuthStore } from './authStore'
 
 export const useRoomStore = create((set, get) => ({
   rooms: [],
@@ -11,13 +10,6 @@ export const useRoomStore = create((set, get) => ({
   error: null,
 
   fetchRooms: async () => {
-    // Skip for guests - they don't have "My Rooms"
-    const { isGuest } = useAuthStore.getState()
-    if (isGuest) {
-      set({ rooms: [], loading: false })
-      return
-    }
-    
     set({ loading: true })
     try {
       const { data } = await api.get('/rooms')
@@ -37,20 +29,13 @@ export const useRoomStore = create((set, get) => ({
     }
   },
 
-  createRoom: async (name, isPublic = false, maxParticipants) => {
-    // Guests cannot create rooms
-    const { isGuest } = useAuthStore.getState()
-    if (isGuest) {
-      set({ error: 'Guests cannot create rooms. Please create an account.', loading: false })
-      return { success: false, error: 'Guests cannot create rooms' }
-    }
-    
+  createRoom: async (name, password, maxParticipants) => {
     set({ loading: true, error: null })
     try {
       const { data } = await api.post('/rooms', {
         name,
-        maxParticipants,
-        isPublic
+        password: password || undefined,
+        maxParticipants
       })
       const newRoom = data.data.room
       set((state) => ({
@@ -64,10 +49,10 @@ export const useRoomStore = create((set, get) => ({
     }
   },
 
-  joinRoom: async (code) => {
+  joinRoom: async (code, password) => {
     set({ loading: true, error: null })
     try {
-      const { data } = await api.post(`/rooms/${code}/join`)
+      const { data } = await api.post(`/rooms/${code}/join`, { password })
       set({ currentRoom: data.data.room, loading: false })
       return { success: true, room: data.data.room }
     } catch (error) {
@@ -95,24 +80,6 @@ export const useRoomStore = create((set, get) => ({
         rooms: state.rooms.filter((r) => r.code !== code)
       }))
       return { success: true }
-    } catch (error) {
-      return { success: false, error: error.response?.data?.message }
-    }
-  },
-
-  updateRoom: async (code, updates) => {
-    try {
-      const { data } = await api.patch(`/rooms/${code}`, updates)
-      const updatedRoom = data.data.room
-      set((state) => ({
-        rooms: state.rooms.map((r) => 
-          r.code === code ? { ...r, ...updatedRoom } : r
-        ),
-        currentRoom: state.currentRoom?.code === code 
-          ? { ...state.currentRoom, ...updatedRoom }
-          : state.currentRoom
-      }))
-      return { success: true, room: updatedRoom }
     } catch (error) {
       return { success: false, error: error.response?.data?.message }
     }
