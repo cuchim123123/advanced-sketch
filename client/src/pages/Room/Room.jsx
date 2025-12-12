@@ -24,6 +24,7 @@ export default function Room() {
   
   const [socket, setSocket] = useState(null)
   const [strokes, setStrokes] = useState([])
+  const [previewStrokes, setPreviewStrokes] = useState({}) // Shape previews from other users
   const [cursors, setCursors] = useState({})
   const [connected, setConnected] = useState(false)
   const [roomReady, setRoomReady] = useState(false)  // Track when socket is ready
@@ -101,7 +102,7 @@ export default function Room() {
       })
     })
 
-    sock.on('draw:stroke', ({ stroke, username }) => {
+    sock.on('draw:stroke', ({ stroke, username, isPreview }) => {
       // Decompress if stroke was optimized
       const fullStroke = deoptimizeStroke(stroke)
       
@@ -121,16 +122,31 @@ export default function Room() {
         }))
       }
       
-      setStrokes(prev => {
-        // Update existing stroke or add new
-        const existing = prev.findIndex(s => s.id === fullStroke.id)
-        if (existing >= 0) {
-          const updated = [...prev]
-          updated[existing] = fullStroke
+      // Handle shape previews separately from final strokes
+      if (isPreview) {
+        setPreviewStrokes(prev => ({
+          ...prev,
+          [fullStroke.userId]: fullStroke
+        }))
+      } else {
+        // Remove preview for this user when final stroke arrives
+        setPreviewStrokes(prev => {
+          const updated = { ...prev }
+          delete updated[fullStroke.userId]
           return updated
-        }
-        return [...prev, fullStroke]
-      })
+        })
+        
+        setStrokes(prev => {
+          // Update existing stroke or add new
+          const existing = prev.findIndex(s => s.id === fullStroke.id)
+          if (existing >= 0) {
+            const updated = [...prev]
+            updated[existing] = fullStroke
+            return updated
+          }
+          return [...prev, fullStroke]
+        })
+      }
     })
 
     sock.on('draw:complete', ({ strokeId }) => {
@@ -452,12 +468,13 @@ export default function Room() {
             socket={socket}
             roomCode={code}
             strokes={strokes}
+            previewStrokes={previewStrokes}
             onStrokeAdd={(stroke) => setStrokes(prev => [...prev, stroke])}
             onClear={handleClear}
             onSave={handleSave}
             cursors={cursors}
             showCursorNames={showParticipants}
-            disabled={!roomReady}
+            disabled={false}
           />
         </div>
 

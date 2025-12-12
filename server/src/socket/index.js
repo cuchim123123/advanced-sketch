@@ -235,7 +235,8 @@ module.exports = (io) => {
       // Broadcast to others (not back to sender) - send original optimized format
       socket.to(socket.roomCode).emit('draw:stroke', {
         stroke: stroke, // Keep optimized format for network efficiency
-        username: socket.user.username
+        username: socket.user.username,
+        isPreview: stroke.isPreview || false
       });
     });
 
