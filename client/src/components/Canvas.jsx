@@ -135,6 +135,43 @@ export default function Canvas({
     strokesRef.current = strokes
   }, [strokes])
 
+  // Attach native event listeners with passive: false to allow preventDefault
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    // Wheel handler needs passive: false to prevent scroll
+    const wheelHandler = (e) => {
+      e.preventDefault()
+      handleWheelNative(e)
+    }
+
+    // Touch handlers need passive: false to prevent scroll/zoom on mobile
+    const touchStartHandler = (e) => {
+      if (e.touches.length === 2) {
+        e.preventDefault()
+      }
+      handleTouchStartNative(e)
+    }
+
+    const touchMoveHandler = (e) => {
+      if (e.touches.length >= 1) {
+        e.preventDefault()
+      }
+      handleTouchMoveNative(e)
+    }
+
+    container.addEventListener('wheel', wheelHandler, { passive: false })
+    container.addEventListener('touchstart', touchStartHandler, { passive: false })
+    container.addEventListener('touchmove', touchMoveHandler, { passive: false })
+
+    return () => {
+      container.removeEventListener('wheel', wheelHandler)
+      container.removeEventListener('touchstart', touchStartHandler)
+      container.removeEventListener('touchmove', touchMoveHandler)
+    }
+  }, [])
+
   // Initialize canvas
   useEffect(() => {
     const canvas = canvasRef.current
@@ -545,34 +582,43 @@ export default function Canvas({
   // Check if should pan
   const shouldPan = () => spacePressed || tool === TOOLS.HAND
   
-  // Zoom with mouse wheel
-  const handleWheel = (e) => {
-    e.preventDefault()
+  // Refs for native event handlers (to avoid stale closures)
+  const zoomRef = useRef(zoom)
+  const panRef = useRef(pan)
+  const isDrawingRef = useRef(isDrawing)
+  const isPanningRef = useRef(isPanning)
+  const toolRef = useRef(tool)
+  
+  useEffect(() => { zoomRef.current = zoom }, [zoom])
+  useEffect(() => { panRef.current = pan }, [pan])
+  useEffect(() => { isDrawingRef.current = isDrawing }, [isDrawing])
+  useEffect(() => { isPanningRef.current = isPanning }, [isPanning])
+  useEffect(() => { toolRef.current = tool }, [tool])
+  
+  // Native wheel handler (called from passive: false listener)
+  const handleWheelNative = useCallback((e) => {
     const container = containerRef.current
     const rect = container.getBoundingClientRect()
     
-    // Get mouse position relative to container
     const mouseX = e.clientX - rect.left
     const mouseY = e.clientY - rect.top
     
-    // Calculate zoom
     const delta = e.deltaY > 0 ? 0.9 : 1.1
-    const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom * delta))
+    const currentZoom = zoomRef.current
+    const currentPan = panRef.current
+    const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, currentZoom * delta))
     
-    // Adjust pan to zoom toward mouse position
-    const zoomRatio = newZoom / zoom
-    const newPanX = mouseX - (mouseX - pan.x) * zoomRatio
-    const newPanY = mouseY - (mouseY - pan.y) * zoomRatio
+    const zoomRatio = newZoom / currentZoom
+    const newPanX = mouseX - (mouseX - currentPan.x) * zoomRatio
+    const newPanY = mouseY - (mouseY - currentPan.y) * zoomRatio
     
     setZoom(newZoom)
     setPan({ x: newPanX, y: newPanY })
-  }
+  }, [])
   
-  // Touch handlers for pinch zoom and pan
-  const handleTouchStart = (e) => {
+  // Native touch handlers (called from passive: false listeners)
+  const handleTouchStartNative = useCallback((e) => {
     if (e.touches.length === 2) {
-      // Start pinch zoom
-      e.preventDefault()
       const touch1 = e.touches[0]
       const touch2 = e.touches[1]
       lastPinchDistance.current = Math.hypot(
@@ -586,46 +632,60 @@ export default function Canvas({
       setIsPanning(true)
     } else if (e.touches.length === 1) {
       setIsPanning(false)
-      startDrawing(e)
+      // Don't call startDrawing here - let React handler do it
     }
-  }
+  }, [])
   
-  const handleTouchMove = (e) => {
+  const handleTouchMoveNative = useCallback((e) => {
     if (e.touches.length === 2 && lastPinchDistance.current) {
-      e.preventDefault()
       const touch1 = e.touches[0]
       const touch2 = e.touches[1]
       
-      // Calculate new pinch distance
       const newDistance = Math.hypot(
         touch2.clientX - touch1.clientX,
         touch2.clientY - touch1.clientY
       )
       
-      // Calculate pinch center
       const centerX = (touch1.clientX + touch2.clientX) / 2
       const centerY = (touch1.clientY + touch2.clientY) / 2
       
-      // Calculate zoom
+      const currentZoom = zoomRef.current
+      const currentPan = panRef.current
       const delta = newDistance / lastPinchDistance.current
-      const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom * delta))
+      const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, currentZoom * delta))
       
-      // Calculate pan (follow pinch center)
       const container = containerRef.current
       const rect = container.getBoundingClientRect()
       const mouseX = centerX - rect.left
       const mouseY = centerY - rect.top
       
-      const zoomRatio = newZoom / zoom
-      const newPanX = mouseX - (mouseX - pan.x) * zoomRatio + (centerX - lastPanPoint.current.x)
-      const newPanY = mouseY - (mouseY - pan.y) * zoomRatio + (centerY - lastPanPoint.current.y)
+      const zoomRatio = newZoom / currentZoom
+      const newPanX = mouseX - (mouseX - currentPan.x) * zoomRatio + (centerX - lastPanPoint.current.x)
+      const newPanY = mouseY - (mouseY - currentPan.y) * zoomRatio + (centerY - lastPanPoint.current.y)
       
       setZoom(newZoom)
       setPan({ x: newPanX, y: newPanY })
       
       lastPinchDistance.current = newDistance
       lastPanPoint.current = { x: centerX, y: centerY }
-    } else if (e.touches.length === 1 && !isPanning) {
+    }
+    // Single touch drawing is handled by React onTouchMove
+  }, [])
+  
+  // Legacy handlers kept for fallback (remove onWheel from JSX)
+  const handleWheel = (e) => {
+    // Handled by native listener
+  }
+  
+  // Touch handlers for React (single touch drawing only)
+  const handleTouchStart = (e) => {
+    if (e.touches.length === 1) {
+      startDrawing(e)
+    }
+  }
+  
+  const handleTouchMove = (e) => {
+    if (e.touches.length === 1 && !isPanning) {
       draw(e)
     }
   }
@@ -634,12 +694,7 @@ export default function Canvas({
     if (e.touches.length === 0) {
       lastPinchDistance.current = null
       setIsPanning(false)
-      if (!isPanning) {
-        stopDrawing(e)
-      }
-    } else if (e.touches.length === 1) {
-      // Switched from pinch to single touch - don't start drawing
-      lastPinchDistance.current = null
+      stopDrawing(e)
     }
   }
   
@@ -932,7 +987,6 @@ export default function Canvas({
           isPanning ? 'cursor-grabbing' : 
           (spacePressed || tool === TOOLS.HAND) ? 'cursor-grab' : ''
         }`}
-        onWheel={handleWheel}
         onMouseDown={(e) => {
           if (e.button === 1 || shouldPan()) {
             // Middle mouse button or space/hand tool for panning
