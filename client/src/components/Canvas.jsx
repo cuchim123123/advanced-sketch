@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState, useCallback, useMemo, memo } from 'react'
 import { v4 as uuidv4 } from 'uuid'
+import { optimizeStrokeForTransmit, deoptimizeStroke, getCompressionStats } from '../utils/strokeOptimization'
 
 const TOOLS = {
   PEN: 'pen',
@@ -134,43 +135,6 @@ export default function Canvas({
   useEffect(() => {
     strokesRef.current = strokes
   }, [strokes])
-
-  // Attach native event listeners with passive: false to allow preventDefault
-  useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-
-    // Wheel handler needs passive: false to prevent scroll
-    const wheelHandler = (e) => {
-      e.preventDefault()
-      handleWheelNative(e)
-    }
-
-    // Touch handlers need passive: false to prevent scroll/zoom on mobile
-    const touchStartHandler = (e) => {
-      if (e.touches.length === 2) {
-        e.preventDefault()
-      }
-      handleTouchStartNative(e)
-    }
-
-    const touchMoveHandler = (e) => {
-      if (e.touches.length >= 1) {
-        e.preventDefault()
-      }
-      handleTouchMoveNative(e)
-    }
-
-    container.addEventListener('wheel', wheelHandler, { passive: false })
-    container.addEventListener('touchstart', touchStartHandler, { passive: false })
-    container.addEventListener('touchmove', touchMoveHandler, { passive: false })
-
-    return () => {
-      container.removeEventListener('wheel', wheelHandler)
-      container.removeEventListener('touchstart', touchStartHandler)
-      container.removeEventListener('touchmove', touchMoveHandler)
-    }
-  }, [])
 
   // Initialize canvas
   useEffect(() => {
@@ -408,7 +372,12 @@ export default function Canvas({
           // Throttle socket emit to reduce network load
           const now = Date.now()
           if (socket && now - lastEmitTime.current > EMIT_THROTTLE) {
-            socket.emit('draw:stroke', { stroke: currentStroke.current })
+            // Optimize stroke before sending (simplify + delta compress)
+            const optimized = optimizeStrokeForTransmit(currentStroke.current, {
+              simplifyEpsilon: 1.5,
+              useDelta: true
+            })
+            socket.emit('draw:stroke', { stroke: optimized })
             lastEmitTime.current = now
           }
         } else {
@@ -493,9 +462,13 @@ export default function Canvas({
         onStrokeAdd(currentStroke.current)
       }
 
-      // Emit final stroke to server
+      // Emit final stroke to server (optimized)
       if (socket) {
-        socket.emit('draw:stroke', { stroke: currentStroke.current })
+        const optimized = optimizeStrokeForTransmit(currentStroke.current, {
+          simplifyEpsilon: 1.0, // Less aggressive for final stroke
+          useDelta: true
+        })
+        socket.emit('draw:stroke', { stroke: optimized })
         socket.emit('draw:complete', { strokeId: currentStroke.current.id })
       }
     }
@@ -564,12 +537,20 @@ export default function Canvas({
     }
     
     const { x, y } = getCoordinates(e)
-    // Throttle cursor emit to 30fps (33ms) to reduce network traffic
-    const now = Date.now()
-    if (socket && !isDrawing && !isPanning && now - lastCursorEmit.current > 33) {
-      socket.emit('cursor:move', { x, y })
-      lastCursorEmit.current = now
+    
+    // Emit cursor position - different rates for drawing vs idle
+    // When drawing: cursor position is implied from stroke, emit less frequently
+    // When idle: emit more frequently for smooth cursor tracking
+    if (socket && !isPanning) {
+      const now = Date.now()
+      const throttleTime = isDrawing ? 100 : 25 // 10fps when drawing, 40fps when idle
+      
+      if (now - lastCursorEmit.current > throttleTime) {
+        socket.emit('cursor:move', { x, y })
+        lastCursorEmit.current = now
+      }
     }
+    
     if (isDrawing) {
       draw(e)
     }
@@ -597,88 +578,97 @@ export default function Canvas({
   useEffect(() => { isDrawingRef.current = isDrawing }, [isDrawing])
   useEffect(() => { isPanningRef.current = isPanning }, [isPanning])
   useEffect(() => { toolRef.current = tool }, [tool])
-  
-  // Native wheel handler (called from passive: false listener)
-  const handleWheelNative = useCallback((e) => {
+
+  // Attach native event listeners with passive: false AFTER handlers are defined
+  useEffect(() => {
     const container = containerRef.current
-    const rect = container.getBoundingClientRect()
-    
-    const mouseX = e.clientX - rect.left
-    const mouseY = e.clientY - rect.top
-    
-    const delta = e.deltaY > 0 ? 0.9 : 1.1
-    const currentZoom = zoomRef.current
-    const currentPan = panRef.current
-    const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, currentZoom * delta))
-    
-    const zoomRatio = newZoom / currentZoom
-    const newPanX = mouseX - (mouseX - currentPan.x) * zoomRatio
-    const newPanY = mouseY - (mouseY - currentPan.y) * zoomRatio
-    
-    setZoom(newZoom)
-    setPan({ x: newPanX, y: newPanY })
-  }, [])
-  
-  // Native touch handlers (called from passive: false listeners)
-  const handleTouchStartNative = useCallback((e) => {
-    if (e.touches.length === 2) {
-      const touch1 = e.touches[0]
-      const touch2 = e.touches[1]
-      lastPinchDistance.current = Math.hypot(
-        touch2.clientX - touch1.clientX,
-        touch2.clientY - touch1.clientY
-      )
-      lastPanPoint.current = {
-        x: (touch1.clientX + touch2.clientX) / 2,
-        y: (touch1.clientY + touch2.clientY) / 2
-      }
-      setIsPanning(true)
-    } else if (e.touches.length === 1) {
-      setIsPanning(false)
-      // Don't call startDrawing here - let React handler do it
-    }
-  }, [])
-  
-  const handleTouchMoveNative = useCallback((e) => {
-    if (e.touches.length === 2 && lastPinchDistance.current) {
-      const touch1 = e.touches[0]
-      const touch2 = e.touches[1]
+    if (!container) return
+
+    // Wheel handler needs passive: false to prevent scroll
+    const wheelHandler = (e) => {
+      e.preventDefault()
+      const rect = container.getBoundingClientRect()
+      const mouseX = e.clientX - rect.left
+      const mouseY = e.clientY - rect.top
       
-      const newDistance = Math.hypot(
-        touch2.clientX - touch1.clientX,
-        touch2.clientY - touch1.clientY
-      )
-      
-      const centerX = (touch1.clientX + touch2.clientX) / 2
-      const centerY = (touch1.clientY + touch2.clientY) / 2
-      
+      const delta = e.deltaY > 0 ? 0.9 : 1.1
       const currentZoom = zoomRef.current
       const currentPan = panRef.current
-      const delta = newDistance / lastPinchDistance.current
       const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, currentZoom * delta))
       
-      const container = containerRef.current
-      const rect = container.getBoundingClientRect()
-      const mouseX = centerX - rect.left
-      const mouseY = centerY - rect.top
-      
       const zoomRatio = newZoom / currentZoom
-      const newPanX = mouseX - (mouseX - currentPan.x) * zoomRatio + (centerX - lastPanPoint.current.x)
-      const newPanY = mouseY - (mouseY - currentPan.y) * zoomRatio + (centerY - lastPanPoint.current.y)
+      const newPanX = mouseX - (mouseX - currentPan.x) * zoomRatio
+      const newPanY = mouseY - (mouseY - currentPan.y) * zoomRatio
       
       setZoom(newZoom)
       setPan({ x: newPanX, y: newPanY })
-      
-      lastPinchDistance.current = newDistance
-      lastPanPoint.current = { x: centerX, y: centerY }
     }
-    // Single touch drawing is handled by React onTouchMove
+
+    // Touch handlers need passive: false to prevent scroll/zoom on mobile
+    const touchStartHandler = (e) => {
+      if (e.touches.length === 2) {
+        e.preventDefault()
+        const touch1 = e.touches[0]
+        const touch2 = e.touches[1]
+        lastPinchDistance.current = Math.hypot(
+          touch2.clientX - touch1.clientX,
+          touch2.clientY - touch1.clientY
+        )
+        lastPanPoint.current = {
+          x: (touch1.clientX + touch2.clientX) / 2,
+          y: (touch1.clientY + touch2.clientY) / 2
+        }
+        setIsPanning(true)
+      }
+    }
+
+    const touchMoveHandler = (e) => {
+      if (e.touches.length === 2 && lastPinchDistance.current) {
+        e.preventDefault()
+        const touch1 = e.touches[0]
+        const touch2 = e.touches[1]
+        
+        const newDistance = Math.hypot(
+          touch2.clientX - touch1.clientX,
+          touch2.clientY - touch1.clientY
+        )
+        
+        const centerX = (touch1.clientX + touch2.clientX) / 2
+        const centerY = (touch1.clientY + touch2.clientY) / 2
+        
+        const currentZoom = zoomRef.current
+        const currentPan = panRef.current
+        const delta = newDistance / lastPinchDistance.current
+        const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, currentZoom * delta))
+        
+        const rect = container.getBoundingClientRect()
+        const mouseX = centerX - rect.left
+        const mouseY = centerY - rect.top
+        
+        const zoomRatio = newZoom / currentZoom
+        const newPanX = mouseX - (mouseX - currentPan.x) * zoomRatio + (centerX - lastPanPoint.current.x)
+        const newPanY = mouseY - (mouseY - currentPan.y) * zoomRatio + (centerY - lastPanPoint.current.y)
+        
+        setZoom(newZoom)
+        setPan({ x: newPanX, y: newPanY })
+        
+        lastPinchDistance.current = newDistance
+        lastPanPoint.current = { x: centerX, y: centerY }
+      } else if (e.touches.length === 1 && !isPanningRef.current) {
+        e.preventDefault() // Prevent scroll while drawing
+      }
+    }
+
+    container.addEventListener('wheel', wheelHandler, { passive: false })
+    container.addEventListener('touchstart', touchStartHandler, { passive: false })
+    container.addEventListener('touchmove', touchMoveHandler, { passive: false })
+
+    return () => {
+      container.removeEventListener('wheel', wheelHandler)
+      container.removeEventListener('touchstart', touchStartHandler)
+      container.removeEventListener('touchmove', touchMoveHandler)
+    }
   }, [])
-  
-  // Legacy handlers kept for fallback (remove onWheel from JSX)
-  const handleWheel = (e) => {
-    // Handled by native listener
-  }
   
   // Touch handlers for React (single touch drawing only)
   const handleTouchStart = (e) => {
@@ -1045,11 +1035,13 @@ export default function Canvas({
           return (
             <div
               key={userId}
-              className="absolute pointer-events-none transition-all duration-75"
+              className="absolute pointer-events-none"
               style={{
                 left: screenPos.x,
                 top: screenPos.y,
-                transform: 'translate(-50%, -50%)'
+                transform: 'translate(-50%, -50%)',
+                // Short transition for smooth interpolation without lag
+                transition: 'left 50ms linear, top 50ms linear'
               }}
             >
               <div
