@@ -29,7 +29,11 @@ const io = new Server(server, {
   },
   // Optimize transport
   transports: ['websocket', 'polling'],
-  allowUpgrades: true
+  allowUpgrades: true,
+  // Connection stability settings
+  pingTimeout: 30000, // How long to wait for pong before considering connection dead
+  pingInterval: 25000, // How often to send ping packets
+  connectTimeout: 20000, // How long to wait for initial connection
 });
 
 // Middleware

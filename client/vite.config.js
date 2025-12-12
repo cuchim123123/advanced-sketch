@@ -6,8 +6,8 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
+      '@': path.resolve(__dirname, './src')
+    }
   },
   server: {
     port: 3000,
@@ -20,13 +20,10 @@ export default defineConfig({
         target: 'http://localhost:5000',
         ws: true,
         changeOrigin: true,
-        // Increase timeout for WebSocket
-        timeout: 60000,
-        // Handle proxy errors gracefully
-        configure: (proxy, options) => {
-          proxy.on('error', (err, req, res) => {
-            console.warn('WebSocket proxy error:', err.message)
-          })
+        // Suppress proxy errors - these are normal during server restarts
+        configure: (proxy) => {
+          proxy.on('error', () => {})
+          proxy.on('proxyReqWs', () => {})
         }
       }
     }
