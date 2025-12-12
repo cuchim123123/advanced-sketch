@@ -1,6 +1,8 @@
 import { useRef, useEffect, useState, useCallback, useMemo, memo } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { optimizeStrokeForTransmit, deoptimizeStroke, getCompressionStats } from '../utils/strokeOptimization'
+import { Dropdown, DropdownItem, DropdownSeparator } from './ui/dropdown'
+import { ChevronDown } from 'lucide-react'
 
 const TOOLS = {
   PEN: 'pen',
@@ -8,6 +10,9 @@ const TOOLS = {
   LINE: 'line',
   RECTANGLE: 'rectangle',
   CIRCLE: 'circle',
+  TRIANGLE: 'triangle',
+  ARROW: 'arrow',
+  DIAMOND: 'diamond',
   TEXT: 'text',
   IMAGE: 'image',
   HAND: 'hand'  // Pan tool
@@ -233,6 +238,47 @@ export default function Canvas({
       if (clampedRadius > 0) {
         ctx.arc(stroke.startPoint.x, stroke.startPoint.y, clampedRadius, 0, 2 * Math.PI)
       }
+    } else if (stroke.tool === TOOLS.TRIANGLE) {
+      const sx = stroke.startPoint.x
+      const sy = stroke.startPoint.y
+      const ex = stroke.endPoint.x
+      const ey = stroke.endPoint.y
+      // Draw triangle: top point at start, base at end Y
+      ctx.moveTo((sx + ex) / 2, sy) // Top center
+      ctx.lineTo(ex, ey) // Bottom right
+      ctx.lineTo(sx, ey) // Bottom left
+      ctx.closePath()
+    } else if (stroke.tool === TOOLS.ARROW) {
+      const sx = stroke.startPoint.x
+      const sy = stroke.startPoint.y
+      const ex = stroke.endPoint.x
+      const ey = stroke.endPoint.y
+      // Draw line
+      ctx.moveTo(sx, sy)
+      ctx.lineTo(ex, ey)
+      ctx.stroke()
+      // Draw arrowhead
+      const angle = Math.atan2(ey - sy, ex - sx)
+      const headLen = 15
+      ctx.beginPath()
+      ctx.moveTo(ex, ey)
+      ctx.lineTo(ex - headLen * Math.cos(angle - Math.PI / 6), ey - headLen * Math.sin(angle - Math.PI / 6))
+      ctx.moveTo(ex, ey)
+      ctx.lineTo(ex - headLen * Math.cos(angle + Math.PI / 6), ey - headLen * Math.sin(angle + Math.PI / 6))
+    } else if (stroke.tool === TOOLS.DIAMOND) {
+      const sx = stroke.startPoint.x
+      const sy = stroke.startPoint.y
+      const ex = stroke.endPoint.x
+      const ey = stroke.endPoint.y
+      const cx = (sx + ex) / 2
+      const cy = (sy + ey) / 2
+      const hw = Math.abs(ex - sx) / 2
+      const hh = Math.abs(ey - sy) / 2
+      ctx.moveTo(cx, sy) // Top
+      ctx.lineTo(ex, cy) // Right
+      ctx.lineTo(cx, ey) // Bottom
+      ctx.lineTo(sx, cy) // Left
+      ctx.closePath()
     } else if (stroke.tool === TOOLS.TEXT) {
       // Draw text
       ctx.font = `${stroke.fontSize || 16}px Arial, sans-serif`
@@ -407,13 +453,18 @@ export default function Canvas({
       offscreenCanvasRef.current.height = canvas.height
     }
     
-    // On first preview, save current state to offscreen canvas
+    // On first preview, save current state to offscreen canvas (without transform)
     if (!lastShapePreview.current) {
       const offCtx = offscreenCanvasRef.current.getContext('2d')
+      // Reset transform before copying to get raw pixels
+      offCtx.setTransform(1, 0, 0, 1, 0, 0)
       offCtx.drawImage(canvas, 0, 0)
     } else {
-      // Restore from offscreen canvas
+      // Restore from offscreen canvas - need to reset transform first
+      ctx.save()
+      ctx.setTransform(1, 0, 0, 1, 0, 0) // Reset to identity
       ctx.drawImage(offscreenCanvasRef.current, 0, 0)
+      ctx.restore() // Restore the 2x scale
     }
     
     lastShapePreview.current = { x, y }
@@ -444,6 +495,41 @@ export default function Canvas({
         ctx.arc(startPoint.current.x, startPoint.current.y, clampedRadius, 0, 2 * Math.PI)
         ctx.stroke()
       }
+    } else if (tool === TOOLS.TRIANGLE) {
+      const sx = startPoint.current.x
+      const sy = startPoint.current.y
+      ctx.moveTo((sx + x) / 2, sy)
+      ctx.lineTo(x, y)
+      ctx.lineTo(sx, y)
+      ctx.closePath()
+      ctx.stroke()
+    } else if (tool === TOOLS.ARROW) {
+      const sx = startPoint.current.x
+      const sy = startPoint.current.y
+      ctx.moveTo(sx, sy)
+      ctx.lineTo(x, y)
+      ctx.stroke()
+      const angle = Math.atan2(y - sy, x - sx)
+      const headLen = 15
+      ctx.beginPath()
+      ctx.moveTo(x, y)
+      ctx.lineTo(x - headLen * Math.cos(angle - Math.PI / 6), y - headLen * Math.sin(angle - Math.PI / 6))
+      ctx.stroke()
+      ctx.beginPath()
+      ctx.moveTo(x, y)
+      ctx.lineTo(x - headLen * Math.cos(angle + Math.PI / 6), y - headLen * Math.sin(angle + Math.PI / 6))
+      ctx.stroke()
+    } else if (tool === TOOLS.DIAMOND) {
+      const sx = startPoint.current.x
+      const sy = startPoint.current.y
+      const cx = (sx + x) / 2
+      const cy = (sy + y) / 2
+      ctx.moveTo(cx, sy)
+      ctx.lineTo(x, cy)
+      ctx.lineTo(cx, y)
+      ctx.lineTo(sx, cy)
+      ctx.closePath()
+      ctx.stroke()
     }
   }
 
@@ -452,9 +538,11 @@ export default function Canvas({
     setIsDrawing(false)
 
     if (currentStroke.current) {
-      if (tool === TOOLS.LINE || tool === TOOLS.RECTANGLE || tool === TOOLS.CIRCLE) {
-        const { x, y } = getCoordinates(e)
-        currentStroke.current.endPoint = { x, y }
+      if ([TOOLS.LINE, TOOLS.RECTANGLE, TOOLS.CIRCLE, TOOLS.TRIANGLE, TOOLS.ARROW, TOOLS.DIAMOND].includes(tool)) {
+        // Use pendingPoint if available (from last RAF), otherwise get from event
+        // This ensures endPoint matches the preview position
+        const point = pendingPoint.current || getCoordinates(e)
+        currentStroke.current.endPoint = { x: point.x, y: point.y }
       }
 
       // Notify parent to add stroke (parent manages state)
@@ -475,6 +563,7 @@ export default function Canvas({
 
     currentStroke.current = null
     startPoint.current = null
+    pendingPoint.current = null // Clear pending point
     lastShapePreview.current = null // Reset shape preview state
     // Cancel any pending RAF
     if (rafRef.current) {
@@ -522,8 +611,7 @@ export default function Canvas({
     setIsPanning(false)
   }
 
-  // Throttle cursor updates (client-side)
-  const lastCursorEmit = useRef(0)
+  // Cursor updates are now realtime (no throttle)
   
   // Handle cursor move without drawing
   const handleMouseMove = (e) => {
@@ -538,17 +626,9 @@ export default function Canvas({
     
     const { x, y } = getCoordinates(e)
     
-    // Emit cursor position - different rates for drawing vs idle
-    // When drawing: cursor position is implied from stroke, emit less frequently
-    // When idle: emit more frequently for smooth cursor tracking
+    // Emit cursor position in realtime (no throttle for instant feedback)
     if (socket && !isPanning) {
-      const now = Date.now()
-      const throttleTime = isDrawing ? 100 : 25 // 10fps when drawing, 40fps when idle
-      
-      if (now - lastCursorEmit.current > throttleTime) {
-        socket.emit('cursor:move', { x, y })
-        lastCursorEmit.current = now
-      }
+      socket.emit('cursor:move', { x, y })
     }
     
     if (isDrawing) {
@@ -587,6 +667,10 @@ export default function Canvas({
     // Wheel handler needs passive: false to prevent scroll
     const wheelHandler = (e) => {
       e.preventDefault()
+      
+      // Don't zoom while drawing
+      if (isDrawingRef.current) return
+      
       const rect = container.getBoundingClientRect()
       const mouseX = e.clientX - rect.left
       const mouseY = e.clientY - rect.top
@@ -623,6 +707,9 @@ export default function Canvas({
     }
 
     const touchMoveHandler = (e) => {
+      // Don't zoom while drawing
+      if (isDrawingRef.current) return
+      
       if (e.touches.length === 2 && lastPinchDistance.current) {
         e.preventDefault()
         const touch1 = e.touches[0]
@@ -831,49 +918,175 @@ export default function Canvas({
     <div className="flex flex-col h-full bg-slate-100">
       {/* Toolbar */}
       <div className="glass border-b border-slate-200 p-3 flex flex-wrap items-center gap-4">
-        {/* Tools */}
+        {/* Basic Tools (Pen, Eraser, Hand) */}
         <div className="flex gap-1 p-1 glass rounded-xl">
-          {Object.entries(TOOLS).map(([key, value]) => (
-            <button
-              key={key}
-              onClick={() => setTool(value)}
-              className={`p-2.5 rounded-lg transition-all duration-200 ${
-                tool === value 
-                  ? 'bg-gradient-to-r from-sky-500 to-emerald-500 text-white shadow-lg' 
-                  : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
-              }`}
-              title={key}
-            >
-              {value === 'pen' && '✏️'}
-              {value === 'eraser' && '🧹'}
-              {value === 'line' && '📏'}
-              {value === 'rectangle' && '⬜'}
-              {value === 'circle' && '⭕'}
-              {value === 'text' && '🔤'}
-              {value === 'image' && '🖼️'}
-              {value === 'hand' && '✋'}
+          <button
+            onClick={() => setTool(TOOLS.PEN)}
+            className={`p-2.5 rounded-lg transition-all duration-200 ${
+              tool === TOOLS.PEN 
+                ? 'bg-gradient-to-r from-sky-500 to-emerald-500 text-white shadow-lg' 
+                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+            }`}
+            title="Pen (P)"
+          >
+            ✏️
+          </button>
+          <button
+            onClick={() => setTool(TOOLS.ERASER)}
+            className={`p-2.5 rounded-lg transition-all duration-200 ${
+              tool === TOOLS.ERASER 
+                ? 'bg-gradient-to-r from-sky-500 to-emerald-500 text-white shadow-lg' 
+                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+            }`}
+            title="Eraser (E)"
+          >
+            🧹
+          </button>
+          <button
+            onClick={() => setTool(TOOLS.HAND)}
+            className={`p-2.5 rounded-lg transition-all duration-200 ${
+              tool === TOOLS.HAND 
+                ? 'bg-gradient-to-r from-sky-500 to-emerald-500 text-white shadow-lg' 
+                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+            }`}
+            title="Hand (H)"
+          >
+            ✋
+          </button>
+        </div>
+
+        {/* Shapes Dropdown */}
+        <Dropdown 
+          trigger={
+            <button className={`flex items-center gap-2 px-3 py-2.5 rounded-xl transition-all duration-200 ${
+              [TOOLS.LINE, TOOLS.RECTANGLE, TOOLS.CIRCLE, TOOLS.TRIANGLE, TOOLS.ARROW, TOOLS.DIAMOND].includes(tool)
+                ? 'bg-gradient-to-r from-sky-500 to-emerald-500 text-white shadow-lg' 
+                : 'glass text-slate-600 hover:bg-slate-100'
+            }`}>
+              {tool === TOOLS.LINE && '📏'}
+              {tool === TOOLS.RECTANGLE && '⬜'}
+              {tool === TOOLS.CIRCLE && '⭕'}
+              {tool === TOOLS.TRIANGLE && '🔺'}
+              {tool === TOOLS.ARROW && '➡️'}
+              {tool === TOOLS.DIAMOND && '🔷'}
+              {![TOOLS.LINE, TOOLS.RECTANGLE, TOOLS.CIRCLE, TOOLS.TRIANGLE, TOOLS.ARROW, TOOLS.DIAMOND].includes(tool) && '⬜'}
+              <span className="text-sm">Shapes</span>
+              <ChevronDown className="w-4 h-4" />
             </button>
-          ))}
+          }
+        >
+          <DropdownItem 
+            onClick={() => setTool(TOOLS.LINE)}
+            active={tool === TOOLS.LINE}
+          >
+            <span className="flex items-center gap-2">
+              📏 Line <span className="text-xs text-gray-400 ml-auto">L</span>
+            </span>
+          </DropdownItem>
+          <DropdownItem 
+            onClick={() => setTool(TOOLS.RECTANGLE)}
+            active={tool === TOOLS.RECTANGLE}
+          >
+            <span className="flex items-center gap-2">
+              ⬜ Rectangle <span className="text-xs text-gray-400 ml-auto">R</span>
+            </span>
+          </DropdownItem>
+          <DropdownItem 
+            onClick={() => setTool(TOOLS.CIRCLE)}
+            active={tool === TOOLS.CIRCLE}
+          >
+            <span className="flex items-center gap-2">
+              ⭕ Circle <span className="text-xs text-gray-400 ml-auto">C</span>
+            </span>
+          </DropdownItem>
+          <DropdownSeparator />
+          <DropdownItem 
+            onClick={() => setTool(TOOLS.TRIANGLE)}
+            active={tool === TOOLS.TRIANGLE}
+          >
+            <span className="flex items-center gap-2">
+              🔺 Triangle
+            </span>
+          </DropdownItem>
+          <DropdownItem 
+            onClick={() => setTool(TOOLS.ARROW)}
+            active={tool === TOOLS.ARROW}
+          >
+            <span className="flex items-center gap-2">
+              ➡️ Arrow
+            </span>
+          </DropdownItem>
+          <DropdownItem 
+            onClick={() => setTool(TOOLS.DIAMOND)}
+            active={tool === TOOLS.DIAMOND}
+          >
+            <span className="flex items-center gap-2">
+              🔷 Diamond
+            </span>
+          </DropdownItem>
+        </Dropdown>
+
+        {/* Text & Image */}
+        <div className="flex gap-1 p-1 glass rounded-xl">
+          <button
+            onClick={() => setTool(TOOLS.TEXT)}
+            className={`p-2.5 rounded-lg transition-all duration-200 ${
+              tool === TOOLS.TEXT 
+                ? 'bg-gradient-to-r from-sky-500 to-emerald-500 text-white shadow-lg' 
+                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+            }`}
+            title="Text (T)"
+          >
+            🔤
+          </button>
+          <button
+            onClick={() => setTool(TOOLS.IMAGE)}
+            className={`p-2.5 rounded-lg transition-all duration-200 ${
+              tool === TOOLS.IMAGE 
+                ? 'bg-gradient-to-r from-sky-500 to-emerald-500 text-white shadow-lg' 
+                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+            }`}
+            title="Image (I)"
+          >
+            🖼️
+          </button>
         </div>
 
         {/* Divider */}
         <div className="w-px h-8 bg-slate-200" />
 
-        {/* Colors */}
-        <div className="flex gap-1.5 p-1 glass rounded-xl">
-          {COLORS.map((c) => (
-            <button
-              key={c}
-              onClick={() => setColor(c)}
-              className={`w-7 h-7 rounded-lg transition-all duration-200 ${
-                color === c 
-                  ? 'ring-2 ring-sky-500 ring-offset-2 ring-offset-white scale-110' 
-                  : 'hover:scale-110'
-              }`}
-              style={{ backgroundColor: c }}
-            />
-          ))}
-        </div>
+        {/* Color Picker Dropdown */}
+        <Dropdown
+          trigger={
+            <button className="flex items-center gap-2 px-3 py-2.5 glass rounded-xl hover:bg-slate-100 transition-all duration-200">
+              <div 
+                className="w-6 h-6 rounded-md border-2 border-white shadow-sm" 
+                style={{ backgroundColor: color }}
+              />
+              <span className="text-sm text-slate-600">Color</span>
+              <ChevronDown className="w-4 h-4 text-slate-400" />
+            </button>
+          }
+          className="min-w-[200px]"
+        >
+          <div className="px-4 py-3">
+            <div className="grid grid-cols-4 gap-2">
+              {COLORS.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setColor(c)}
+                  className={`w-10 h-10 rounded-lg transition-all duration-200 ${
+                    color === c 
+                      ? 'ring-2 ring-sky-500 ring-offset-2 scale-110' 
+                      : 'hover:scale-110'
+                  }`}
+                  style={{ backgroundColor: c }}
+                  title={c}
+                />
+              ))}
+            </div>
+          </div>
+        </Dropdown>
 
         {/* Divider */}
         <div className="w-px h-8 bg-slate-200" />
@@ -1029,7 +1242,7 @@ export default function Canvas({
           />
         </div>
 
-        {/* Other users' cursors */}
+        {/* Other users' cursors - realtime with will-change for GPU acceleration */}
         {Object.entries(cursors).map(([userId, cursor]) => {
           const screenPos = canvasToScreen(cursor.x, cursor.y)
           return (
@@ -1037,11 +1250,8 @@ export default function Canvas({
               key={userId}
               className="absolute pointer-events-none"
               style={{
-                left: screenPos.x,
-                top: screenPos.y,
-                transform: 'translate(-50%, -50%)',
-                // Short transition for smooth interpolation without lag
-                transition: 'left 50ms linear, top 50ms linear'
+                transform: `translate(${screenPos.x - 8}px, ${screenPos.y - 8}px)`,
+                willChange: 'transform' // GPU accelerated
               }}
             >
               <div
