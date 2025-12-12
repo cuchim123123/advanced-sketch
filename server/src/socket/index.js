@@ -267,6 +267,30 @@ module.exports = (io) => {
     });
 
     /**
+     * UPDATE STROKE
+     * Update an existing stroke (for moving text/images)
+     */
+    socket.on('draw:update', async ({ stroke }) => {
+      if (!socket.roomCode) return;
+
+      const roomState = roomStates.get(socket.roomCode);
+      if (!roomState) return;
+
+      // Update stroke in state
+      const existingIndex = roomState.strokes.findIndex(s => s.id === stroke.id);
+      if (existingIndex >= 0) {
+        roomState.strokes[existingIndex] = {
+          ...roomState.strokes[existingIndex],
+          ...stroke,
+          timestamp: new Date()
+        };
+        
+        // Broadcast to others
+        socket.to(socket.roomCode).emit('draw:update', { stroke });
+      }
+    });
+
+    /**
      * CLEAR CANVAS
      * Owner/editor can clear all strokes
      */
