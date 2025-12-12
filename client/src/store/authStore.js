@@ -35,10 +35,10 @@ export const useAuthStore = create(
         }
       },
 
-      login: async (email, password) => {
+      login: async (emailOrPhoneOrUsername, password) => {
         set({ loading: true, error: null })
         try {
-          const { data } = await api.post('/auth/login', { email, password })
+          const { data } = await api.post('/auth/login', { emailOrPhoneOrUsername, password })
           set({
             user: data.data.user,
             token: data.data.token,
@@ -56,13 +56,39 @@ export const useAuthStore = create(
       },
 
       loginAsGuest: () => {
-        const guestId = `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-        set({
-          user: {
+        // Check if there's already a guest in the persisted state
+        const currentState = get()
+        if (currentState.isGuest && currentState.user?.isGuest) {
+          // Already a guest, just return success
+          return { success: true }
+        }
+        
+        // Check localStorage for existing guest
+        const storedGuest = localStorage.getItem('copad-guest')
+        let guestUser
+        
+        if (storedGuest) {
+          try {
+            guestUser = JSON.parse(storedGuest)
+          } catch {
+            // Invalid stored guest, create new one
+            guestUser = null
+          }
+        }
+        
+        if (!guestUser) {
+          // Create new guest
+          const guestId = `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+          guestUser = {
             id: guestId,
             username: `Guest_${guestId.slice(-6)}`,
             isGuest: true
-          },
+          }
+          localStorage.setItem('copad-guest', JSON.stringify(guestUser))
+        }
+        
+        set({
+          user: guestUser,
           token: null,
           isGuest: true,
           loading: false,

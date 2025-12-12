@@ -197,11 +197,12 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Find user
+    // Find user by email, username, or phone
     const user = await User.findOne({
       $or: [
         { email: emailOrPhoneOrUsername.toLowerCase() },
-        { username: emailOrPhoneOrUsername }
+        { username: emailOrPhoneOrUsername },
+        { phone: emailOrPhoneOrUsername.replace(/[\s\-\(\)]/g, '') }
       ]
     }).select('+password');
 
