@@ -66,11 +66,32 @@ router.get('/', protect, async (req, res) => {
   try {
     const rooms = await Room.find({ owner: req.user._id })
       .sort({ lastActiveAt: -1 })
-      .select('-password');
+      .select('name code isPublic maxParticipants lastActiveAt createdAt isActive');
+
+    // Get participant counts for each room
+    const roomsWithCounts = await Promise.all(
+      rooms.map(async (room) => {
+        const participantCount = await SessionParticipant.countDocuments({
+          room: room._id,
+          isActive: true
+        });
+        return {
+          id: room._id,
+          name: room.name,
+          code: room.code,
+          isPublic: room.isPublic,
+          maxParticipants: room.maxParticipants,
+          participantCount,
+          lastActiveAt: room.lastActiveAt,
+          createdAt: room.createdAt,
+          isOwner: true
+        };
+      })
+    );
 
     res.json({
       success: true,
-      data: { rooms }
+      data: { rooms: roomsWithCounts }
     });
   } catch (error) {
     res.status(500).json({
