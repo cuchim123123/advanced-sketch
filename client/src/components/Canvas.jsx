@@ -231,6 +231,9 @@ export default function Canvas({
   // Redraw when strokes change
   useEffect(() => {
     redrawWithStrokes(strokes)
+    // Invalidate offscreen canvas so shape preview uses fresh state
+    offscreenCanvasRef.current = null
+    lastShapePreview.current = null
   }, [strokes])
   
   // Alias for shape preview
