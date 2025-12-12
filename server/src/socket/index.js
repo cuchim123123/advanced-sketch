@@ -320,6 +320,49 @@ module.exports = (io) => {
     });
 
     /**
+     * RESTORE SNAPSHOT
+     * Owner can restore to a previous version
+     */
+    socket.on('room:restore', async ({ version }) => {
+      if (!socket.roomCode) return;
+
+      try {
+        const room = await Room.findOne({ code: socket.roomCode });
+        if (!room) return;
+
+        // Only owner can restore
+        if (room.owner.toString() !== socket.user._id.toString()) {
+          socket.emit('error', { message: 'Only room owner can restore snapshots' });
+          return;
+        }
+
+        const history = await SketchHistory.findOne({
+          room: room._id,
+          version: version
+        });
+
+        if (!history) {
+          socket.emit('error', { message: 'Snapshot not found' });
+          return;
+        }
+
+        const roomState = roomStates.get(socket.roomCode);
+        if (roomState) {
+          roomState.strokes = history.strokes || [];
+          
+          // Broadcast restored state to all participants
+          io.to(socket.roomCode).emit('room:restored', {
+            strokes: roomState.strokes,
+            version: version
+          });
+        }
+      } catch (error) {
+        console.error('Restore error:', error);
+        socket.emit('error', { message: 'Failed to restore snapshot' });
+      }
+    });
+
+    /**
      * UNDO (user's last stroke)
      */
     socket.on('draw:undo', async () => {

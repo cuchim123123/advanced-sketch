@@ -7,7 +7,8 @@ import { useToast } from '@/components/Toast'
 import { useConfirm } from '@/components/ConfirmModal'
 import Canvas from '@/components/Canvas'
 import RoomSettingsModal from '@/components/RoomSettingsModal'
-import { ArrowLeft, Save, Link2, Settings, Users, Sparkles } from 'lucide-react'
+import { ArrowLeft, Save, Link2, Settings, Users, Sparkles, History, Crown } from 'lucide-react'
+import api from '@/services/api'
 
 export default function Room() {
   const { code } = useParams()
@@ -27,6 +28,9 @@ export default function Room() {
   const [showParticipants, setShowParticipants] = useState(true)
   const [showSettings, setShowSettings] = useState(false)
   const [settingsLoading, setSettingsLoading] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
+  const [historyList, setHistoryList] = useState([])
+  const [historyLoading, setHistoryLoading] = useState(false)
 
   // Set room from loader data immediately
   useEffect(() => {
@@ -146,6 +150,13 @@ export default function Room() {
 
     sock.on('room:saved', ({ version }) => {
       console.log('Room saved, version:', version)
+      toast.success(`Snapshot saved (v${version})`)
+    })
+
+    // Listen for restore event
+    sock.on('room:restored', ({ strokes: restoredStrokes, version }) => {
+      setStrokes(restoredStrokes || [])
+      toast.success(`Restored to version ${version}`)
     })
 
     sock.on('error', ({ message }) => {
@@ -165,6 +176,7 @@ export default function Room() {
     })
 
     // Cleanup
+    // Cleanup
     return () => {
       const sock = getSocket()
       if (sock) {
@@ -180,6 +192,7 @@ export default function Room() {
         sock.off('draw:clear')
         sock.off('cursor:move')
         sock.off('room:saved')
+        sock.off('room:restored')
         sock.off('error')
         sock.off('user:kicked')
       }
@@ -235,6 +248,45 @@ export default function Room() {
     
     if (confirmed && socket) {
       socket.emit('draw:clear')
+    }
+  }, [socket, confirm])
+
+  // Fetch snapshot history
+  const fetchHistory = useCallback(async () => {
+    if (!currentRoom?.isOwner) return
+    
+    setHistoryLoading(true)
+    try {
+      const { data } = await api.get(`/rooms/${code}/history`)
+      setHistoryList(data.data.history || [])
+    } catch (error) {
+      toast.error('Failed to load history')
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [code, currentRoom?.isOwner, toast])
+
+  // Toggle history panel
+  const toggleHistory = useCallback(() => {
+    if (!showHistory) {
+      fetchHistory()
+    }
+    setShowHistory(prev => !prev)
+  }, [showHistory, fetchHistory])
+
+  // Restore to a snapshot version
+  const handleRestore = useCallback(async (version) => {
+    const confirmed = await confirm({
+      title: 'Restore Snapshot',
+      message: `Are you sure you want to restore to version ${version}? Current canvas will be replaced.`,
+      confirmText: 'Restore',
+      cancelText: 'Cancel',
+      type: 'warning'
+    })
+    
+    if (confirmed && socket) {
+      socket.emit('room:restore', { version })
+      setShowHistory(false)
     }
   }, [socket, confirm])
 
@@ -325,8 +377,18 @@ export default function Room() {
             <Link2 className="w-4 h-4" />
             <span className="hidden sm:inline">Invite</span>
           </button>
+          {/* History button - only for room owner */}
+          {currentRoom?.isOwner && (
+            <button
+              onClick={toggleHistory}
+              className={`glass-dark-button px-3 py-1.5 text-xs sm:text-sm flex items-center gap-1.5 ${showHistory ? 'text-amber-300' : 'text-amber-300/60 hover:text-amber-300'}`}
+              title="Snapshot History"
+            >
+              <History className="w-4 h-4" />
+            </button>
+          )}
           {/* Settings button - only for room owner */}
-          {(currentRoom?.owner === user?.id || currentRoom?.owner?._id === user?.id || currentRoom?.isOwner) && (
+          {currentRoom?.isOwner && (
             <button
               onClick={() => setShowSettings(true)}
               className="glass-dark-button px-3 py-1.5 text-xs sm:text-sm flex items-center gap-1.5"
@@ -411,16 +473,27 @@ export default function Room() {
             {/* Current user */}
             <li className="flex items-center gap-2 p-2.5 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-xl border border-purple-500/30">
               <div className="w-3 h-3 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 flex-shrink-0" />
-              <span className="text-sm font-medium text-white truncate">
+              <span className="text-sm font-medium text-white truncate flex-1">
                 {user?.username} (you)
-                {isGuest && <span className="ml-1 text-xs text-yellow-300/70">guest</span>}
               </span>
+              <div className="flex items-center gap-1">
+                {currentRoom?.isOwner && (
+                  <span className="text-xs bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                    <Crown className="w-3 h-3" />
+                    Owner
+                  </span>
+                )}
+                {isGuest && <span className="text-xs text-yellow-300/70">guest</span>}
+              </div>
             </li>
             
             {/* Other participants */}
             {participants
               .filter(p => p.id !== user?.id)
-              .map(participant => (
+              .map(participant => {
+                // Check if this participant is the owner
+                const isOwner = currentRoom?.owner?._id === participant.id || currentRoom?.owner === participant.id
+                return (
                 <li
                   key={participant.id}
                   className="flex items-center gap-2 p-2.5 bg-white/5 rounded-xl hover:bg-white/10 transition-all duration-300 group"
@@ -431,23 +504,29 @@ export default function Room() {
                   />
                   <span className="text-sm truncate flex-1 text-white/80">
                     {participant.username}
-                    {participant.isGuest && (
-                      <span className="ml-1 text-xs text-yellow-300/70">(guest)</span>
-                    )}
                   </span>
-                  {/* Kick button - only visible to room owner */}
-                  {(currentRoom?.owner === user?.id || currentRoom?.owner?._id === user?.id || currentRoom?.isOwner) && (
-                    <button
-                      onClick={() => handleKick(participant.id)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded-lg hover:bg-red-500/20"
-                      title="Kick user"
-                    >
-                      ✕
-                    </button>
-                  )}
+                  <div className="flex items-center gap-1">
+                    {isOwner && (
+                      <span className="text-xs bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                        <Crown className="w-3 h-3" />
+                      </span>
+                    )}
+                    {participant.isGuest && (
+                      <span className="text-xs text-yellow-300/70">guest</span>
+                    )}
+                    {/* Kick button - only visible to room owner */}
+                    {currentRoom?.isOwner && (
+                      <button
+                        onClick={() => handleKick(participant.id)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded-lg hover:bg-red-500/20"
+                        title="Kick user"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 </li>
-              ))
-            }
+              )})}
           </ul>
 
           {participants.filter(p => p.id !== user?.id).length === 0 && (
@@ -456,6 +535,63 @@ export default function Room() {
             </p>
           )}
         </div>
+
+        {/* History Panel - only for room owner */}
+        {showHistory && currentRoom?.isOwner && (
+          <div className="fixed md:relative right-0 top-0 h-full z-20 glass-dark border-l border-white/10 w-72 p-4 overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold text-white flex items-center gap-2">
+                <History className="w-4 h-4 text-amber-400" />
+                Snapshots
+              </h2>
+              <button 
+                onClick={() => setShowHistory(false)}
+                className="text-white/40 hover:text-white/60 text-xl leading-none glass-dark-button w-8 h-8 flex items-center justify-center"
+              >
+                ×
+              </button>
+            </div>
+            
+            {historyLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-6 h-6 border-2 border-amber-200 border-t-amber-500 rounded-full animate-spin" />
+              </div>
+            ) : historyList.length === 0 ? (
+              <p className="text-sm text-white/30 text-center py-8">
+                No snapshots yet. Click Save to create one.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {historyList.map((h, i) => (
+                  <li
+                    key={h.version}
+                    className="p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-all duration-200"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium text-white">
+                        Version {h.version}
+                        {i === 0 && <span className="ml-2 text-xs text-green-400">(latest)</span>}
+                      </span>
+                      <button
+                        onClick={() => handleRestore(h.version)}
+                        className="text-xs px-2 py-1 bg-amber-500/20 text-amber-300 rounded-lg hover:bg-amber-500/30 transition-colors"
+                        disabled={i === 0}
+                      >
+                        Restore
+                      </button>
+                    </div>
+                    <div className="text-xs text-white/40">
+                      {new Date(h.createdAt).toLocaleString()}
+                    </div>
+                    <div className="text-xs text-white/30">
+                      by {h.createdBy}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Room Settings Modal */}

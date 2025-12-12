@@ -356,6 +356,54 @@ router.patch('/:code', protect, async (req, res) => {
 });
 
 /**
+ * @route   GET /api/rooms/:code/history
+ * @desc    Get snapshot history for a room (owner only)
+ * @access  Private
+ */
+router.get('/:code/history', protect, async (req, res) => {
+  try {
+    const room = await Room.findOne({ code: req.params.code });
+
+    if (!room) {
+      return res.status(404).json({
+        success: false,
+        message: 'Room not found'
+      });
+    }
+
+    // Only owner can view history
+    if (room.owner.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only room owner can view history'
+      });
+    }
+
+    const history = await SketchHistory.find({ room: room._id })
+      .sort({ version: -1 })
+      .limit(20)
+      .select('version createdAt createdBy')
+      .populate('createdBy', 'username');
+
+    res.json({
+      success: true,
+      data: {
+        history: history.map(h => ({
+          version: h.version,
+          createdAt: h.createdAt,
+          createdBy: h.createdBy?.username || 'Unknown'
+        }))
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+/**
  * @route   DELETE /api/rooms/:code
  * @desc    Delete a room (owner only)
  * @access  Private
