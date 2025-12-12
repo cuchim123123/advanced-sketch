@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLoaderData } from 'react-router-dom'
 import { useRoomStore } from '@/store/roomStore'
 import { useAuthStore } from '@/store/authStore'
 import { connectSocket, getSocket, disconnectSocket } from '@/services/socket'
@@ -12,8 +12,9 @@ import { ArrowLeft, Save, Link2, Settings, Users, Sparkles } from 'lucide-react'
 export default function Room() {
   const { code } = useParams()
   const navigate = useNavigate()
+  const { room: loaderRoom } = useLoaderData()  // Get room data from loader (pre-fetched)
   const { user, isGuest } = useAuthStore()
-  const { currentRoom, getRoom, setParticipants, addParticipant, removeParticipant, participants, clearRoom, updateRoom } = useRoomStore()
+  const { currentRoom, setCurrentRoom, setParticipants, addParticipant, removeParticipant, participants, clearRoom, updateRoom } = useRoomStore()
   const toast = useToast()
   const confirm = useConfirm()
   const kickedRef = useRef(false)
@@ -22,145 +23,146 @@ export default function Room() {
   const [strokes, setStrokes] = useState([])
   const [cursors, setCursors] = useState({})
   const [connected, setConnected] = useState(false)
-  const [roomReady, setRoomReady] = useState(false)  // Track when room data is fully loaded
+  const [roomReady, setRoomReady] = useState(false)  // Track when socket is ready
   const [showParticipants, setShowParticipants] = useState(true)
   const [showSettings, setShowSettings] = useState(false)
   const [settingsLoading, setSettingsLoading] = useState(false)
 
-  // Initialize socket and join room
+  // Set room from loader data immediately
   useEffect(() => {
-    const initRoom = async () => {
-      // Get room info
-      const result = await getRoom(code)
-      if (!result.success) {
-        navigate('/dashboard')
-        return
-      }
+    if (loaderRoom) {
+      setCurrentRoom(loaderRoom)
+    }
+  }, [loaderRoom, setCurrentRoom])
 
-      // Connect socket
-      const sock = connectSocket()
-      if (!sock) {
-        console.error('Failed to connect socket')
-        return
-      }
-
-      setSocket(sock)
-
-      // Socket event handlers
-      sock.on('connect', () => {
-        setConnected(true)
-        sock.emit('room:join', { roomCode: code })
-      })
-
-      sock.on('disconnect', () => {
-        setConnected(false)
-      })
-
-      sock.on('room:state', ({ strokes: roomStrokes, participants: roomParticipants }) => {
-        setStrokes(roomStrokes || [])
-        setParticipants(roomParticipants || [])
-        setRoomReady(true)  // Room data is now ready
-      })
-
-      sock.on('user:joined', (participant) => {
-        addParticipant(participant)
-        // Update cursor with participant info if exists
-        setCursors(prev => {
-          if (prev[participant.id]) {
-            return {
-              ...prev,
-              [participant.id]: {
-                ...prev[participant.id],
-                color: participant.color,
-                username: participant.username
-              }
-            }
-          }
-          return prev
-        })
-      })
-
-      sock.on('user:left', ({ id }) => {
-        removeParticipant(id)
-        setCursors(prev => {
-          const updated = { ...prev }
-          delete updated[id]
-          return updated
-        })
-      })
-
-      sock.on('draw:stroke', ({ stroke }) => {
-        setStrokes(prev => {
-          // Update existing stroke or add new
-          const existing = prev.findIndex(s => s.id === stroke.id)
-          if (existing >= 0) {
-            const updated = [...prev]
-            updated[existing] = stroke
-            return updated
-          }
-          return [...prev, stroke]
-        })
-      })
-
-      sock.on('draw:complete', ({ strokeId }) => {
-        // Stroke completed, already in state
-      })
-
-      sock.on('draw:erase', ({ strokeId }) => {
-        setStrokes(prev => prev.filter(s => s.id !== strokeId))
-      })
-
-      sock.on('draw:clear', () => {
-        setStrokes([])
-      })
-
-      // Batch cursor updates using RAF for performance
-      let cursorUpdatePending = false
-      const pendingCursors = {}
-      
-      sock.on('cursor:move', ({ userId, x, y }) => {
-        // Queue cursor update
-        const { participants } = useRoomStore.getState()
-        const participant = participants.find(p => p.id === userId)
-        pendingCursors[userId] = {
-          x,
-          y,
-          color: participant?.color || pendingCursors[userId]?.color || '#888',
-          username: participant?.username || pendingCursors[userId]?.username || 'User'
-        }
-        
-        // Batch updates with RAF
-        if (!cursorUpdatePending) {
-          cursorUpdatePending = true
-          requestAnimationFrame(() => {
-            cursorUpdatePending = false
-            setCursors(prev => ({ ...prev, ...pendingCursors }))
-          })
-        }
-      })
-
-      sock.on('room:saved', ({ version }) => {
-        console.log('Room saved, version:', version)
-      })
-
-      sock.on('error', ({ message }) => {
-        console.error('Socket error:', message)
-        toast.error(message)
-      })
-
-      // IMPORTANT: Listen for kick event - use ref to prevent duplicate
-      sock.on('user:kicked', () => {
-        if (kickedRef.current) return // Already handled
-        kickedRef.current = true
-        console.log('Received user:kicked event!')
-        toast.kicked()
-        setTimeout(() => {
-          navigate('/dashboard')
-        }, 2000)
-      })
+  // Initialize socket connection (room data already loaded via loader)
+  useEffect(() => {
+    if (!loaderRoom) {
+      navigate('/dashboard')
+      return
     }
 
-    initRoom()
+    // Connect socket
+    const sock = connectSocket()
+    if (!sock) {
+      console.error('Failed to connect socket')
+      return
+    }
+
+    setSocket(sock)
+
+    // Socket event handlers
+    sock.on('connect', () => {
+      setConnected(true)
+      sock.emit('room:join', { roomCode: code })
+    })
+
+    sock.on('disconnect', () => {
+      setConnected(false)
+    })
+
+    sock.on('room:state', ({ strokes: roomStrokes, participants: roomParticipants }) => {
+      setStrokes(roomStrokes || [])
+      setParticipants(roomParticipants || [])
+      setRoomReady(true)  // Socket data is now ready
+    })
+
+    sock.on('user:joined', (participant) => {
+      addParticipant(participant)
+      // Update cursor with participant info if exists
+      setCursors(prev => {
+        if (prev[participant.id]) {
+          return {
+            ...prev,
+            [participant.id]: {
+              ...prev[participant.id],
+              color: participant.color,
+              username: participant.username
+            }
+          }
+        }
+        return prev
+      })
+    })
+
+    sock.on('user:left', ({ id }) => {
+      removeParticipant(id)
+      setCursors(prev => {
+        const updated = { ...prev }
+        delete updated[id]
+        return updated
+      })
+    })
+
+    sock.on('draw:stroke', ({ stroke }) => {
+      setStrokes(prev => {
+        // Update existing stroke or add new
+        const existing = prev.findIndex(s => s.id === stroke.id)
+        if (existing >= 0) {
+          const updated = [...prev]
+          updated[existing] = stroke
+          return updated
+        }
+        return [...prev, stroke]
+      })
+    })
+
+    sock.on('draw:complete', ({ strokeId }) => {
+      // Stroke completed, already in state
+    })
+
+    sock.on('draw:erase', ({ strokeId }) => {
+      setStrokes(prev => prev.filter(s => s.id !== strokeId))
+    })
+
+    sock.on('draw:clear', () => {
+      setStrokes([])
+    })
+
+    // Batch cursor updates using RAF for performance
+    let cursorUpdatePending = false
+    const pendingCursors = {}
+    
+    sock.on('cursor:move', ({ userId, x, y }) => {
+      // Queue cursor update
+      const { participants } = useRoomStore.getState()
+      const participant = participants.find(p => p.id === userId)
+      pendingCursors[userId] = {
+        x,
+        y,
+        color: participant?.color || pendingCursors[userId]?.color || '#888',
+        username: participant?.username || pendingCursors[userId]?.username || 'User'
+      }
+      
+      // Batch updates with RAF
+      if (!cursorUpdatePending) {
+        cursorUpdatePending = true
+        requestAnimationFrame(() => {
+          cursorUpdatePending = false
+          setCursors(prev => ({ ...prev, ...pendingCursors }))
+        })
+      }
+    })
+
+    sock.on('room:saved', ({ version }) => {
+      console.log('Room saved, version:', version)
+    })
+
+    sock.on('error', ({ message }) => {
+      console.error('Socket error:', message)
+      toast.error(message)
+    })
+
+    // IMPORTANT: Listen for kick event - use ref to prevent duplicate
+    sock.on('user:kicked', () => {
+      if (kickedRef.current) return // Already handled
+      kickedRef.current = true
+      console.log('Received user:kicked event!')
+      toast.kicked()
+      setTimeout(() => {
+        navigate('/dashboard')
+      }, 2000)
+    })
 
     // Cleanup
     return () => {

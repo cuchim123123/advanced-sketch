@@ -9,6 +9,8 @@ export const useRoomStore = create((set, get) => ({
   loading: false,
   error: null,
 
+  setCurrentRoom: (room) => set({ currentRoom: room }),
+
   fetchRooms: async () => {
     set({ loading: true })
     try {
