@@ -18,7 +18,16 @@ export default defineConfig({
       },
       '/socket.io': {
         target: 'http://localhost:5000',
-        ws: true
+        ws: true,
+        changeOrigin: true,
+        // Increase timeout for WebSocket
+        timeout: 60000,
+        // Handle proxy errors gracefully
+        configure: (proxy, options) => {
+          proxy.on('error', (err, req, res) => {
+            console.warn('WebSocket proxy error:', err.message)
+          })
+        }
       }
     }
   }
