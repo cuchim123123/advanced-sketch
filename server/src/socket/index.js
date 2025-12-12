@@ -208,12 +208,21 @@ module.exports = (io) => {
       // Decompress if stroke was optimized
       const decompressedStroke = processIncomingStroke(stroke);
 
+      // Get user ID consistently (works for both regular users and guests)
+      const userId = socket.user._id?.toString() || socket.user.id;
+
       // Add user info to stroke
       const fullStroke = {
         ...decompressedStroke,
-        userId: socket.user._id,
+        userId: userId,
         timestamp: new Date()
       };
+
+      // Clear redo stack when user draws new stroke
+      const roomState2 = roomStates.get(socket.roomCode);
+      if (roomState2?.redoStack?.has(userId)) {
+        roomState2.redoStack.set(userId, []);
+      }
 
       // Update existing stroke or add new (prevents duplicates)
       const existingIndex = roomState.strokes.findIndex(s => s.id === stroke.id);
@@ -370,17 +379,55 @@ module.exports = (io) => {
       const roomState = roomStates.get(socket.roomCode);
       if (!roomState) return;
 
+      // Get current user ID (works for both regular users and guests)
+      const currentUserId = socket.user._id?.toString() || socket.user.id;
+
       // Find and remove user's last stroke
       const userStrokes = roomState.strokes.filter(
-        s => s.userId.toString() === socket.user._id.toString()
+        s => (s.userId?.toString() || s.userId) === currentUserId
       );
 
       if (userStrokes.length > 0) {
         const lastStroke = userStrokes[userStrokes.length - 1];
+        
+        // Move to redo stack before removing
+        if (!roomState.redoStack) roomState.redoStack = new Map();
+        if (!roomState.redoStack.has(currentUserId)) {
+          roomState.redoStack.set(currentUserId, []);
+        }
+        roomState.redoStack.get(currentUserId).push(lastStroke);
+        
+        // Remove from strokes
         roomState.strokes = roomState.strokes.filter(s => s.id !== lastStroke.id);
 
         io.to(socket.roomCode).emit('draw:erase', { strokeId: lastStroke.id });
       }
+    });
+
+    /**
+     * REDO (restore user's last undone stroke)
+     */
+    socket.on('draw:redo', async () => {
+      if (!socket.roomCode) return;
+
+      const roomState = roomStates.get(socket.roomCode);
+      if (!roomState || !roomState.redoStack) return;
+
+      // Get current user ID
+      const currentUserId = socket.user._id?.toString() || socket.user.id;
+
+      const userRedoStack = roomState.redoStack.get(currentUserId);
+      if (!userRedoStack || userRedoStack.length === 0) return;
+
+      // Pop from redo stack and add back to strokes
+      const strokeToRedo = userRedoStack.pop();
+      roomState.strokes.push(strokeToRedo);
+
+      // Broadcast the restored stroke to all users in room
+      io.to(socket.roomCode).emit('draw:stroke', {
+        stroke: strokeToRedo,
+        username: socket.user.username
+      });
     });
 
     /**
@@ -542,6 +589,26 @@ module.exports = (io) => {
           }
         }
       }
+    });
+
+    /**
+     * CHAT MESSAGE
+     * Send chat message to room
+     */
+    socket.on('chat:send', ({ message }) => {
+      if (!socket.roomCode || !message?.trim()) return;
+
+      const chatMessage = {
+        message: message.trim(),
+        user: {
+          id: socket.user._id || socket.user.id,
+          username: socket.user.username
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      // Broadcast to all users in room (including sender)
+      io.to(socket.roomCode).emit('chat:message', chatMessage);
     });
   });
 };
