@@ -122,7 +122,14 @@ function HydratedApp() {
       path: '/',
       element: <Navigate to="/dashboard" replace />
     }
-  ]), [])
+  ], {
+    future: {
+      v7_relativeSplatPath: true,
+      v7_fetcherPersist: true,
+      v7_normalizeFormMethod: true,
+      v7_skipActionErrorRevalidation: true
+    }
+  }), [])
 
   if (!hasHydrated) {
     return (
@@ -132,7 +139,7 @@ function HydratedApp() {
     )
   }
 
-  return <RouterProvider router={router} />
+  return <RouterProvider router={router} future={{ v7_startTransition: true }} />
 }
 
 function App() {
