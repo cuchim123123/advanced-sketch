@@ -29,13 +29,14 @@ export const useRoomStore = create((set, get) => ({
     }
   },
 
-  createRoom: async (name, password, maxParticipants) => {
+  createRoom: async (name, { password, maxParticipants, isPublic } = {}) => {
     set({ loading: true, error: null })
     try {
       const { data } = await api.post('/rooms', {
         name,
         password: password || undefined,
-        maxParticipants
+        maxParticipants,
+        isPublic: isPublic || false
       })
       const newRoom = data.data.room
       set((state) => ({
@@ -49,10 +50,10 @@ export const useRoomStore = create((set, get) => ({
     }
   },
 
-  joinRoom: async (code, password) => {
+  joinRoom: async (code) => {
     set({ loading: true, error: null })
     try {
-      const { data } = await api.post(`/rooms/${code}/join`, { password })
+      const { data } = await api.post(`/rooms/${code}/join`)
       set({ currentRoom: data.data.room, loading: false })
       return { success: true, room: data.data.room }
     } catch (error) {
@@ -81,6 +82,23 @@ export const useRoomStore = create((set, get) => ({
       }))
       return { success: true }
     } catch (error) {
+      return { success: false, error: error.response?.data?.message }
+    }
+  },
+
+  updateRoom: async (code, updates) => {
+    set({ loading: true, error: null })
+    try {
+      const { data } = await api.patch(`/rooms/${code}`, updates)
+      const updatedRoom = data.data.room
+      set((state) => ({
+        currentRoom: updatedRoom,
+        rooms: state.rooms.map((r) => r.code === code ? updatedRoom : r),
+        loading: false
+      }))
+      return { success: true, room: updatedRoom }
+    } catch (error) {
+      set({ error: error.response?.data?.message, loading: false })
       return { success: false, error: error.response?.data?.message }
     }
   },
