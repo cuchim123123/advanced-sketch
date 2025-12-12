@@ -4,13 +4,8 @@ import { useAuthStore } from '../store/authStore'
 let socket = null
 
 export const connectSocket = () => {
-  const token = useAuthStore.getState().token
+  const { token, user, isGuest } = useAuthStore.getState()
   
-  if (!token) {
-    console.error('No auth token for socket connection')
-    return null
-  }
-
   // Return existing connected socket
   if (socket?.connected) {
     return socket
@@ -22,8 +17,26 @@ export const connectSocket = () => {
     socket = null
   }
 
+  // Build auth object based on user type
+  const auth = {}
+  
+  if (isGuest && user) {
+    // Guest authentication
+    auth.guest = {
+      id: user.id,
+      username: user.username,
+      isGuest: true
+    }
+  } else if (token) {
+    // Regular user authentication
+    auth.token = token
+  } else {
+    console.error('No auth credentials for socket connection')
+    return null
+  }
+
   socket = io({
-    auth: { token },
+    auth,
     transports: ['websocket', 'polling'],
     reconnection: true,
     reconnectionAttempts: 5,
