@@ -1,12 +1,12 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useRoomStore } from '../store/roomStore'
-import { useAuthStore } from '../store/authStore'
-import { connectSocket, getSocket, disconnectSocket } from '../services/socket'
-import { useToast } from '../components/Toast'
-import { useConfirm } from '../components/ConfirmModal'
-import Canvas from '../components/Canvas'
-import RoomSettingsModal from '../components/RoomSettingsModal'
+import { useRoomStore } from '@/store/roomStore'
+import { useAuthStore } from '@/store/authStore'
+import { connectSocket, getSocket, disconnectSocket } from '@/services/socket'
+import { useToast } from '@/components/Toast'
+import { useConfirm } from '@/components/ConfirmModal'
+import Canvas from '@/components/Canvas'
+import RoomSettingsModal from '@/components/RoomSettingsModal'
 import { ArrowLeft, Save, Link2, Settings, Users, Sparkles } from 'lucide-react'
 
 export default function Room() {
@@ -273,10 +273,10 @@ export default function Room() {
 
   if (!currentRoom) {
     return (
-      <div className="min-h-screen animated-gradient flex items-center justify-center">
-        <div className="glass-card p-8 flex flex-col items-center gap-4">
-          <div className="w-10 h-10 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
-          <span className="text-white/60">Loading room...</span>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/50 to-slate-900 flex items-center justify-center">
+        <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-8 flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-2 border-sky-400 border-t-transparent rounded-full animate-spin" />
+          <span className="text-white/80">Loading room...</span>
         </div>
       </div>
     )
@@ -285,11 +285,11 @@ export default function Room() {
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-slate-900 via-purple-900/50 to-slate-900">
       {/* Header */}
-      <header className="glass border-b border-white/10 px-2 sm:px-4 py-2 flex items-center justify-between flex-shrink-0">
+      <header className="glass-dark border-b border-white/10 px-2 sm:px-4 py-2 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
           <button
             onClick={handleLeave}
-            className="glass-button p-2 text-white/60 hover:text-white"
+            className="glass-dark-button p-2"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -309,14 +309,14 @@ export default function Room() {
         <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
           <button
             onClick={handleSave}
-            className="glass-button px-3 py-1.5 text-xs sm:text-sm text-green-300 hover:text-green-200 flex items-center gap-1.5"
+            className="glass-dark-button px-3 py-1.5 text-xs sm:text-sm text-green-300 hover:text-green-200 flex items-center gap-1.5"
           >
             <Save className="w-4 h-4" />
             <span className="hidden sm:inline">Save</span>
           </button>
           <button
             onClick={copyInviteLink}
-            className="glass-button px-3 py-1.5 text-xs sm:text-sm text-purple-300 hover:text-purple-200 flex items-center gap-1.5"
+            className="glass-dark-button px-3 py-1.5 text-xs sm:text-sm text-purple-300 hover:text-purple-200 flex items-center gap-1.5"
           >
             <Link2 className="w-4 h-4" />
             <span className="hidden sm:inline">Invite</span>
@@ -325,7 +325,7 @@ export default function Room() {
           {(currentRoom?.owner === user?.id || currentRoom?.owner?._id === user?.id || currentRoom?.isOwner) && (
             <button
               onClick={() => setShowSettings(true)}
-              className="glass-button px-3 py-1.5 text-xs sm:text-sm text-white/60 hover:text-white flex items-center gap-1.5"
+              className="glass-dark-button px-3 py-1.5 text-xs sm:text-sm flex items-center gap-1.5"
               title="Room Settings"
             >
               <Settings className="w-4 h-4" />
@@ -333,7 +333,7 @@ export default function Room() {
           )}
           <button
             onClick={() => setShowParticipants(!showParticipants)}
-            className="glass-button px-3 py-1.5 text-xs sm:text-sm text-cyan-300 hover:text-cyan-200 flex items-center gap-1.5"
+            className="glass-dark-button px-3 py-1.5 text-xs sm:text-sm text-cyan-300 hover:text-cyan-200 flex items-center gap-1.5"
           >
             <Users className="w-4 h-4" />
             <span>{participants.filter(p => p.id !== user?.id).length + 1}</span>
@@ -369,7 +369,7 @@ export default function Room() {
         <div 
           className={`
             fixed md:relative right-0 top-0 h-full z-20
-            glass border-l border-white/10
+            glass-dark border-l border-white/10
             transform transition-transform duration-300 ease-in-out
             w-64 p-4 overflow-y-auto
             ${showParticipants ? 'translate-x-0' : 'translate-x-full md:hidden'}
@@ -382,7 +382,7 @@ export default function Room() {
             </h2>
             <button 
               onClick={() => setShowParticipants(false)}
-              className="md:hidden text-white/40 hover:text-white/60 text-xl leading-none glass-button w-8 h-8 flex items-center justify-center"
+              className="md:hidden text-white/40 hover:text-white/60 text-xl leading-none glass-dark-button w-8 h-8 flex items-center justify-center"
             >
               ×
             </button>
@@ -403,7 +403,7 @@ export default function Room() {
               .map(participant => (
                 <li
                   key={participant.id}
-                  className="flex items-center gap-2 p-2.5 glass rounded-xl hover:bg-white/10 transition-all duration-300 group"
+                  className="flex items-center gap-2 p-2.5 bg-white/5 rounded-xl hover:bg-white/10 transition-all duration-300 group"
                 >
                   <div
                     className="w-3 h-3 rounded-full flex-shrink-0"

@@ -1,23 +1,26 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { useAuthStore } from '../store/authStore'
-import { useRoomStore } from '../store/roomStore'
-import { useToast } from '../components/Toast'
-import { useConfirm } from '../components/ConfirmModal'
-import { Globe, Lock, Users, Plus, LogIn, LogOut, User, Sparkles, UserCircle } from 'lucide-react'
+import { useAuthStore } from '@/store/authStore'
+import { useRoomStore } from '@/store/roomStore'
+import { useToast } from '@/components/Toast'
+import { useConfirm } from '@/components/ConfirmModal'
+import RoomSettingsModal from '@/components/RoomSettingsModal'
+import { Globe, Lock, Users, Plus, LogIn, LogOut, User, Sparkles, UserCircle, Settings } from 'lucide-react'
 
 export default function Dashboard() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showJoinModal, setShowJoinModal] = useState(false)
+  const [editingRoom, setEditingRoom] = useState(null)
   const [roomName, setRoomName] = useState('')
   const [isPublic, setIsPublic] = useState(false)
+  const [maxParticipants, setMaxParticipants] = useState(10)
   const [joinCode, setJoinCode] = useState('')
   const [activeTab, setActiveTab] = useState('my') // 'my' or 'public'
   const toast = useToast()
   const confirm = useConfirm()
 
   const { user, logout, isGuest } = useAuthStore()
-  const { rooms, publicRooms, fetchRooms, fetchPublicRooms, createRoom, joinRoom, deleteRoom, loading, error } = useRoomStore()
+  const { rooms, publicRooms, fetchRooms, fetchPublicRooms, createRoom, joinRoom, deleteRoom, updateRoom, loading, error } = useRoomStore()
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -32,11 +35,12 @@ export default function Dashboard() {
 
   const handleCreateRoom = async (e) => {
     e.preventDefault()
-    const result = await createRoom(roomName, isPublic)
+    const result = await createRoom(roomName, { isPublic, maxParticipants })
     if (result.success) {
       setShowCreateModal(false)
       setRoomName('')
       setIsPublic(false)
+      setMaxParticipants(10)
       navigate(`/room/${result.room.code}`)
     }
   }
@@ -238,6 +242,13 @@ export default function Dashboard() {
                         Enter
                       </button>
                       <button
+                        onClick={() => setEditingRoom(room)}
+                        className="px-3 py-2 glass-button text-sm"
+                        title="Edit room settings"
+                      >
+                        <Settings className="w-4 h-4" />
+                      </button>
+                      <button
                         onClick={() => copyInviteLink(room.code)}
                         className="px-3 py-2 glass-button text-sm"
                         title="Copy invite link"
@@ -292,7 +303,7 @@ export default function Dashboard() {
                     </p>
                     <p className="text-xs text-slate-400 mb-4 font-mono">Code: {room.code}</p>
                     <button
-                      onClick={() => navigate(`/join/${room.code}`)}
+                      onClick={() => navigate(`/room/${room.code}`)}
                       className="w-full px-3 py-2 bg-gradient-to-r from-sky-500 to-blue-500 text-white text-sm rounded-lg 
                                hover:from-sky-600 hover:to-blue-600 transition-all duration-300"
                     >
@@ -364,6 +375,22 @@ export default function Dashboard() {
                   </button>
                 </div>
               </div>
+
+              {/* Max Participants */}
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">
+                  <Users className="w-4 h-4 inline mr-1" />
+                  Max Participants
+                </label>
+                <input
+                  type="number"
+                  min="2"
+                  max="50"
+                  value={maxParticipants}
+                  onChange={(e) => setMaxParticipants(parseInt(e.target.value) || 10)}
+                  className="w-full px-4 py-3 glass-input"
+                />
+              </div>
               
               <div className="flex gap-3 pt-2">
                 <button
@@ -433,6 +460,24 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Edit Room Modal */}
+      <RoomSettingsModal
+        isOpen={!!editingRoom}
+        onClose={() => setEditingRoom(null)}
+        room={editingRoom}
+        onSave={async (updates) => {
+          const result = await updateRoom(editingRoom.code, updates)
+          if (result.success) {
+            toast.success('Room updated successfully')
+            setEditingRoom(null)
+            fetchRooms() // Refresh rooms list
+          } else {
+            toast.error(result.error || 'Failed to update room')
+          }
+        }}
+        loading={loading}
+      />
     </div>
   )
 }
