@@ -98,7 +98,45 @@ export const useAuthStore = create(
       },
 
       logout: () => {
+        localStorage.removeItem('copad-guest')
         set({ user: null, token: null, isGuest: false, error: null })
+      },
+
+      updateProfile: async (updates) => {
+        set({ loading: true, error: null })
+        try {
+          const { data } = await api.patch('/auth/profile', updates)
+          set((state) => ({
+            user: { ...state.user, ...data.data.user },
+            loading: false
+          }))
+          return { success: true }
+        } catch (error) {
+          set({
+            error: error.response?.data?.message || 'Update failed',
+            loading: false
+          })
+          return { success: false, error: error.response?.data?.message }
+        }
+      },
+
+      changePassword: async (currentPassword, newPassword) => {
+        set({ loading: true, error: null })
+        try {
+          await api.patch('/auth/password', { currentPassword, newPassword })
+          set({ loading: false })
+          return { success: true }
+        } catch (error) {
+          set({
+            error: error.response?.data?.message || 'Password change failed',
+            loading: false
+          })
+          return { success: false, error: error.response?.data?.message }
+        }
+      },
+
+      setUser: (user, token) => {
+        set({ user, token, isGuest: false, loading: false, error: null })
       },
 
       clearError: () => set({ error: null })

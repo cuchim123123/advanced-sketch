@@ -138,10 +138,131 @@ router.get('/me', protect, async (req, res) => {
         id: req.user._id,
         username: req.user.username,
         email: req.user.email,
-        avatar: req.user.avatar
+        avatar: req.user.avatar,
+        phone: req.user.phone
       }
     }
   });
+});
+
+/**
+ * @route   PATCH /api/auth/profile
+ * @desc    Update user profile
+ * @access  Private
+ */
+router.patch('/profile', protect, async (req, res) => {
+  try {
+    const { username, avatar, phone } = req.body;
+    const updates = {};
+
+    if (username) {
+      // Check if username is taken by another user
+      const existingUser = await User.findOne({ 
+        username, 
+        _id: { $ne: req.user._id } 
+      });
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message: 'Username already taken'
+        });
+      }
+      updates.username = username;
+    }
+
+    if (avatar !== undefined) {
+      updates.avatar = avatar;
+    }
+
+    if (phone !== undefined) {
+      if (phone) {
+        // Check if phone is taken by another user
+        const existingUser = await User.findOne({ 
+          phone, 
+          _id: { $ne: req.user._id } 
+        });
+        if (existingUser) {
+          return res.status(400).json({
+            success: false,
+            message: 'Phone number already in use'
+          });
+        }
+      }
+      updates.phone = phone || undefined;
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      updates,
+      { new: true, runValidators: true }
+    );
+
+    res.json({
+      success: true,
+      data: {
+        user: {
+          id: user._id,
+          username: user.username,
+          email: user.email,
+          avatar: user.avatar,
+          phone: user.phone
+        }
+      }
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+/**
+ * @route   PATCH /api/auth/password
+ * @desc    Change user password
+ * @access  Private
+ */
+router.patch('/password', protect, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide current and new password'
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password must be at least 6 characters'
+      });
+    }
+
+    const user = await User.findById(req.user._id).select('+password');
+
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Current password is incorrect'
+      });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Password updated successfully'
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
 });
 
 module.exports = router;
