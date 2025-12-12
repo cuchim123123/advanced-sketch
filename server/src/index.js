@@ -11,12 +11,25 @@ connectDB();
 const app = express();
 const server = http.createServer(app);
 
-// Socket.io setup with CORS
+// Socket.io setup with CORS and compression
 const io = new Server(server, {
   cors: {
     origin: process.env.CLIENT_URL || 'http://localhost:3000',
     methods: ['GET', 'POST']
-  }
+  },
+  // Enable per-message compression for reduced bandwidth
+  perMessageDeflate: {
+    threshold: 1024, // Only compress messages > 1KB
+    zlibDeflateOptions: {
+      chunkSize: 16 * 1024 // 16KB chunks
+    },
+    zlibInflateOptions: {
+      chunkSize: 16 * 1024
+    }
+  },
+  // Optimize transport
+  transports: ['websocket', 'polling'],
+  allowUpgrades: true
 });
 
 // Middleware
