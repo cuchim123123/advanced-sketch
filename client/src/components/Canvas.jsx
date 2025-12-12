@@ -342,6 +342,8 @@ export default function Canvas({
   // Use RAF for smoother drawing
   const rafRef = useRef(null)
   const pendingPoint = useRef(null)
+  const lastEmitTime = useRef(0)
+  const EMIT_THROTTLE = 50 // Emit every 50ms max
   
   const draw = (e) => {
     if (!isDrawing) return
@@ -353,7 +355,7 @@ export default function Canvas({
     if (!rafRef.current) {
       rafRef.current = requestAnimationFrame(() => {
         rafRef.current = null
-        if (!pendingPoint.current || !isDrawing) return
+        if (!pendingPoint.current || !isDrawing || !currentStroke.current) return
         
         const point = pendingPoint.current
 
@@ -363,9 +365,11 @@ export default function Canvas({
           ctx.stroke()
           currentStroke.current.points.push(point)
 
-          // Emit stroke update every 5 points for better batching
-          if (socket && currentStroke.current.points.length % 5 === 0) {
+          // Throttle socket emit to reduce network load
+          const now = Date.now()
+          if (socket && now - lastEmitTime.current > EMIT_THROTTLE) {
             socket.emit('draw:stroke', { stroke: currentStroke.current })
+            lastEmitTime.current = now
           }
         } else {
           drawShapePreview(point)
@@ -374,14 +378,37 @@ export default function Canvas({
     }
   }
   
-  // Extracted shape preview for cleaner code
+  // Offscreen canvas for shape preview (avoid full redraw)
+  const offscreenCanvasRef = useRef(null)
+  const lastShapePreview = useRef(null)
+  
+  // Extracted shape preview for cleaner code - uses dirty rect approach
   const drawShapePreview = (point) => {
     const { x, y } = point
     if (tool === TOOLS.PEN || tool === TOOLS.ERASER) return
+    if (!startPoint.current) return
     
-    // For shapes, preview by redrawing
-    redrawCanvas()
     const ctx = contextRef.current
+    const canvas = canvasRef.current
+    
+    // Clear previous shape preview by restoring from offscreen canvas
+    if (!offscreenCanvasRef.current) {
+      offscreenCanvasRef.current = document.createElement('canvas')
+      offscreenCanvasRef.current.width = canvas.width
+      offscreenCanvasRef.current.height = canvas.height
+    }
+    
+    // On first preview, save current state to offscreen canvas
+    if (!lastShapePreview.current) {
+      const offCtx = offscreenCanvasRef.current.getContext('2d')
+      offCtx.drawImage(canvas, 0, 0)
+    } else {
+      // Restore from offscreen canvas
+      ctx.drawImage(offscreenCanvasRef.current, 0, 0)
+    }
+    
+    lastShapePreview.current = { x, y }
+    
     ctx.beginPath()
     ctx.strokeStyle = color
     ctx.lineWidth = strokeWidth
@@ -393,7 +420,6 @@ export default function Canvas({
     } else if (tool === TOOLS.RECTANGLE) {
       const width = x - startPoint.current.x
       const height = y - startPoint.current.y
-      // Limit size to prevent browser crash
       const maxSize = CANVAS_SIZE * 2
       const clampedWidth = Math.max(-maxSize, Math.min(maxSize, width))
       const clampedHeight = Math.max(-maxSize, Math.min(maxSize, height))
@@ -403,7 +429,6 @@ export default function Canvas({
         Math.pow(x - startPoint.current.x, 2) +
         Math.pow(y - startPoint.current.y, 2)
       )
-      // Limit radius to prevent browser crash
       const maxRadius = CANVAS_SIZE
       const clampedRadius = Math.min(maxRadius, Math.max(0, radius))
       if (clampedRadius > 0) {
@@ -437,6 +462,7 @@ export default function Canvas({
 
     currentStroke.current = null
     startPoint.current = null
+    lastShapePreview.current = null // Reset shape preview state
     // Cancel any pending RAF
     if (rafRef.current) {
       cancelAnimationFrame(rafRef.current)
