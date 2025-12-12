@@ -9,6 +9,7 @@ import Canvas from '@/components/Canvas'
 import RoomSettingsModal from '@/components/RoomSettingsModal'
 import { ArrowLeft, Save, Link2, Settings, Users, Sparkles, History, Crown } from 'lucide-react'
 import api from '@/services/api'
+import { deoptimizeStroke } from '@/utils/strokeOptimization'
 
 export default function Room() {
   const { code } = useParams()
@@ -98,16 +99,35 @@ export default function Room() {
       })
     })
 
-    sock.on('draw:stroke', ({ stroke }) => {
+    sock.on('draw:stroke', ({ stroke, username }) => {
+      // Decompress if stroke was optimized
+      const fullStroke = deoptimizeStroke(stroke)
+      
+      // Update cursor position from stroke data (smoother than separate cursor events)
+      if (fullStroke.userId && fullStroke.points?.length > 0) {
+        const lastPoint = fullStroke.points[fullStroke.points.length - 1]
+        const { participants } = useRoomStore.getState()
+        const participant = participants.find(p => p.id === fullStroke.userId)
+        setCursors(prev => ({
+          ...prev,
+          [fullStroke.userId]: {
+            x: lastPoint.x,
+            y: lastPoint.y,
+            color: participant?.color || prev[fullStroke.userId]?.color || '#888',
+            username: username || participant?.username || prev[fullStroke.userId]?.username || 'User'
+          }
+        }))
+      }
+      
       setStrokes(prev => {
         // Update existing stroke or add new
-        const existing = prev.findIndex(s => s.id === stroke.id)
+        const existing = prev.findIndex(s => s.id === fullStroke.id)
         if (existing >= 0) {
           const updated = [...prev]
-          updated[existing] = stroke
+          updated[existing] = fullStroke
           return updated
         }
-        return [...prev, stroke]
+        return [...prev, fullStroke]
       })
     })
 
