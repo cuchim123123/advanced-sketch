@@ -14,16 +14,28 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://localhost:5000',
-        changeOrigin: true
+        changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on('error', () => {})
+        }
       },
       '/socket.io': {
         target: 'http://localhost:5000',
         ws: true,
         changeOrigin: true,
-        // Suppress proxy errors - these are normal during server restarts
         configure: (proxy) => {
+          // Suppress ALL proxy errors silently
           proxy.on('error', () => {})
-          proxy.on('proxyReqWs', () => {})
+          proxy.on('proxyReq', (proxyReq, req, res) => {
+            req.on('error', () => {})
+            res.on('error', () => {})
+          })
+          proxy.on('proxyReqWs', (proxyReq, req, socket) => {
+            socket.on('error', () => {})
+          })
+          proxy.on('proxyRes', (proxyRes) => {
+            proxyRes.on('error', () => {})
+          })
         }
       }
     }
