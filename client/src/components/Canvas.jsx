@@ -5,6 +5,7 @@ import { Dropdown, DropdownItem, DropdownSeparator } from './ui/dropdown'
 import { ChevronDown } from 'lucide-react'
 
 const TOOLS = {
+  SELECT: 'select', // Selection/move tool
   PEN: 'pen',
   ERASER: 'eraser',
   LINE: 'line',
@@ -30,6 +31,7 @@ export default function Canvas({
   strokes = [],  // Renamed from initialStrokes - parent manages this
   previewStrokes = {}, // Shape previews from other users
   onStrokeAdd,   // Callback when user draws a stroke
+  onStrokeUpdate, // Callback when user moves a stroke
   onClear,       // Callback for clear confirmation
   onSave,        // Callback for save
   cursors = {},
@@ -57,6 +59,11 @@ export default function Canvas({
   const pendingImagePosition = useRef(null)
   const imageCache = useRef(new Map()) // Cache loaded images by stroke ID
   
+  // Selection state for moving text/images
+  const [selectedStroke, setSelectedStroke] = useState(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const dragOffset = useRef({ x: 0, y: 0 })
+  
   // Keyboard shortcuts modal
   const [showShortcuts, setShowShortcuts] = useState(false)
   
@@ -80,7 +87,9 @@ export default function Canvas({
     const center = cursorSize / 2
     const radius = Math.max(size / 2, 2)
     
-    if (tool === TOOLS.ERASER) {
+    if (tool === TOOLS.SELECT) {
+      return 'default'
+    } else if (tool === TOOLS.ERASER) {
       // Eraser: circle matching stroke width
       const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${cursorSize}" height="${cursorSize}" viewBox="0 0 ${cursorSize} ${cursorSize}"><circle cx="${center}" cy="${center}" r="${radius}" fill="rgba(255,255,255,0.5)" stroke="%23333" stroke-width="1.5"/><circle cx="${center}" cy="${center}" r="${radius}" fill="none" stroke="white" stroke-width="3"/><circle cx="${center}" cy="${center}" r="${radius}" fill="none" stroke="%23333" stroke-width="1.5"/></svg>`
       return `url('data:image/svg+xml,${encodeURIComponent(svg).replace(/'/g, "%27")}') ${center} ${center}, auto`
@@ -131,6 +140,7 @@ export default function Canvas({
       } else {
         // Tool shortcuts (single keys)
         switch (e.key.toLowerCase()) {
+          case 'v': setTool(TOOLS.SELECT); setSelectedStroke(null); break
           case 'p': setTool(TOOLS.PEN); break
           case 'e': setTool(TOOLS.ERASER); break
           case 'l': setTool(TOOLS.LINE); break
@@ -140,7 +150,10 @@ export default function Canvas({
           case 'i': setTool(TOOLS.IMAGE); break
           case 'h': setTool(TOOLS.HAND); break
           case '?': setShowShortcuts(prev => !prev); break
-          case 'escape': setShowShortcuts(false); break
+          case 'escape': 
+            setShowShortcuts(false)
+            setSelectedStroke(null)
+            break
         }
       }
     }
@@ -157,6 +170,14 @@ export default function Canvas({
       window.removeEventListener('keyup', handleKeyUp)
     }
   }, [onSave])
+
+  // Clear selection when switching away from select tool
+  useEffect(() => {
+    if (tool !== TOOLS.SELECT) {
+      setSelectedStroke(null)
+      setIsDragging(false)
+    }
+  }, [tool])
 
   // Keep strokesRef in sync with strokes + preview strokes
   useEffect(() => {
@@ -231,7 +252,16 @@ export default function Canvas({
     // Invalidate offscreen canvas so shape preview uses fresh state
     offscreenCanvasRef.current = null
     lastShapePreview.current = null
-  }, [strokes, previewStrokes])
+    
+    // Draw selection highlight if there's a selected stroke
+    if (selectedStroke && tool === TOOLS.SELECT) {
+      // Find the current position of the selected stroke in the updated strokes
+      const currentStrokeData = strokes.find(s => s.id === selectedStroke.id)
+      if (currentStrokeData) {
+        drawSelectionHighlight(currentStrokeData)
+      }
+    }
+  }, [strokes, previewStrokes, selectedStroke, tool])
   
   // Alias for shape preview
   const redrawCanvas = () => redrawWithStrokes(strokesRef.current)
@@ -354,6 +384,47 @@ export default function Canvas({
     ctx.stroke()
   }
 
+  // Draw selection highlight around selected element
+  const drawSelectionHighlight = (stroke) => {
+    if (!stroke) return
+    const ctx = contextRef.current
+    if (!ctx) return
+    
+    let bounds = null
+    
+    if (stroke.tool === TOOLS.TEXT && stroke.startPoint) {
+      ctx.font = `${stroke.fontSize || 16}px Arial, sans-serif`
+      const textWidth = ctx.measureText(stroke.text || '').width
+      const textHeight = stroke.fontSize || 16
+      bounds = {
+        x: stroke.startPoint.x - 4,
+        y: stroke.startPoint.y - textHeight - 4,
+        width: textWidth + 8,
+        height: textHeight + 8
+      }
+    } else if (stroke.tool === TOOLS.IMAGE && stroke.startPoint) {
+      const cachedImg = imageCache.current.get(stroke.id)
+      const width = stroke.width || cachedImg?.width || 100
+      const height = stroke.height || cachedImg?.height || 100
+      bounds = {
+        x: stroke.startPoint.x - 4,
+        y: stroke.startPoint.y - 4,
+        width: width + 8,
+        height: height + 8
+      }
+    }
+    
+    if (bounds) {
+      ctx.save()
+      ctx.strokeStyle = '#0ea5e9'
+      ctx.lineWidth = 2
+      ctx.setLineDash([5, 5])
+      ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height)
+      ctx.setLineDash([])
+      ctx.restore()
+    }
+  }
+
   const getCoordinates = (e) => {
     const container = containerRef.current
     const rect = container.getBoundingClientRect()
@@ -375,9 +446,67 @@ export default function Canvas({
     }
   }
 
+  // Hit detection for selecting text and images
+  const findStrokeAtPoint = (x, y) => {
+    // Search in reverse order (top-most first)
+    for (let i = strokes.length - 1; i >= 0; i--) {
+      const stroke = strokes[i]
+      if (!stroke) continue
+      
+      if (stroke.tool === TOOLS.TEXT && stroke.startPoint) {
+        // Hit test for text - approximate bounding box
+        const ctx = contextRef.current
+        if (ctx) {
+          ctx.font = `${stroke.fontSize || 16}px Arial, sans-serif`
+          const textWidth = ctx.measureText(stroke.text || '').width
+          const textHeight = stroke.fontSize || 16
+          
+          // Text is drawn from bottom-left, so adjust bounds
+          if (x >= stroke.startPoint.x && 
+              x <= stroke.startPoint.x + textWidth &&
+              y >= stroke.startPoint.y - textHeight &&
+              y <= stroke.startPoint.y) {
+            return stroke
+          }
+        }
+      } else if (stroke.tool === TOOLS.IMAGE && stroke.startPoint) {
+        // Hit test for image
+        const cachedImg = imageCache.current.get(stroke.id)
+        const width = stroke.width || cachedImg?.width || 100
+        const height = stroke.height || cachedImg?.height || 100
+        
+        if (x >= stroke.startPoint.x &&
+            x <= stroke.startPoint.x + width &&
+            y >= stroke.startPoint.y &&
+            y <= stroke.startPoint.y + height) {
+          return stroke
+        }
+      }
+    }
+    return null
+  }
+
   const startDrawing = (e) => {
     // Don't allow drawing when disabled
     if (disabled) return
+
+    // Handle select tool - find and select stroke at point
+    if (tool === TOOLS.SELECT) {
+      const { x, y } = getCoordinates(e)
+      const hitStroke = findStrokeAtPoint(x, y)
+      
+      if (hitStroke) {
+        setSelectedStroke(hitStroke)
+        setIsDragging(true)
+        dragOffset.current = {
+          x: x - hitStroke.startPoint.x,
+          y: y - hitStroke.startPoint.y
+        }
+      } else {
+        setSelectedStroke(null)
+      }
+      return
+    }
 
     // Handle text tool - show input instead of drawing
     if (tool === TOOLS.TEXT) {
@@ -678,6 +807,30 @@ export default function Canvas({
       socket.emit('cursor:move', { x, y })
     }
     
+    // Handle dragging selected element
+    if (isDragging && selectedStroke) {
+      const newX = x - dragOffset.current.x
+      const newY = y - dragOffset.current.y
+      
+      // Update stroke position locally for preview
+      const updatedStroke = {
+        ...selectedStroke,
+        startPoint: { x: newX, y: newY }
+      }
+      setSelectedStroke(updatedStroke)
+      
+      // Redraw with updated position
+      const updatedStrokes = strokes.map(s => 
+        s.id === selectedStroke.id ? updatedStroke : s
+      )
+      const allStrokes = [...updatedStrokes, ...Object.values(previewStrokes)]
+      redrawWithStrokes(allStrokes)
+      
+      // Draw selection highlight
+      drawSelectionHighlight(updatedStroke)
+      return
+    }
+    
     if (isDrawing) {
       draw(e)
     }
@@ -975,8 +1128,19 @@ export default function Canvas({
     <div className="flex flex-col h-full bg-slate-100">
       {/* Toolbar */}
       <div className="glass border-b border-slate-200 p-3 flex flex-wrap items-center gap-4">
-        {/* Basic Tools (Pen, Eraser, Hand) */}
+        {/* Basic Tools (Select, Pen, Eraser, Hand) */}
         <div className="flex gap-1 p-1 glass rounded-xl">
+          <button
+            onClick={() => { setTool(TOOLS.SELECT); setSelectedStroke(null); }}
+            className={`p-2.5 rounded-lg transition-all duration-200 ${
+              tool === TOOLS.SELECT 
+                ? 'bg-gradient-to-r from-sky-500 to-emerald-500 text-white shadow-lg' 
+                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+            }`}
+            title="Select/Move (V)"
+          >
+            👆
+          </button>
           <button
             onClick={() => setTool(TOOLS.PEN)}
             className={`p-2.5 rounded-lg transition-all duration-200 ${
@@ -1263,6 +1427,19 @@ export default function Canvas({
         onMouseUp={(e) => {
           if (isPanning) {
             setIsPanning(false)
+          } else if (isDragging && selectedStroke) {
+            // Finish dragging - save the new position
+            setIsDragging(false)
+            
+            // Update the stroke in parent state
+            if (onStrokeUpdate) {
+              onStrokeUpdate(selectedStroke)
+            }
+            
+            // Emit update to server
+            if (socket) {
+              socket.emit('draw:update', { stroke: selectedStroke })
+            }
           } else {
             stopDrawing(e)
           }
@@ -1293,6 +1470,7 @@ export default function Canvas({
               height: CANVAS_HEIGHT,
               cursor: isPanning ? 'grabbing' :
                 (tool === TOOLS.HAND || spacePressed) ? 'grab' :
+                tool === TOOLS.SELECT ? (isDragging ? 'grabbing' : 'default') :
                 (tool === TOOLS.PEN || tool === TOOLS.ERASER) ? getCursor : 'crosshair'
             }}
           />
