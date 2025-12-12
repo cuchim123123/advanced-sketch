@@ -28,6 +28,7 @@ export default function Canvas({
   socket, 
   roomCode, 
   strokes = [],  // Renamed from initialStrokes - parent manages this
+  previewStrokes = {}, // Shape previews from other users
   onStrokeAdd,   // Callback when user draws a stroke
   onClear,       // Callback for clear confirmation
   onSave,        // Callback for save
@@ -69,7 +70,28 @@ export default function Canvas({
   
   const MIN_ZOOM = 0.25
   const MAX_ZOOM = 4
-  const CANVAS_SIZE = 2000 // Virtual canvas size
+  const CANVAS_WIDTH = 3000 // Virtual canvas width
+  const CANVAS_HEIGHT = 1500 // Virtual canvas height
+  
+  // Generate dynamic cursor based on tool and stroke width
+  const getCursor = useMemo(() => {
+    const size = Math.max(strokeWidth * zoom, 4) // Minimum 4px for visibility
+    const cursorSize = Math.min(Math.max(size + 8, 16), 64) // Canvas cursor size between 16-64px
+    const center = cursorSize / 2
+    const radius = Math.max(size / 2, 2)
+    
+    if (tool === TOOLS.ERASER) {
+      // Eraser: circle matching stroke width
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${cursorSize}" height="${cursorSize}" viewBox="0 0 ${cursorSize} ${cursorSize}"><circle cx="${center}" cy="${center}" r="${radius}" fill="rgba(255,255,255,0.5)" stroke="%23333" stroke-width="1.5"/><circle cx="${center}" cy="${center}" r="${radius}" fill="none" stroke="white" stroke-width="3"/><circle cx="${center}" cy="${center}" r="${radius}" fill="none" stroke="%23333" stroke-width="1.5"/></svg>`
+      return `url('data:image/svg+xml,${encodeURIComponent(svg).replace(/'/g, "%27")}') ${center} ${center}, auto`
+    } else if (tool === TOOLS.PEN) {
+      // Pen: crosshair with dot matching stroke width
+      const dotRadius = Math.max(radius, 1.5)
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${cursorSize}" height="${cursorSize}" viewBox="0 0 ${cursorSize} ${cursorSize}"><line x1="${center}" y1="2" x2="${center}" y2="${cursorSize-2}" stroke="white" stroke-width="3"/><line x1="2" y1="${center}" x2="${cursorSize-2}" y2="${center}" stroke="white" stroke-width="3"/><line x1="${center}" y1="2" x2="${center}" y2="${cursorSize-2}" stroke="%23333" stroke-width="1.5"/><line x1="2" y1="${center}" x2="${cursorSize-2}" y2="${center}" stroke="%23333" stroke-width="1.5"/><circle cx="${center}" cy="${center}" r="${dotRadius}" fill="%23333" stroke="white" stroke-width="1"/></svg>`
+      return `url('data:image/svg+xml,${encodeURIComponent(svg).replace(/'/g, "%27")}') ${center} ${center}, crosshair`
+    }
+    return 'crosshair'
+  }, [tool, strokeWidth, zoom])
   
   // Handle spacebar for pan mode
   useEffect(() => {
@@ -136,10 +158,10 @@ export default function Canvas({
     }
   }, [onSave])
 
-  // Keep strokesRef in sync with strokes prop
+  // Keep strokesRef in sync with strokes + preview strokes
   useEffect(() => {
-    strokesRef.current = strokes
-  }, [strokes])
+    strokesRef.current = [...strokes, ...Object.values(previewStrokes)]
+  }, [strokes, previewStrokes])
 
   // Initialize canvas
   useEffect(() => {
@@ -152,11 +174,11 @@ export default function Canvas({
       
       if (w === 0 || h === 0) return
       
-      // Use fixed large canvas size for zoom
-      canvas.width = CANVAS_SIZE * 2
-      canvas.height = CANVAS_SIZE * 2
-      canvas.style.width = `${CANVAS_SIZE}px`
-      canvas.style.height = `${CANVAS_SIZE}px`
+      // Use fixed large canvas size for zoom (wide format)
+      canvas.width = CANVAS_WIDTH * 2
+      canvas.height = CANVAS_HEIGHT * 2
+      canvas.style.width = `${CANVAS_WIDTH}px`
+      canvas.style.height = `${CANVAS_HEIGHT}px`
 
       const context = canvas.getContext('2d')
       context.scale(2, 2)
@@ -166,6 +188,11 @@ export default function Canvas({
 
       // Use ref to get current strokes (not stale closure)
       redrawWithStrokes(strokesRef.current)
+      
+      // Center canvas in viewport on initial load
+      const centerX = (w - CANVAS_WIDTH) / 2
+      const centerY = (h - CANVAS_HEIGHT) / 2
+      setPan({ x: centerX, y: centerY })
     }
     
     setupCanvas()
@@ -197,13 +224,14 @@ export default function Canvas({
     })
   }
 
-  // Redraw when strokes change
+  // Redraw when strokes or preview strokes change
   useEffect(() => {
-    redrawWithStrokes(strokes)
+    const allStrokes = [...strokes, ...Object.values(previewStrokes)]
+    redrawWithStrokes(allStrokes)
     // Invalidate offscreen canvas so shape preview uses fresh state
     offscreenCanvasRef.current = null
     lastShapePreview.current = null
-  }, [strokes])
+  }, [strokes, previewStrokes])
   
   // Alias for shape preview
   const redrawCanvas = () => redrawWithStrokes(strokesRef.current)
@@ -222,7 +250,7 @@ export default function Canvas({
       const width = stroke.endPoint.x - stroke.startPoint.x
       const height = stroke.endPoint.y - stroke.startPoint.y
       // Limit size to prevent browser crash
-      const maxSize = CANVAS_SIZE * 2
+      const maxSize = Math.max(CANVAS_WIDTH, CANVAS_HEIGHT) * 2
       const clampedWidth = Math.max(-maxSize, Math.min(maxSize, width))
       const clampedHeight = Math.max(-maxSize, Math.min(maxSize, height))
       ctx.strokeRect(stroke.startPoint.x, stroke.startPoint.y, clampedWidth, clampedHeight)
@@ -233,7 +261,7 @@ export default function Canvas({
         Math.pow(stroke.endPoint.y - stroke.startPoint.y, 2)
       )
       // Limit radius to prevent browser crash
-      const maxRadius = CANVAS_SIZE
+      const maxRadius = Math.max(CANVAS_WIDTH, CANVAS_HEIGHT)
       const clampedRadius = Math.min(maxRadius, Math.max(0, radius))
       if (clampedRadius > 0) {
         ctx.arc(stroke.startPoint.x, stroke.startPoint.y, clampedRadius, 0, 2 * Math.PI)
@@ -354,8 +382,14 @@ export default function Canvas({
     // Handle text tool - show input instead of drawing
     if (tool === TOOLS.TEXT) {
       const { x, y } = getCoordinates(e)
-      const screenPos = canvasToScreen(x, y)
-      setTextInput({ show: true, x, y, screenX: screenPos.x, screenY: screenPos.y, value: '' })
+      // Get click position relative to container for input placement
+      const container = containerRef.current
+      const rect = container.getBoundingClientRect()
+      const clientX = e.clientX ?? e.touches?.[0]?.clientX ?? 0
+      const clientY = e.clientY ?? e.touches?.[0]?.clientY ?? 0
+      const screenX = clientX - rect.left
+      const screenY = clientY - rect.top
+      setTextInput({ show: true, x, y, screenX, screenY, value: '' })
       return
     }
 
@@ -369,6 +403,7 @@ export default function Canvas({
 
     const { x, y } = getCoordinates(e)
     setIsDrawing(true)
+    isDrawingRef.current = true
     startPoint.current = { x, y }
 
     currentStroke.current = {
@@ -395,8 +430,11 @@ export default function Canvas({
   const lastEmitTime = useRef(0)
   const EMIT_THROTTLE = 50 // Emit every 50ms max
   
+  // Ref to track drawing state for use in RAF callbacks (avoids stale closure)
+  const isDrawingRef = useRef(false)
+  
   const draw = (e) => {
-    if (!isDrawing) return
+    if (!isDrawingRef.current) return
 
     const { x, y } = getCoordinates(e)
     pendingPoint.current = { x, y }
@@ -405,7 +443,7 @@ export default function Canvas({
     if (!rafRef.current) {
       rafRef.current = requestAnimationFrame(() => {
         rafRef.current = null
-        if (!pendingPoint.current || !isDrawing || !currentStroke.current) return
+        if (!pendingPoint.current || !isDrawingRef.current || !currentStroke.current) return
         
         const point = pendingPoint.current
 
@@ -428,6 +466,14 @@ export default function Canvas({
           }
         } else {
           drawShapePreview(point)
+          
+          // Emit shape preview to other users (throttled)
+          const now = Date.now()
+          if (socket && now - lastEmitTime.current > EMIT_THROTTLE) {
+            currentStroke.current.endPoint = { x: point.x, y: point.y }
+            socket.emit('draw:stroke', { stroke: currentStroke.current, isPreview: true })
+            lastEmitTime.current = now
+          }
         }
       })
     }
@@ -480,7 +526,7 @@ export default function Canvas({
     } else if (tool === TOOLS.RECTANGLE) {
       const width = x - startPoint.current.x
       const height = y - startPoint.current.y
-      const maxSize = CANVAS_SIZE * 2
+      const maxSize = Math.max(CANVAS_WIDTH, CANVAS_HEIGHT) * 2
       const clampedWidth = Math.max(-maxSize, Math.min(maxSize, width))
       const clampedHeight = Math.max(-maxSize, Math.min(maxSize, height))
       ctx.strokeRect(startPoint.current.x, startPoint.current.y, clampedWidth, clampedHeight)
@@ -489,7 +535,7 @@ export default function Canvas({
         Math.pow(x - startPoint.current.x, 2) +
         Math.pow(y - startPoint.current.y, 2)
       )
-      const maxRadius = CANVAS_SIZE
+      const maxRadius = Math.max(CANVAS_WIDTH, CANVAS_HEIGHT)
       const clampedRadius = Math.min(maxRadius, Math.max(0, radius))
       if (clampedRadius > 0) {
         ctx.arc(startPoint.current.x, startPoint.current.y, clampedRadius, 0, 2 * Math.PI)
@@ -534,8 +580,9 @@ export default function Canvas({
   }
 
   const stopDrawing = (e) => {
-    if (!isDrawing) return
+    if (!isDrawing && !isDrawingRef.current) return
     setIsDrawing(false)
+    isDrawingRef.current = false
 
     if (currentStroke.current) {
       if ([TOOLS.LINE, TOOLS.RECTANGLE, TOOLS.CIRCLE, TOOLS.TRIANGLE, TOOLS.ARROW, TOOLS.DIAMOND].includes(tool)) {
@@ -556,7 +603,7 @@ export default function Canvas({
           simplifyEpsilon: 1.0, // Less aggressive for final stroke
           useDelta: true
         })
-        socket.emit('draw:stroke', { stroke: optimized })
+        socket.emit('draw:stroke', { stroke: optimized, isPreview: false })
         socket.emit('draw:complete', { strokeId: currentStroke.current.id })
       }
     }
@@ -649,13 +696,11 @@ export default function Canvas({
   // Refs for native event handlers (to avoid stale closures)
   const zoomRef = useRef(zoom)
   const panRef = useRef(pan)
-  const isDrawingRef = useRef(isDrawing)
   const isPanningRef = useRef(isPanning)
   const toolRef = useRef(tool)
   
   useEffect(() => { zoomRef.current = zoom }, [zoom])
   useEffect(() => { panRef.current = pan }, [pan])
-  useEffect(() => { isDrawingRef.current = isDrawing }, [isDrawing])
   useEffect(() => { isPanningRef.current = isPanning }, [isPanning])
   useEffect(() => { toolRef.current = tool }, [tool])
 
@@ -789,7 +834,15 @@ export default function Canvas({
   
   const handleResetZoom = () => {
     setZoom(1)
-    setPan({ x: 0, y: 0 })
+    // Center canvas in viewport
+    const container = containerRef.current
+    if (container) {
+      const w = container.offsetWidth
+      const h = container.offsetHeight
+      setPan({ x: (w - CANVAS_WIDTH) / 2, y: (h - CANVAS_HEIGHT) / 2 })
+    } else {
+      setPan({ x: 0, y: 0 })
+    }
   }
 
   // Text input handlers
@@ -910,7 +963,11 @@ export default function Canvas({
   // Focus text input when shown
   useEffect(() => {
     if (textInput.show && textInputRef.current) {
-      textInputRef.current.focus()
+      // Use setTimeout to ensure DOM is ready and prevent immediate blur
+      const timer = setTimeout(() => {
+        textInputRef.current?.focus()
+      }, 10)
+      return () => clearTimeout(timer)
     }
   }, [textInput.show])
 
@@ -1222,22 +1279,21 @@ export default function Canvas({
             (spacePressed || tool === TOOLS.HAND) ? 'cursor-grab' : ''
           }`}
           style={{
-            width: CANVAS_SIZE,
-            height: CANVAS_SIZE,
+            width: CANVAS_WIDTH,
+            height: CANVAS_HEIGHT,
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
             transformOrigin: '0 0'
           }}
         >
           <canvas
             ref={canvasRef}
-            className={`absolute inset-0 ${
-              isPanning ? 'cursor-grabbing' :
-              (tool === TOOLS.HAND || spacePressed) ? 'cursor-grab' :
-              tool === TOOLS.ERASER ? 'cursor-eraser' : 'cursor-pen'
-            }`}
+            className="absolute inset-0"
             style={{
-              width: CANVAS_SIZE,
-              height: CANVAS_SIZE
+              width: CANVAS_WIDTH,
+              height: CANVAS_HEIGHT,
+              cursor: isPanning ? 'grabbing' :
+                (tool === TOOLS.HAND || spacePressed) ? 'grab' :
+                (tool === TOOLS.PEN || tool === TOOLS.ERASER) ? getCursor : 'crosshair'
             }}
           />
         </div>
@@ -1273,12 +1329,13 @@ export default function Canvas({
         {/* Text Input Overlay */}
         {textInput.show && (
           <div
-            className="absolute z-20"
+            className="absolute z-50"
             style={{
               left: textInput.screenX,
               top: textInput.screenY,
               transform: 'translate(-4px, -50%)'
             }}
+            onMouseDown={(e) => e.stopPropagation()}
           >
             <input
               ref={textInputRef}
@@ -1286,9 +1343,12 @@ export default function Canvas({
               value={textInput.value}
               onChange={(e) => setTextInput(prev => ({ ...prev, value: e.target.value }))}
               onKeyDown={handleTextKeyDown}
-              onBlur={handleTextSubmit}
+              onBlur={(e) => {
+                // Delay blur to allow click events to process first
+                setTimeout(() => handleTextSubmit(), 100)
+              }}
               placeholder="Type text..."
-              className="px-2 py-1 border-2 border-indigo-500 rounded outline-none min-w-[150px]"
+              className="px-2 py-1 border-2 border-sky-500 rounded outline-none min-w-[150px] bg-white shadow-lg"
               style={{ 
                 fontSize: `${fontSize}px`,
                 color: color
@@ -1307,9 +1367,9 @@ export default function Canvas({
         />
 
         {/* Hints */}
-        <div className="absolute bottom-4 left-4 glass rounded-xl px-4 py-2 text-xs text-white/50 pointer-events-none select-none">
+        <div className="absolute bottom-4 left-4 bg-slate-800/90 backdrop-blur-sm rounded-xl px-4 py-2 text-xs text-slate-300 pointer-events-none select-none shadow-lg">
           <div>Scroll to zoom • Space+drag to pan • Pinch on mobile</div>
-          <div className="mt-1 text-white/30">Press ? for keyboard shortcuts</div>
+          <div className="mt-1 text-slate-400">Press ? for keyboard shortcuts</div>
         </div>
 
         {/* Keyboard Shortcuts Modal */}
