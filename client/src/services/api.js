@@ -8,12 +8,18 @@ const api = axios.create({
   }
 })
 
-// Add auth token to requests
+// Add auth token or guest headers to requests
 api.interceptors.request.use((config) => {
-  const token = useAuthStore.getState().token
+  const { token, isGuest, user } = useAuthStore.getState()
+  
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
+  } else if (isGuest && user) {
+    // Add guest headers for private room access
+    config.headers['X-Guest-Id'] = user.id
+    config.headers['X-Guest-Username'] = user.username
   }
+  
   return config
 })
 

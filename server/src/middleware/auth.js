@@ -52,7 +52,7 @@ const protect = async (req, res, next) => {
 };
 
 /**
- * Optional auth - Attach user if token present
+ * Optional auth - Attach user if token present, or mark as guest
  */
 const optionalAuth = async (req, res, next) => {
   let token;
@@ -66,6 +66,18 @@ const optionalAuth = async (req, res, next) => {
     } catch (error) {
       // Token invalid, continue without user
     }
+  }
+  
+  // Check for guest header
+  const guestId = req.headers['x-guest-id'];
+  const guestUsername = req.headers['x-guest-username'];
+  
+  if (!req.user && guestId && guestUsername) {
+    req.isGuest = true;
+    req.guestInfo = {
+      id: guestId,
+      username: guestUsername
+    };
   }
   
   next();

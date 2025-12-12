@@ -1,6 +1,6 @@
 const express = require('express');
 const { Room, SketchHistory, SessionParticipant } = require('../models');
-const { protect } = require('../middleware/auth');
+const { protect, optionalAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -83,9 +83,9 @@ router.get('/', protect, async (req, res) => {
 /**
  * @route   GET /api/rooms/public
  * @desc    Get all public rooms
- * @access  Private
+ * @access  Public (no auth required)
  */
-router.get('/public', protect, async (req, res) => {
+router.get('/public', async (req, res) => {
   try {
     const rooms = await Room.find({ isPublic: true, isActive: true })
       .populate('owner', 'username')
@@ -127,9 +127,9 @@ router.get('/public', protect, async (req, res) => {
 /**
  * @route   GET /api/rooms/:code
  * @desc    Get room by code
- * @access  Private
+ * @access  Public for public rooms, Private for private rooms
  */
-router.get('/:code', protect, async (req, res) => {
+router.get('/:code', optionalAuth, async (req, res) => {
   try {
     const room = await Room.findOne({ code: req.params.code })
       .populate('owner', 'username avatar');
@@ -138,6 +138,15 @@ router.get('/:code', protect, async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Room not found'
+      });
+    }
+
+    // If room is private, require authentication or guest with invite link
+    // Guests can join private rooms via direct invite link
+    if (!room.isPublic && !req.user && !req.isGuest) {
+      return res.status(401).json({
+        success: false,
+        message: 'Please login to access this room'
       });
     }
 
@@ -150,9 +159,10 @@ router.get('/:code', protect, async (req, res) => {
           code: room.code,
           owner: room.owner,
           isPublic: room.isPublic,
+          isPasswordProtected: !!room.password,
           maxParticipants: room.maxParticipants,
           canvasSettings: room.canvasSettings,
-          isOwner: room.owner._id.toString() === req.user._id.toString()
+          isOwner: req.user ? room.owner._id.toString() === req.user._id.toString() : false
         }
       }
     });
@@ -167,9 +177,9 @@ router.get('/:code', protect, async (req, res) => {
 /**
  * @route   POST /api/rooms/:code/join
  * @desc    Join a room
- * @access  Private
+ * @access  Public for public rooms, Private for private rooms
  */
-router.post('/:code/join', protect, async (req, res) => {
+router.post('/:code/join', optionalAuth, async (req, res) => {
   try {
     const room = await Room.findOne({ code: req.params.code });
 
@@ -184,6 +194,15 @@ router.post('/:code/join', protect, async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Room is no longer active'
+      });
+    }
+
+    // Private rooms require authentication or guest with invite link
+    // Guests can join private rooms via direct invite link
+    if (!room.isPublic && !req.user && !req.isGuest) {
+      return res.status(401).json({
+        success: false,
+        message: 'Please login to join this private room'
       });
     }
 
@@ -207,6 +226,7 @@ router.post('/:code/join', protect, async (req, res) => {
           id: room._id,
           name: room.name,
           code: room.code,
+          isPublic: room.isPublic,
           canvasSettings: room.canvasSettings
         }
       }
@@ -275,20 +295,11 @@ router.patch('/:code', protect, async (req, res) => {
       });
     }
 
-    const { name, password, removePassword, isPublic, maxParticipants } = req.body;
+    const { name, isPublic, maxParticipants } = req.body;
 
     // Update name
     if (name !== undefined) {
       room.name = name;
-    }
-
-    // Update password
-    if (removePassword) {
-      room.password = null;
-      room.isPasswordProtected = false;
-    } else if (password) {
-      room.password = await bcrypt.hash(password, 10);
-      room.isPasswordProtected = true;
     }
 
     // Update visibility
@@ -310,7 +321,6 @@ router.patch('/:code', protect, async (req, res) => {
           id: room._id,
           name: room.name,
           code: room.code,
-          isPasswordProtected: room.isPasswordProtected,
           isPublic: room.isPublic,
           maxParticipants: room.maxParticipants
         }
