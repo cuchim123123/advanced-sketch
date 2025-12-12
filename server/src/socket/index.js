@@ -27,6 +27,7 @@
 
 const jwt = require('jsonwebtoken');
 const { Room, SessionParticipant, SketchHistory, User } = require('../models');
+const { processIncomingStroke } = require('../libs/strokeOptimization');
 
 // In-memory store for active room states
 const roomStates = new Map();
@@ -204,9 +205,12 @@ module.exports = (io) => {
       const roomState = roomStates.get(socket.roomCode);
       if (!roomState) return;
 
+      // Decompress if stroke was optimized
+      const decompressedStroke = processIncomingStroke(stroke);
+
       // Add user info to stroke
       const fullStroke = {
-        ...stroke,
+        ...decompressedStroke,
         userId: socket.user._id,
         timestamp: new Date()
       };
@@ -219,9 +223,9 @@ module.exports = (io) => {
         roomState.strokes.push(fullStroke);
       }
 
-      // Broadcast to others (not back to sender)
+      // Broadcast to others (not back to sender) - send original optimized format
       socket.to(socket.roomCode).emit('draw:stroke', {
-        stroke: fullStroke,
+        stroke: stroke, // Keep optimized format for network efficiency
         username: socket.user.username
       });
     });
@@ -270,18 +274,13 @@ module.exports = (io) => {
 
     /**
      * CURSOR MOVE
-     * Throttled cursor position updates (server-side throttle)
+     * No server-side throttle - client already throttles at 60fps
+     * Server just relays immediately for lowest latency
      */
-    let lastCursorUpdate = 0;
-    socket.on('cursor:move', async ({ x, y }) => {
+    socket.on('cursor:move', ({ x, y }) => {
       if (!socket.roomCode) return;
       
-      // Throttle to max 20 updates per second (50ms)
-      const now = Date.now();
-      if (now - lastCursorUpdate < 50) return;
-      lastCursorUpdate = now;
-
-      // Broadcast to others
+      // Broadcast to others immediately (no throttle - client handles it)
       socket.to(socket.roomCode).emit('cursor:move', {
         userId: socket.user._id,
         x,
