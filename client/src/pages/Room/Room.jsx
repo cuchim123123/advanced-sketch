@@ -157,6 +157,11 @@ export default function Room() {
       setStrokes(prev => prev.filter(s => s.id !== strokeId))
     })
 
+    sock.on('draw:update', ({ stroke }) => {
+      // Update stroke position (for moved text/images)
+      setStrokes(prev => prev.map(s => s.id === stroke.id ? { ...s, ...stroke } : s))
+    })
+
     sock.on('draw:clear', () => {
       setStrokes([])
     })
@@ -227,6 +232,7 @@ export default function Room() {
         sock.off('draw:stroke')
         sock.off('draw:complete')
         sock.off('draw:erase')
+        sock.off('draw:update')
         sock.off('draw:clear')
         sock.off('cursor:move')
         sock.off('room:saved')
@@ -470,6 +476,7 @@ export default function Room() {
             strokes={strokes}
             previewStrokes={previewStrokes}
             onStrokeAdd={(stroke) => setStrokes(prev => [...prev, stroke])}
+            onStrokeUpdate={(stroke) => setStrokes(prev => prev.map(s => s.id === stroke.id ? stroke : s))}
             onClear={handleClear}
             onSave={handleSave}
             cursors={cursors}
