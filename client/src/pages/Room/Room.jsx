@@ -6,6 +6,7 @@ import { connectSocket, getSocket, disconnectSocket } from '@/services/socket'
 import { useToast } from '@/components/Toast'
 import { useConfirm } from '@/components/ConfirmModal'
 import Canvas from '@/components/Canvas'
+import Chat from '@/components/Chat'
 import RoomSettingsModal from '@/components/RoomSettingsModal'
 import { ArrowLeft, Save, Link2, Settings, Users, Sparkles, History, Crown } from 'lucide-react'
 import api from '@/services/api'
@@ -32,6 +33,7 @@ export default function Room() {
   const [showHistory, setShowHistory] = useState(false)
   const [historyList, setHistoryList] = useState([])
   const [historyLoading, setHistoryLoading] = useState(false)
+  const [showChat, setShowChat] = useState(false)
 
   // Set room from loader data immediately
   useEffect(() => {
@@ -621,6 +623,15 @@ export default function Room() {
         room={currentRoom}
         onSave={handleSaveSettings}
         loading={settingsLoading}
+      />
+
+      {/* Chat Component */}
+      <Chat
+        socket={socket}
+        roomCode={code}
+        user={user}
+        isOpen={showChat}
+        onToggle={() => setShowChat(!showChat)}
       />
     </div>
   )

@@ -261,39 +261,6 @@ router.post('/:code/join', optionalAuth, async (req, res) => {
 });
 
 /**
- * @route   GET /api/rooms/:code/history
- * @desc    Get room's sketch history
- * @access  Private
- */
-router.get('/:code/history', protect, async (req, res) => {
-  try {
-    const room = await Room.findOne({ code: req.params.code });
-
-    if (!room) {
-      return res.status(404).json({
-        success: false,
-        message: 'Room not found'
-      });
-    }
-
-    const latestHistory = await SketchHistory.findOne({ room: room._id })
-      .sort({ version: -1 });
-
-    res.json({
-      success: true,
-      data: {
-        history: latestHistory
-      }
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
-
-/**
  * @route   PATCH /api/rooms/:code
  * @desc    Update room settings (owner only)
  * @access  Private

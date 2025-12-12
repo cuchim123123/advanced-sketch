@@ -9,8 +9,6 @@ export const useRoomStore = create((set, get) => ({
   loading: false,
   error: null,
 
-  setCurrentRoom: (room) => set({ currentRoom: room }),
-
   fetchRooms: async () => {
     set({ loading: true })
     try {
@@ -25,20 +23,19 @@ export const useRoomStore = create((set, get) => ({
     set({ loading: true })
     try {
       const { data } = await api.get('/rooms/public')
-      set({ publicRooms: data.data.rooms, loading: false })
+      set({ publicRooms: data.data.rooms || [], loading: false })
     } catch (error) {
-      set({ error: error.response?.data?.message, loading: false })
+      set({ error: error.response?.data?.message, loading: false, publicRooms: [] })
     }
   },
 
-  createRoom: async (name, { password, maxParticipants, isPublic } = {}) => {
+  createRoom: async (name, password, maxParticipants) => {
     set({ loading: true, error: null })
     try {
       const { data } = await api.post('/rooms', {
         name,
         password: password || undefined,
-        maxParticipants,
-        isPublic: isPublic || false
+        maxParticipants
       })
       const newRoom = data.data.room
       set((state) => ({
@@ -52,10 +49,10 @@ export const useRoomStore = create((set, get) => ({
     }
   },
 
-  joinRoom: async (code) => {
+  joinRoom: async (code, password) => {
     set({ loading: true, error: null })
     try {
-      const { data } = await api.post(`/rooms/${code}/join`)
+      const { data } = await api.post(`/rooms/${code}/join`, { password })
       set({ currentRoom: data.data.room, loading: false })
       return { success: true, room: data.data.room }
     } catch (error) {
@@ -89,21 +86,20 @@ export const useRoomStore = create((set, get) => ({
   },
 
   updateRoom: async (code, updates) => {
-    set({ loading: true, error: null })
     try {
       const { data } = await api.patch(`/rooms/${code}`, updates)
       const updatedRoom = data.data.room
       set((state) => ({
-        currentRoom: updatedRoom,
         rooms: state.rooms.map((r) => r.code === code ? updatedRoom : r),
-        loading: false
+        currentRoom: state.currentRoom?.code === code ? updatedRoom : state.currentRoom
       }))
       return { success: true, room: updatedRoom }
     } catch (error) {
-      set({ error: error.response?.data?.message, loading: false })
       return { success: false, error: error.response?.data?.message }
     }
   },
+
+  setCurrentRoom: (room) => set({ currentRoom: room }),
 
   setParticipants: (participants) => set({ participants }),
 
