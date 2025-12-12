@@ -22,6 +22,7 @@ export default function Room() {
   const [strokes, setStrokes] = useState([])
   const [cursors, setCursors] = useState({})
   const [connected, setConnected] = useState(false)
+  const [roomReady, setRoomReady] = useState(false)  // Track when room data is fully loaded
   const [showParticipants, setShowParticipants] = useState(true)
   const [showSettings, setShowSettings] = useState(false)
   const [settingsLoading, setSettingsLoading] = useState(false)
@@ -58,6 +59,7 @@ export default function Room() {
       sock.on('room:state', ({ strokes: roomStrokes, participants: roomParticipants }) => {
         setStrokes(roomStrokes || [])
         setParticipants(roomParticipants || [])
+        setRoomReady(true)  // Room data is now ready
       })
 
       sock.on('user:joined', (participant) => {
@@ -344,7 +346,22 @@ export default function Room() {
       {/* Main Area */}
       <div className="flex-1 flex overflow-hidden relative">
         {/* Canvas */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 relative">
+          {/* Loading overlay - shown until room data is ready */}
+          {!roomReady && (
+            <div className="absolute inset-0 z-50 bg-slate-100 flex flex-col items-center justify-center">
+              <div className="flex flex-col items-center gap-4">
+                <div className="relative">
+                  <div className="w-16 h-16 border-4 border-sky-200 border-t-sky-500 rounded-full animate-spin"></div>
+                  <Sparkles className="w-6 h-6 text-sky-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                </div>
+                <div className="text-center">
+                  <p className="text-slate-700 font-medium">Loading canvas...</p>
+                  <p className="text-slate-500 text-sm mt-1">Syncing room data</p>
+                </div>
+              </div>
+            </div>
+          )}
           <Canvas
             socket={socket}
             roomCode={code}
@@ -354,6 +371,7 @@ export default function Room() {
             onSave={handleSave}
             cursors={cursors}
             showCursorNames={showParticipants}
+            disabled={!roomReady}
           />
         </div>
 

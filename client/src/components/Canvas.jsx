@@ -26,7 +26,8 @@ export default function Canvas({
   onClear,       // Callback for clear confirmation
   onSave,        // Callback for save
   cursors = {},
-  showCursorNames = true
+  showCursorNames = true,
+  disabled = false  // Disable drawing when room is loading
 }) {
   const canvasRef = useRef(null)
   const containerRef = useRef(null)
@@ -297,6 +298,9 @@ export default function Canvas({
   }
 
   const startDrawing = (e) => {
+    // Don't allow drawing when disabled
+    if (disabled) return
+
     // Handle text tool - show input instead of drawing
     if (tool === TOOLS.TEXT) {
       const { x, y } = getCoordinates(e)
@@ -507,6 +511,7 @@ export default function Canvas({
   
   // Start panning
   const startPan = (e) => {
+    if (disabled) return
     setIsPanning(true)
     lastPanPoint.current = { x: e.clientX, y: e.clientY }
   }
