@@ -17,6 +17,11 @@ const Dashboard = lazy(() => import('./pages/Dashboard/Dashboard'))
 const Room = lazy(() => import('./pages/Room/Room'))
 const JoinRoom = lazy(() => import('./pages/Room/JoinRoom'))
 const Profile = lazy(() => import('./pages/Profile/Profile'))
+const AdminPanel = lazy(() => import('./pages/Admin'))
+const AdminDashboard = lazy(() => import('./pages/Admin/Dashboard'))
+const AdminUsers = lazy(() => import('./pages/Admin/Users'))
+const AdminRooms = lazy(() => import('./pages/Admin/Rooms'))
+const AdminSettings = lazy(() => import('./pages/Admin/Settings'))
 
 // Loader for Room page - fetches room data before render
 async function roomLoader({ params }) {
@@ -63,6 +68,22 @@ function PrivateRouteGuard({ children }) {
   }
   
   return <Navigate to="/login" replace />
+}
+
+// Admin route guard component
+function AdminRouteGuard({ children }) {
+  const user = useAuthStore((state) => state.user)
+  const token = useAuthStore((state) => state.token)
+
+  if (!token || !user) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (user.role !== 'admin') {
+    return <Navigate to="/dashboard" replace />
+  }
+
+  return <>{children}</>
 }
 
 // Wrapper to wait for hydration before rendering routes
@@ -123,6 +144,28 @@ function HydratedApp() {
         {
           path: '/profile',
           element: <Suspense fallback={<PageLoader />}><PrivateRouteGuard><Profile /></PrivateRouteGuard></Suspense>
+        },
+        {
+          path: '/admin',
+          element: <Suspense fallback={<PageLoader />}><AdminRouteGuard><AdminPanel /></AdminRouteGuard></Suspense>,
+          children: [
+            {
+              index: true,
+              element: <AdminDashboard />
+            },
+            {
+              path: 'users',
+              element: <AdminUsers />
+            },
+            {
+              path: 'rooms',
+              element: <AdminRooms />
+            },
+            {
+              path: 'settings',
+              element: <AdminSettings />
+            }
+          ]
         },
         {
           index: true,
