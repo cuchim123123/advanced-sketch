@@ -136,15 +136,37 @@ export default function Room() {
           return updated
         })
         
+        // ✅ FIX: Use functional state update to prevent race conditions
+        // and batch concurrent stroke updates atomically
         setStrokes(prev => {
-          // Update existing stroke or add new
-          const existing = prev.findIndex(s => s.id === fullStroke.id)
-          if (existing >= 0) {
+          // Check if stroke already exists
+          const existingIndex = prev.findIndex(s => s.id === fullStroke.id)
+          
+          if (existingIndex >= 0) {
+            // Update existing stroke only if newer (use sequence if available)
+            const existingStroke = prev[existingIndex]
+            if (fullStroke.sequence && existingStroke.sequence && 
+                fullStroke.sequence <= existingStroke.sequence) {
+              // Ignore older updates (out-of-order arrival)
+              return prev
+            }
+            
+            // Update stroke
             const updated = [...prev]
-            updated[existing] = fullStroke
+            updated[existingIndex] = fullStroke
             return updated
+          } else {
+            // Add new stroke
+            // If we have sequence numbers, insert in correct position for ordering
+            if (fullStroke.sequence) {
+              const newStrokes = [...prev, fullStroke]
+              // Sort by sequence to maintain order (handles out-of-order delivery)
+              return newStrokes.sort((a, b) => 
+                (a.sequence || 0) - (b.sequence || 0)
+              )
+            }
+            return [...prev, fullStroke]
           }
-          return [...prev, fullStroke]
         })
       }
     })
@@ -158,8 +180,17 @@ export default function Room() {
     })
 
     sock.on('draw:update', ({ stroke }) => {
-      // Update stroke position (for moved text/images)
-      setStrokes(prev => prev.map(s => s.id === stroke.id ? { ...s, ...stroke } : s))
+      // ✅ FIX: Update stroke position atomically with sequence checking
+      setStrokes(prev => prev.map(s => {
+        if (s.id === stroke.id) {
+          // Only update if newer (use sequence if available)
+          if (stroke.sequence && s.sequence && stroke.sequence <= s.sequence) {
+            return s // Ignore older updates
+          }
+          return { ...s, ...stroke }
+        }
+        return s
+      }))
     })
 
     sock.on('draw:clear', () => {
@@ -168,26 +199,30 @@ export default function Room() {
 
     // Batch cursor updates using RAF for performance
     let cursorUpdatePending = false
-    const pendingCursors = {}
+    let rafId = null
     
     sock.on('cursor:move', ({ userId, x, y, tool }) => {
-      // Queue cursor update
-      const { participants } = useRoomStore.getState()
-      const participant = participants.find(p => p.id === userId)
-      pendingCursors[userId] = {
-        x,
-        y,
-        tool: tool || pendingCursors[userId]?.tool || 'pen', // Include current tool
-        color: participant?.color || pendingCursors[userId]?.color || '#888',
-        username: participant?.username || pendingCursors[userId]?.username || 'User'
-      }
-      
-      // Batch updates with RAF
+      // Batch updates with RAF - use functional setState to prevent race conditions
       if (!cursorUpdatePending) {
         cursorUpdatePending = true
-        requestAnimationFrame(() => {
+        rafId = requestAnimationFrame(() => {
           cursorUpdatePending = false
-          setCursors(prev => ({ ...prev, ...pendingCursors }))
+          rafId = null
+          
+          setCursors(prev => {
+            const { participants } = useRoomStore.getState()
+            const participant = participants.find(p => p.id === userId)
+            return {
+              ...prev,
+              [userId]: {
+                x,
+                y,
+                tool: tool || prev[userId]?.tool || 'pen',
+                color: participant?.color || prev[userId]?.color || '#888',
+                username: participant?.username || prev[userId]?.username || 'User'
+              }
+            }
+          })
         })
       }
     })
@@ -219,7 +254,6 @@ export default function Room() {
       }, 2000)
     })
 
-    // Cleanup
     // Cleanup
     return () => {
       const sock = getSocket()
@@ -271,9 +305,13 @@ export default function Room() {
   useEffect(() => {
     if (!socket || !connected) return
     
+    let lastSavedStrokeCount = strokes.length
+    
     const autoSaveInterval = setInterval(() => {
-      if (strokes.length > 0) {
+      // Only save if there are changes
+      if (strokes.length > 0 && strokes.length !== lastSavedStrokeCount) {
         socket.emit('room:save')
+        lastSavedStrokeCount = strokes.length
         console.log('Auto-saved')
       }
     }, 2 * 60 * 1000) // 2 minutes
