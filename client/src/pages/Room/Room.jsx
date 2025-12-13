@@ -489,7 +489,7 @@ export default function Room() {
         {/* Backdrop for mobile */}
         {showParticipants && (
           <div 
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-10 md:hidden"
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] md:hidden"
             onClick={() => setShowParticipants(false)}
           />
         )}
@@ -497,7 +497,7 @@ export default function Room() {
         {/* Participants Sidebar */}
         <div 
           className={`
-            fixed md:relative right-0 top-0 h-full z-20
+            fixed md:relative right-0 top-0 h-full z-[70]
             glass-dark border-l border-white/10
             transform transition-transform duration-300 ease-in-out
             w-64 p-4 overflow-y-auto
