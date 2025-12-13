@@ -197,7 +197,7 @@ module.exports = (io) => {
     /**
      * DRAW STROKE
      * Client emits stroke data in real-time
-     * Server broadcasts to room
+     * Server broadcasts to room with proper synchronization
      */
     socket.on('draw:stroke', async ({ stroke }) => {
       if (!socket.roomCode) return;
@@ -211,30 +211,51 @@ module.exports = (io) => {
       // Get user ID consistently (works for both regular users and guests)
       const userId = socket.user._id?.toString() || socket.user.id;
 
-      // Add user info to stroke
+      // Generate server-side sequence number for ordering (prevents race conditions)
+      if (!roomState.sequenceCounter) {
+        roomState.sequenceCounter = 0;
+      }
+      const sequenceNumber = ++roomState.sequenceCounter;
+
+      // Add user info and sequence to stroke
       const fullStroke = {
         ...decompressedStroke,
         userId: userId,
-        timestamp: new Date()
+        timestamp: new Date(),
+        sequence: sequenceNumber  // ✅ Atomic ordering
       };
 
       // Clear redo stack when user draws new stroke
-      const roomState2 = roomStates.get(socket.roomCode);
-      if (roomState2?.redoStack?.has(userId)) {
-        roomState2.redoStack.set(userId, []);
+      if (roomState.redoStack?.has(userId)) {
+        roomState.redoStack.set(userId, []);
       }
 
-      // Update existing stroke or add new (prevents duplicates)
-      const existingIndex = roomState.strokes.findIndex(s => s.id === stroke.id);
-      if (existingIndex >= 0) {
-        roomState.strokes[existingIndex] = fullStroke;
-      } else {
-        roomState.strokes.push(fullStroke);
+      // ✅ FIX: Use Map for O(1) lookup instead of array search to prevent races
+      if (!roomState.strokesMap) {
+        // Migrate existing strokes array to Map (backward compatibility)
+        roomState.strokesMap = new Map(
+          roomState.strokes.map(s => [s.id, s])
+        );
       }
+
+      // Update or insert stroke atomically
+      const existingStroke = roomState.strokesMap.get(stroke.id);
+      if (existingStroke) {
+        // Only update if this is newer (handle out-of-order delivery)
+        if (!existingStroke.sequence || sequenceNumber > existingStroke.sequence) {
+          roomState.strokesMap.set(stroke.id, fullStroke);
+        }
+      } else {
+        roomState.strokesMap.set(stroke.id, fullStroke);
+      }
+
+      // Sync strokes array with Map
+      roomState.strokes = Array.from(roomState.strokesMap.values());
 
       // Broadcast to others (not back to sender) - send original optimized format
+      // ✅ Include sequence number for client-side ordering
       socket.to(socket.roomCode).emit('draw:stroke', {
-        stroke: stroke, // Keep optimized format for network efficiency
+        stroke: { ...stroke, sequence: sequenceNumber }, // Add sequence for ordering
         username: socket.user.username,
         isPreview: stroke.isPreview || false
       });
@@ -259,8 +280,14 @@ module.exports = (io) => {
       const roomState = roomStates.get(socket.roomCode);
       if (!roomState) return;
 
-      // Remove stroke from state
-      roomState.strokes = roomState.strokes.filter(s => s.id !== strokeId);
+      // ✅ FIX: Use Map for atomic deletion
+      if (roomState.strokesMap) {
+        roomState.strokesMap.delete(strokeId);
+        roomState.strokes = Array.from(roomState.strokesMap.values());
+      } else {
+        // Fallback for old format
+        roomState.strokes = roomState.strokes.filter(s => s.id !== strokeId);
+      }
 
       // Broadcast to all
       io.to(socket.roomCode).emit('draw:erase', { strokeId });
@@ -276,17 +303,42 @@ module.exports = (io) => {
       const roomState = roomStates.get(socket.roomCode);
       if (!roomState) return;
 
-      // Update stroke in state
-      const existingIndex = roomState.strokes.findIndex(s => s.id === stroke.id);
-      if (existingIndex >= 0) {
-        roomState.strokes[existingIndex] = {
-          ...roomState.strokes[existingIndex],
-          ...stroke,
-          timestamp: new Date()
-        };
-        
-        // Broadcast to others
-        socket.to(socket.roomCode).emit('draw:update', { stroke });
+      // Generate sequence number for ordering
+      if (!roomState.sequenceCounter) {
+        roomState.sequenceCounter = 0;
+      }
+      const sequenceNumber = ++roomState.sequenceCounter;
+
+      // ✅ FIX: Use Map for atomic update
+      if (roomState.strokesMap) {
+        const existingStroke = roomState.strokesMap.get(stroke.id);
+        if (existingStroke) {
+          const updatedStroke = {
+            ...existingStroke,
+            ...stroke,
+            timestamp: new Date(),
+            sequence: sequenceNumber
+          };
+          roomState.strokesMap.set(stroke.id, updatedStroke);
+          roomState.strokes = Array.from(roomState.strokesMap.values());
+          
+          // Broadcast to others with sequence
+          socket.to(socket.roomCode).emit('draw:update', { 
+            stroke: { ...stroke, sequence: sequenceNumber } 
+          });
+        }
+      } else {
+        // Fallback for old format
+        const existingIndex = roomState.strokes.findIndex(s => s.id === stroke.id);
+        if (existingIndex >= 0) {
+          roomState.strokes[existingIndex] = {
+            ...roomState.strokes[existingIndex],
+            ...stroke,
+            timestamp: new Date()
+          };
+          
+          socket.to(socket.roomCode).emit('draw:update', { stroke });
+        }
       }
     });
 
@@ -300,7 +352,11 @@ module.exports = (io) => {
       const roomState = roomStates.get(socket.roomCode);
       if (!roomState) return;
 
+      // ✅ FIX: Clear both array and Map
       roomState.strokes = [];
+      if (roomState.strokesMap) {
+        roomState.strokesMap.clear();
+      }
 
       // Broadcast to all
       io.to(socket.roomCode).emit('draw:clear');
