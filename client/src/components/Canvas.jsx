@@ -75,6 +75,9 @@ export default function Canvas({
   const lastPanPoint = useRef(null)
   const lastPinchDistance = useRef(null)
   
+  // Snapshot of canvas state for shape preview (must be declared before effects use it)
+  const shapePreviewSnapshot = useRef(null)
+  
   const MIN_ZOOM = 0.25
   const MAX_ZOOM = 4
   const CANVAS_WIDTH = 3000 // Virtual canvas width
@@ -249,9 +252,8 @@ export default function Canvas({
   useEffect(() => {
     const allStrokes = [...strokes, ...Object.values(previewStrokes)]
     redrawWithStrokes(allStrokes)
-    // Invalidate offscreen canvas so shape preview uses fresh state
-    offscreenCanvasRef.current = null
-    lastShapePreview.current = null
+    // Invalidate shape preview snapshot so next draw uses fresh state
+    shapePreviewSnapshot.current = null
     
     // Draw selection highlight if there's a selected stroke
     if (selectedStroke && tool === TOOLS.SELECT) {
@@ -262,9 +264,6 @@ export default function Canvas({
       }
     }
   }, [strokes, previewStrokes, selectedStroke, tool])
-  
-  // Alias for shape preview
-  const redrawCanvas = () => redrawWithStrokes(strokesRef.current)
 
   const drawStroke = (stroke, ctx) => {
     if (!stroke || !stroke.tool) return
@@ -564,36 +563,36 @@ export default function Canvas({
   
   const draw = (e) => {
     if (!isDrawingRef.current) return
+    if (!currentStroke.current) return
 
     const { x, y } = getCoordinates(e)
     pendingPoint.current = { x, y }
 
-    // Use requestAnimationFrame for smoother rendering
-    if (!rafRef.current) {
-      rafRef.current = requestAnimationFrame(() => {
-        rafRef.current = null
-        if (!pendingPoint.current || !isDrawingRef.current || !currentStroke.current) return
-        
-        const point = pendingPoint.current
+    // For pen/eraser, draw immediately without RAF for lowest latency
+    if (tool === TOOLS.PEN || tool === TOOLS.ERASER) {
+      const ctx = contextRef.current
+      ctx.lineTo(x, y)
+      ctx.stroke()
+      currentStroke.current.points.push({ x, y })
 
-        if (tool === TOOLS.PEN || tool === TOOLS.ERASER) {
-          const ctx = contextRef.current
-          ctx.lineTo(point.x, point.y)
-          ctx.stroke()
-          currentStroke.current.points.push(point)
-
-          // Throttle socket emit to reduce network load
-          const now = Date.now()
-          if (socket && now - lastEmitTime.current > EMIT_THROTTLE) {
-            // Optimize stroke before sending (simplify + delta compress)
-            const optimized = optimizeStrokeForTransmit(currentStroke.current, {
-              simplifyEpsilon: 1.5,
-              useDelta: true
-            })
-            socket.emit('draw:stroke', { stroke: optimized })
-            lastEmitTime.current = now
-          }
-        } else {
+      // Throttle socket emit to reduce network load
+      const now = Date.now()
+      if (socket && now - lastEmitTime.current > EMIT_THROTTLE) {
+        const optimized = optimizeStrokeForTransmit(currentStroke.current, {
+          simplifyEpsilon: 1.5,
+          useDelta: true
+        })
+        socket.emit('draw:stroke', { stroke: optimized })
+        lastEmitTime.current = now
+      }
+    } else {
+      // For shapes, use RAF to batch updates
+      if (!rafRef.current) {
+        rafRef.current = requestAnimationFrame(() => {
+          rafRef.current = null
+          if (!pendingPoint.current || !isDrawingRef.current || !currentStroke.current) return
+          
+          const point = pendingPoint.current
           drawShapePreview(point)
           
           // Emit shape preview to other users (throttled)
@@ -603,16 +602,12 @@ export default function Canvas({
             socket.emit('draw:stroke', { stroke: currentStroke.current, isPreview: true })
             lastEmitTime.current = now
           }
-        }
-      })
+        })
+      }
     }
   }
   
-  // Offscreen canvas for shape preview (avoid full redraw)
-  const offscreenCanvasRef = useRef(null)
-  const lastShapePreview = useRef(null)
-  
-  // Extracted shape preview for cleaner code - uses dirty rect approach
+  // Extracted shape preview - simple redraw approach for correctness
   const drawShapePreview = (point) => {
     const { x, y } = point
     if (tool === TOOLS.PEN || tool === TOOLS.ERASER) return
@@ -621,66 +616,42 @@ export default function Canvas({
     const ctx = contextRef.current
     const canvas = canvasRef.current
     
-    // Clear previous shape preview by restoring from offscreen canvas
-    if (!offscreenCanvasRef.current) {
-      offscreenCanvasRef.current = document.createElement('canvas')
-      offscreenCanvasRef.current.width = canvas.width
-      offscreenCanvasRef.current.height = canvas.height
-    }
-    
-    // On first preview, save current state to offscreen canvas (without transform)
-    if (!lastShapePreview.current) {
-      const offCtx = offscreenCanvasRef.current.getContext('2d')
-      // Reset transform before copying to get raw pixels
-      offCtx.setTransform(1, 0, 0, 1, 0, 0)
-      offCtx.drawImage(canvas, 0, 0)
+    // On first preview of this shape, save snapshot
+    if (!shapePreviewSnapshot.current) {
+      shapePreviewSnapshot.current = ctx.getImageData(0, 0, canvas.width, canvas.height)
     } else {
-      // Restore from offscreen canvas - need to reset transform first
-      ctx.save()
-      ctx.setTransform(1, 0, 0, 1, 0, 0) // Reset to identity
-      ctx.drawImage(offscreenCanvasRef.current, 0, 0)
-      ctx.restore() // Restore the 2x scale
+      // Restore from snapshot
+      ctx.putImageData(shapePreviewSnapshot.current, 0, 0)
     }
-    
-    lastShapePreview.current = { x, y }
     
     ctx.beginPath()
     ctx.strokeStyle = color
     ctx.lineWidth = strokeWidth
 
+    const sx = startPoint.current.x
+    const sy = startPoint.current.y
+
     if (tool === TOOLS.LINE) {
-      ctx.moveTo(startPoint.current.x, startPoint.current.y)
+      ctx.moveTo(sx, sy)
       ctx.lineTo(x, y)
       ctx.stroke()
     } else if (tool === TOOLS.RECTANGLE) {
-      const width = x - startPoint.current.x
-      const height = y - startPoint.current.y
-      const maxSize = Math.max(CANVAS_WIDTH, CANVAS_HEIGHT) * 2
-      const clampedWidth = Math.max(-maxSize, Math.min(maxSize, width))
-      const clampedHeight = Math.max(-maxSize, Math.min(maxSize, height))
-      ctx.strokeRect(startPoint.current.x, startPoint.current.y, clampedWidth, clampedHeight)
+      const width = x - sx
+      const height = y - sy
+      ctx.strokeRect(sx, sy, width, height)
     } else if (tool === TOOLS.CIRCLE) {
-      const radius = Math.sqrt(
-        Math.pow(x - startPoint.current.x, 2) +
-        Math.pow(y - startPoint.current.y, 2)
-      )
-      const maxRadius = Math.max(CANVAS_WIDTH, CANVAS_HEIGHT)
-      const clampedRadius = Math.min(maxRadius, Math.max(0, radius))
-      if (clampedRadius > 0) {
-        ctx.arc(startPoint.current.x, startPoint.current.y, clampedRadius, 0, 2 * Math.PI)
+      const radius = Math.hypot(x - sx, y - sy)
+      if (radius > 0) {
+        ctx.arc(sx, sy, radius, 0, 2 * Math.PI)
         ctx.stroke()
       }
     } else if (tool === TOOLS.TRIANGLE) {
-      const sx = startPoint.current.x
-      const sy = startPoint.current.y
       ctx.moveTo((sx + x) / 2, sy)
       ctx.lineTo(x, y)
       ctx.lineTo(sx, y)
       ctx.closePath()
       ctx.stroke()
     } else if (tool === TOOLS.ARROW) {
-      const sx = startPoint.current.x
-      const sy = startPoint.current.y
       ctx.moveTo(sx, sy)
       ctx.lineTo(x, y)
       ctx.stroke()
@@ -695,8 +666,6 @@ export default function Canvas({
       ctx.lineTo(x - headLen * Math.cos(angle + Math.PI / 6), y - headLen * Math.sin(angle + Math.PI / 6))
       ctx.stroke()
     } else if (tool === TOOLS.DIAMOND) {
-      const sx = startPoint.current.x
-      const sy = startPoint.current.y
       const cx = (sx + x) / 2
       const cy = (sy + y) / 2
       ctx.moveTo(cx, sy)
@@ -740,7 +709,7 @@ export default function Canvas({
     currentStroke.current = null
     startPoint.current = null
     pendingPoint.current = null // Clear pending point
-    lastShapePreview.current = null // Reset shape preview state
+    shapePreviewSnapshot.current = null // Reset shape preview snapshot
     // Cancel any pending RAF
     if (rafRef.current) {
       cancelAnimationFrame(rafRef.current)
