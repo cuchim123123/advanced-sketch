@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Concurrent Drawing Test</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      color: white;
+    }
+    h1 { color: #667eea; margin-bottom: 0.5rem; }
+    .subtitle { color: rgba(255,255,255,0.6); margin-bottom: 2rem; }
+    .card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    label { display: block; margin-bottom: 0.5rem; color: rgba(255,255,255,0.8); }
+    input, select {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.05);
+      color: white;
+      margin-bottom: 1rem;
+      font-size: 1rem;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    button {
+      padding: 1rem 2rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(102,126,234,0.4); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-secondary {
+      background: rgba(255,255,255,0.1);
+      color: white;
+      margin-left: 1rem;
+    }
+    .log {
+      background: rgba(0,0,0,0.3);
+      border-radius: 8px;
+      padding: 1rem;
+      height: 300px;
+      overflow-y: auto;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 0.85rem;
+      line-height: 1.6;
+    }
+    .log-entry { margin-bottom: 0.25rem; }
+    .log-success { color: #10b981; }
+    .log-error { color: #ef4444; }
+    .log-info { color: #3b82f6; }
+    .log-warn { color: #fbbf24; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .stat {
+      background: rgba(255,255,255,0.03);
+      border-radius: 8px;
+      padding: 1rem;
+      text-align: center;
+    }
+    .stat-value { font-size: 2rem; font-weight: bold; color: #667eea; }
+    .stat-label { font-size: 0.75rem; color: rgba(255,255,255,0.5); text-transform: uppercase; }
+    .progress {
+      width: 100%;
+      height: 8px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea, #764ba2);
+      transition: width 0.3s;
+    }
+    .instructions {
+      background: rgba(59,130,246,0.1);
+      border-left: 4px solid #3b82f6;
+      padding: 1rem;
+      border-radius: 0 8px 8px 0;
+      margin-bottom: 1.5rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎨 Concurrent Drawing Test</h1>
+  <p class="subtitle">Test race conditions with simulated concurrent users</p>
+
+  <div class="instructions">
+    <strong>📋 Instructions:</strong>
+    <ol style="margin: 0.5rem 0 0 1rem; padding: 0;">
+      <li>Create a room in the app and copy the room code</li>
+      <li>Enter the room code below</li>
+      <li>Click "Start Test" to simulate 5 users drawing simultaneously</li>
+      <li>Watch the logs for any errors or lost strokes</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <label for="roomCode">Room Code</label>
+    <input type="text" id="roomCode" placeholder="Enter room code (e.g., ABC123)">
+    
+    <label for="numUsers">Simulated Users</label>
+    <input type="number" id="numUsers" value="5" min="2" max="20">
+    
+    <label for="strokesPerUser">Strokes per User</label>
+    <input type="number" id="strokesPerUser" value="10" min="5" max="50">
+    
+    <button class="btn-primary" id="startBtn" onclick="startTest()">Start Test</button>
+    <button class="btn-secondary" onclick="clearLog()">Clear Log</button>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-value" id="sentCount">0</div>
+      <div class="stat-label">Strokes Sent</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="receivedCount">0</div>
+      <div class="stat-label">Strokes Received</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="errorCount">0</div>
+      <div class="stat-label">Errors</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="duration">-</div>
+      <div class="stat-label">Duration (ms)</div>
+    </div>
+  </div>
+
+  <div class="progress">
+    <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+  </div>
+
+  <div class="card">
+    <div class="log" id="log"></div>
+  </div>
+
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script>
+    const log = document.getElementById('log');
+    const stats = { sent: 0, received: new Set(), errors: 0, startTime: 0 };
+    let sockets = [];
+
+    function addLog(message, type = 'info') {
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      log.appendChild(entry);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function updateStats() {
+      document.getElementById('sentCount').textContent = stats.sent;
+      document.getElementById('receivedCount').textContent = stats.received.size;
+      document.getElementById('errorCount').textContent = stats.errors;
+      if (stats.startTime) {
+        document.getElementById('duration').textContent = Date.now() - stats.startTime;
+      }
+    }
+
+    function clearLog() {
+      log.innerHTML = '';
+      stats.sent = 0;
+      stats.received.clear();
+      stats.errors = 0;
+      stats.startTime = 0;
+      updateStats();
+      document.getElementById('progressBar').style.width = '0%';
+    }
+
+    function generateUUID() {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+      });
+    }
+
+    function generateStroke(userId, index) {
+      const startX = Math.random() * 800;
+      const startY = Math.random() * 600;
+      const points = [];
+      let x = startX, y = startY;
+      
+      for (let i = 0; i < 10; i++) {
+        x += (Math.random() - 0.5) * 20;
+        y += (Math.random() - 0.5) * 20;
+        points.push({ x, y });
+      }
+      
+      return {
+        id: `stroke-${userId}-${index}-${generateUUID().slice(0, 8)}`,
+        tool: 'pen',
+        color: `hsl(${userId * 72}, 70%, 50%)`,
+        strokeWidth: 2,
+        points,
+        startPoint: points[0],
+        endPoint: points[points.length - 1]
+      };
+    }
+
+    async function createUser(userId, roomCode) {
+      return new Promise((resolve, reject) => {
+        const socket = io('http://localhost:5000', {
+          auth: {
+            guest: {
+              isGuest: true,
+              id: `browser-test-${userId}-${Date.now()}`,
+              username: `BrowserTest${userId}`
+            }
+          },
+          transports: ['websocket']
+        });
+
+        socket.on('connect', () => {
+          addLog(`User ${userId} connected`, 'success');
+          socket.emit('room:join', { roomCode });
+        });
+
+        socket.on('room:state', (state) => {
+          addLog(`User ${userId} joined room (${state.strokes?.length || 0} existing strokes)`, 'info');
+          resolve(socket);
+        });
+
+        socket.on('error', (err) => {
+          addLog(`User ${userId} error: ${err.message}`, 'error');
+          stats.errors++;
+          updateStats();
+          reject(err);
+        });
+
+        socket.on('draw:stroke', ({ stroke }) => {
+          if (stroke && stroke.id) {
+            stats.received.add(stroke.id);
+            updateStats();
+          }
+        });
+
+        socket.on('connect_error', (err) => {
+          addLog(`User ${userId} connection failed: ${err.message}`, 'error');
+          reject(err);
+        });
+
+        setTimeout(() => {
+          if (!socket.connected) reject(new Error('Timeout'));
+        }, 10000);
+      });
+    }
+
+    async function sendStrokes(socket, userId, count) {
+      const ids = [];
+      for (let i = 0; i < count; i++) {
+        const stroke = generateStroke(userId, i);
+        ids.push(stroke.id);
+        socket.emit('draw:stroke', { stroke });
+        stats.sent++;
+        updateStats();
+        await new Promise(r => setTimeout(r, Math.random() * 30 + 10));
+      }
+      return ids;
+    }
+
+    async function startTest() {
+      const roomCode = document.getElementById('roomCode').value.trim();
+      const numUsers = parseInt(document.getElementById('numUsers').value);
+      const strokesPerUser = parseInt(document.getElementById('strokesPerUser').value);
+
+      if (!roomCode) {
+        addLog('Please enter a room code!', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('startBtn');
+      btn.disabled = true;
+      clearLog();
+
+      try {
+        addLog(`Starting test with ${numUsers} users, ${strokesPerUser} strokes each...`, 'info');
+        addLog(`Total expected strokes: ${numUsers * strokesPerUser}`, 'info');
+        
+        // Connect all users
+        addLog('Connecting users...', 'info');
+        sockets = await Promise.all(
+          Array.from({ length: numUsers }, (_, i) => createUser(i + 1, roomCode))
+        );
+        
+        addLog('All users connected! Starting concurrent drawing...', 'success');
+        stats.startTime = Date.now();
+        
+        // All users draw simultaneously
+        const allIds = await Promise.all(
+          sockets.map((socket, i) => sendStrokes(socket, i + 1, strokesPerUser))
+        );
+        
+        // Update progress
+        document.getElementById('progressBar').style.width = '100%';
+        
+        // Wait for broadcasts
+        addLog('Waiting for broadcasts to complete...', 'info');
+        await new Promise(r => setTimeout(r, 2000));
+        
+        const duration = Date.now() - stats.startTime;
+        document.getElementById('duration').textContent = duration;
+        
+        // Results
+        addLog('─'.repeat(50), 'info');
+        addLog(`📊 RESULTS`, 'info');
+        addLog(`Duration: ${duration}ms`, 'info');
+        addLog(`Strokes sent: ${stats.sent}`, 'info');
+        addLog(`Unique strokes received: ${stats.received.size}`, 'info');
+        addLog(`Errors: ${stats.errors}`, stats.errors > 0 ? 'error' : 'success');
+        
+        if (stats.errors === 0) {
+          addLog('✅ TEST PASSED: No errors during concurrent drawing!', 'success');
+        } else {
+          addLog('❌ TEST FAILED: Errors occurred', 'error');
+        }
+        
+        // Cleanup
+        sockets.forEach(s => s.disconnect());
+        sockets = [];
+        
+      } catch (error) {
+        addLog(`Test failed: ${error.message}`, 'error');
+      }
+      
+      btn.disabled = false;
+    }
+  </script>
+</body>
+</html>
