@@ -10,13 +10,12 @@ const strokeSchema = new mongoose.Schema({
     required: true
   },
   userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    type: String, // String to support both ObjectId and guest IDs
     required: true
   },
   tool: {
     type: String,
-    enum: ['pen', 'eraser', 'line', 'rectangle', 'circle', 'text'],
+    enum: ['pen', 'eraser', 'line', 'rectangle', 'circle', 'text', 'image', 'arrow', 'diamond', 'triangle'],
     default: 'pen'
   },
   points: [{
