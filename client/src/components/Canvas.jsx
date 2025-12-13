@@ -653,10 +653,10 @@ export default function Canvas({
       if (hitStroke) {
         setSelectedStroke(hitStroke)
         setIsDragging(true)
-        const bounds = getStrokeBounds(hitStroke)
+        // Store offset from click point to startPoint (not bounds)
         dragOffset.current = {
-          x: x - (bounds?.x || hitStroke.startPoint.x),
-          y: y - (bounds?.y || hitStroke.startPoint.y)
+          x: x - hitStroke.startPoint.x,
+          y: y - hitStroke.startPoint.y
         }
       } else {
         setSelectedStroke(null)
@@ -1215,31 +1215,25 @@ export default function Canvas({
     
     // Handle dragging selected element
     if (isDragging && selectedStroke) {
-      const newX = x - dragOffset.current.x
-      const newY = y - dragOffset.current.y
-      const bounds = getStrokeBounds(selectedStroke)
+      // Calculate new startPoint position
+      const newStartX = x - dragOffset.current.x
+      const newStartY = y - dragOffset.current.y
       
       // Update stroke position locally for preview
       let updatedStroke = { ...selectedStroke }
       
-      if (updatedStroke.tool === TOOLS.TEXT) {
-        // Text startPoint is at baseline, not top
-        const textHeight = updatedStroke.fontSize || 16
-        updatedStroke.startPoint = { x: newX, y: newY + textHeight }
-      } else if (updatedStroke.startPoint && updatedStroke.endPoint) {
-        // For shapes, move both points
-        const dx = newX - bounds.x
-        const dy = newY - bounds.y
-        updatedStroke.startPoint = {
-          x: selectedStroke.startPoint.x + dx,
-          y: selectedStroke.startPoint.y + dy
-        }
+      if (updatedStroke.startPoint && updatedStroke.endPoint) {
+        // For shapes with startPoint and endPoint, move both points
+        const dx = newStartX - selectedStroke.startPoint.x
+        const dy = newStartY - selectedStroke.startPoint.y
+        updatedStroke.startPoint = { x: newStartX, y: newStartY }
         updatedStroke.endPoint = {
           x: selectedStroke.endPoint.x + dx,
           y: selectedStroke.endPoint.y + dy
         }
       } else {
-        updatedStroke.startPoint = { x: newX, y: newY }
+        // For text, images, and other single-point strokes
+        updatedStroke.startPoint = { x: newStartX, y: newStartY }
       }
       
       setSelectedStroke(updatedStroke)
