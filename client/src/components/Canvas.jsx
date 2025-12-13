@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback, useMemo, memo } from 'react'
 import { v4 as uuidv4 } from 'uuid'
-import { optimizeStrokeForTransmit, deoptimizeStroke, getCompressionStats } from '../utils/strokeOptimization'
+import { optimizeStrokeForTransmit } from '../utils/strokeOptimization'
 import { Dropdown, DropdownItem, DropdownSeparator } from './ui/dropdown'
 import { ChevronDown } from 'lucide-react'
 
@@ -66,11 +66,6 @@ export default function Canvas({
   
   // Cache container rect to avoid getBoundingClientRect every mousemove
   const containerRectCache = useRef(null)
-  const updateContainerRect = useCallback(() => {
-    if (containerRef.current) {
-      containerRectCache.current = containerRef.current.getBoundingClientRect()
-    }
-  }, [])
   
   // Transform state (resize/rotate)
   const [transformMode, setTransformMode] = useState(null) // 'resize-nw', 'resize-ne', 'resize-sw', 'resize-se', 'rotate'
@@ -272,10 +267,6 @@ export default function Canvas({
       }
     })
   }
-
-  // Track previous strokes to detect changes
-  const prevStrokesRef = useRef([])
-  const prevPreviewStrokesRef = useRef({})
 
   // Redraw when strokes or preview strokes change
   // NOTE: Always full redraw for correctness. Optimization can come later with layered canvas.

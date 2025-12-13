@@ -180,7 +180,7 @@ module.exports = (io) => {
           id: socket.user._id || socket.user.id,
           username: socket.user.username,
           avatar: socket.user.avatar,
-          color: socket.isGuest ? participant.color : participant.color,
+          color: participant.color,
           isGuest: socket.isGuest
         });
 
