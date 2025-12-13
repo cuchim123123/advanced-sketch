@@ -4,8 +4,19 @@ import { Send, X, MessageCircle } from 'lucide-react'
 export default function Chat({ socket, roomCode, user, isOpen, onToggle }) {
   const [messages, setMessages] = useState([])
   const [inputValue, setInputValue] = useState('')
+  const [unreadCount, setUnreadCount] = useState(0)
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
+  const isOpenRef = useRef(isOpen)
+
+  // Keep ref in sync with isOpen prop
+  useEffect(() => {
+    isOpenRef.current = isOpen
+    // Reset unread count when chat opens
+    if (isOpen) {
+      setUnreadCount(0)
+    }
+  }, [isOpen])
 
   // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = () => {
@@ -27,13 +38,18 @@ export default function Chat({ socket, roomCode, user, isOpen, onToggle }) {
   useEffect(() => {
     if (!socket) return
 
-    const handleChatMessage = ({ message, user, timestamp }) => {
+    const handleChatMessage = ({ message, user: msgUser, timestamp }) => {
       setMessages(prev => [...prev, {
         id: Date.now() + Math.random(),
         message,
-        user,
+        user: msgUser,
         timestamp: new Date(timestamp)
       }])
+      
+      // Increment unread count if chat is closed and message is from someone else
+      if (!isOpenRef.current && msgUser.id !== user?.id) {
+        setUnreadCount(prev => prev + 1)
+      }
     }
 
     socket.on('chat:message', handleChatMessage)
@@ -41,7 +57,7 @@ export default function Chat({ socket, roomCode, user, isOpen, onToggle }) {
     return () => {
       socket.off('chat:message', handleChatMessage)
     }
-  }, [socket])
+  }, [socket, user?.id])
 
   const handleSendMessage = (e) => {
     e.preventDefault()
@@ -96,6 +112,13 @@ export default function Chat({ socket, roomCode, user, isOpen, onToggle }) {
         title="Open Chat"
       >
         <MessageCircle className="w-6 h-6" />
+        {unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 min-w-[22px] h-[22px] px-1.5 
+                         bg-red-500 text-white text-xs font-bold rounded-full 
+                         flex items-center justify-center shadow-lg animate-pulse">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        )}
       </button>
     )
   }
