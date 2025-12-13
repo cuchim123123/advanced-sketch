@@ -2,6 +2,7 @@ import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
 import { ToastProvider } from './components/Toast'
 import { ConfirmProvider } from './components/ConfirmModal'
+import { ErrorBoundary, RouteErrorBoundary } from './components/ErrorBoundary'
 import { Toaster } from 'sonner'
 import { useEffect, useState, Suspense, lazy, useMemo } from 'react'
 import api from './services/api'
@@ -78,49 +79,60 @@ function HydratedApp() {
   // Create router with loaders - memoized to prevent recreation
   const router = useMemo(() => createBrowserRouter([
     {
-      path: '/login',
-      element: <Suspense fallback={<PageLoader />}><PublicRoute><Login /></PublicRoute></Suspense>
-    },
-    {
-      path: '/register',
-      element: <Suspense fallback={<PageLoader />}><PublicRoute><Signup /></PublicRoute></Suspense>
-    },
-    {
-      path: '/signup',
-      element: <Suspense fallback={<PageLoader />}><PublicRoute><Signup /></PublicRoute></Suspense>
-    },
-    {
-      path: '/verify-email',
-      element: <Suspense fallback={<PageLoader />}><VerifyEmail /></Suspense>
-    },
-    {
-      path: '/forgot-password',
-      element: <Suspense fallback={<PageLoader />}><PublicRoute><ForgotPassword /></PublicRoute></Suspense>
-    },
-    {
-      path: '/reset-password',
-      element: <Suspense fallback={<PageLoader />}><PublicRoute><ResetPassword /></PublicRoute></Suspense>
-    },
-    {
-      path: '/join/:code',
-      element: <Suspense fallback={<PageLoader />}><JoinRoom /></Suspense>
-    },
-    {
-      path: '/dashboard',
-      element: <Suspense fallback={<PageLoader />}><PrivateRouteGuard><Dashboard /></PrivateRouteGuard></Suspense>
-    },
-    {
-      path: '/room/:code',
-      loader: roomLoader,
-      element: <Suspense fallback={<PageLoader />}><PrivateRouteGuard><Room /></PrivateRouteGuard></Suspense>
-    },
-    {
-      path: '/profile',
-      element: <Suspense fallback={<PageLoader />}><PrivateRouteGuard><Profile /></PrivateRouteGuard></Suspense>
-    },
-    {
       path: '/',
-      element: <Navigate to="/dashboard" replace />
+      errorElement: <RouteErrorBoundary />,
+      children: [
+        {
+          path: '/login',
+          element: <Suspense fallback={<PageLoader />}><PublicRoute><Login /></PublicRoute></Suspense>
+        },
+        {
+          path: '/register',
+          element: <Suspense fallback={<PageLoader />}><PublicRoute><Signup /></PublicRoute></Suspense>
+        },
+        {
+          path: '/signup',
+          element: <Suspense fallback={<PageLoader />}><PublicRoute><Signup /></PublicRoute></Suspense>
+        },
+        {
+          path: '/verify-email',
+          element: <Suspense fallback={<PageLoader />}><VerifyEmail /></Suspense>
+        },
+        {
+          path: '/forgot-password',
+          element: <Suspense fallback={<PageLoader />}><PublicRoute><ForgotPassword /></PublicRoute></Suspense>
+        },
+        {
+          path: '/reset-password',
+          element: <Suspense fallback={<PageLoader />}><PublicRoute><ResetPassword /></PublicRoute></Suspense>
+        },
+        {
+          path: '/join/:code',
+          element: <Suspense fallback={<PageLoader />}><JoinRoom /></Suspense>
+        },
+        {
+          path: '/dashboard',
+          element: <Suspense fallback={<PageLoader />}><PrivateRouteGuard><Dashboard /></PrivateRouteGuard></Suspense>
+        },
+        {
+          path: '/room/:code',
+          loader: roomLoader,
+          errorElement: <RouteErrorBoundary />,
+          element: <Suspense fallback={<PageLoader />}><PrivateRouteGuard><Room /></PrivateRouteGuard></Suspense>
+        },
+        {
+          path: '/profile',
+          element: <Suspense fallback={<PageLoader />}><PrivateRouteGuard><Profile /></PrivateRouteGuard></Suspense>
+        },
+        {
+          index: true,
+          element: <Navigate to="/dashboard" replace />
+        }
+      ]
+    },
+    {
+      path: '*',
+      element: <RouteErrorBoundary />
     }
   ], {
     future: {
@@ -144,12 +156,14 @@ function HydratedApp() {
 
 function App() {
   return (
-    <ToastProvider>
-      <ConfirmProvider>
-        <Toaster richColors position="top-center" />
-        <HydratedApp />
-      </ConfirmProvider>
-    </ToastProvider>
+    <ErrorBoundary>
+      <ToastProvider>
+        <ConfirmProvider>
+          <Toaster richColors position="top-center" />
+          <HydratedApp />
+        </ConfirmProvider>
+      </ToastProvider>
+    </ErrorBoundary>
   )
 }
 
