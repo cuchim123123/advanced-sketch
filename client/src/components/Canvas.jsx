@@ -1,29 +1,19 @@
 import { useRef, useEffect, useState, useCallback, useMemo, memo } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { optimizeStrokeForTransmit } from '../utils/strokeOptimization'
-import { Dropdown, DropdownItem, DropdownSeparator } from './ui/dropdown'
-import { ChevronDown } from 'lucide-react'
-
-const TOOLS = {
-  SELECT: 'select', // Selection/move tool
-  PEN: 'pen',
-  ERASER: 'eraser',
-  LINE: 'line',
-  RECTANGLE: 'rectangle',
-  CIRCLE: 'circle',
-  TRIANGLE: 'triangle',
-  ARROW: 'arrow',
-  DIAMOND: 'diamond',
-  TEXT: 'text',
-  IMAGE: 'image',
-  HAND: 'hand'  // Pan tool
-}
-
-const COLORS = [
-  '#000000', '#FF0000', '#00FF00', '#0000FF', 
-  '#FFFF00', '#FF00FF', '#00FFFF', '#FF6B6B',
-  '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'
-]
+import {
+  TOOLS,
+  COLORS,
+  CANVAS_WIDTH,
+  CANVAS_HEIGHT,
+  MIN_ZOOM,
+  MAX_ZOOM,
+  EMIT_THROTTLE,
+  TOOL_ICONS
+} from './canvas/constants'
+import CanvasToolbar from './canvas/CanvasToolbar'
+import CursorOverlay from './canvas/CursorOverlay'
+import KeyboardShortcutsModal from './canvas/KeyboardShortcutsModal'
 
 export default function Canvas({ 
   socket, 
@@ -84,11 +74,6 @@ export default function Canvas({
   
   // Snapshot of canvas state for shape preview (must be declared before effects use it)
   const shapePreviewSnapshot = useRef(null)
-  
-  const MIN_ZOOM = 0.25
-  const MAX_ZOOM = 4
-  const CANVAS_WIDTH = 1920 // Virtual canvas width (Full HD)
-  const CANVAS_HEIGHT = 1080 // Virtual canvas height (Full HD)
   
   // Generate dynamic cursor based on tool and stroke width
   const getCursor = useMemo(() => {
@@ -1632,307 +1617,25 @@ export default function Canvas({
   return (
     <div className="flex flex-col h-full bg-slate-100">
       {/* Toolbar */}
-      <div className="glass border-b border-slate-200 p-3 flex flex-wrap items-center gap-4 relative z-50">
-        {/* Basic Tools (Select, Pen, Eraser, Hand) */}
-        <div className="flex gap-1 p-1 glass rounded-xl">
-          <button
-            onClick={() => { setTool(TOOLS.SELECT); setSelectedStroke(null); }}
-            className={`p-2.5 rounded-lg transition-all duration-200 ${
-              tool === TOOLS.SELECT 
-                ? 'bg-gradient-to-r from-sky-500 to-emerald-500 text-white shadow-lg' 
-                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
-            }`}
-            title="Select/Move (V)"
-          >
-            👆
-          </button>
-          <button
-            onClick={() => setTool(TOOLS.PEN)}
-            className={`p-2.5 rounded-lg transition-all duration-200 ${
-              tool === TOOLS.PEN 
-                ? 'bg-gradient-to-r from-sky-500 to-emerald-500 text-white shadow-lg' 
-                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
-            }`}
-            title="Pen (P)"
-          >
-            ✏️
-          </button>
-          <button
-            onClick={() => setTool(TOOLS.ERASER)}
-            className={`p-2.5 rounded-lg transition-all duration-200 ${
-              tool === TOOLS.ERASER 
-                ? 'bg-gradient-to-r from-sky-500 to-emerald-500 text-white shadow-lg' 
-                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
-            }`}
-            title="Eraser (E)"
-          >
-            🧹
-          </button>
-          <button
-            onClick={() => setTool(TOOLS.HAND)}
-            className={`p-2.5 rounded-lg transition-all duration-200 ${
-              tool === TOOLS.HAND 
-                ? 'bg-gradient-to-r from-sky-500 to-emerald-500 text-white shadow-lg' 
-                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
-            }`}
-            title="Hand (H)"
-          >
-            ✋
-          </button>
-        </div>
-
-        {/* Shapes Dropdown */}
-        <Dropdown 
-          trigger={
-            <button className={`flex items-center gap-2 px-3 py-2.5 rounded-xl transition-all duration-200 ${
-              [TOOLS.LINE, TOOLS.RECTANGLE, TOOLS.CIRCLE, TOOLS.TRIANGLE, TOOLS.ARROW, TOOLS.DIAMOND].includes(tool)
-                ? 'bg-gradient-to-r from-sky-500 to-emerald-500 text-white shadow-lg' 
-                : 'glass text-slate-600 hover:bg-slate-100'
-            }`}>
-              {tool === TOOLS.LINE && '📏'}
-              {tool === TOOLS.RECTANGLE && '⬜'}
-              {tool === TOOLS.CIRCLE && '⭕'}
-              {tool === TOOLS.TRIANGLE && '🔺'}
-              {tool === TOOLS.ARROW && '➡️'}
-              {tool === TOOLS.DIAMOND && '🔷'}
-              {![TOOLS.LINE, TOOLS.RECTANGLE, TOOLS.CIRCLE, TOOLS.TRIANGLE, TOOLS.ARROW, TOOLS.DIAMOND].includes(tool) && '⬜'}
-              <span className="text-sm">Shapes</span>
-              <ChevronDown className="w-4 h-4" />
-            </button>
-          }
-        >
-          <DropdownItem 
-            onClick={() => setTool(TOOLS.LINE)}
-            active={tool === TOOLS.LINE}
-          >
-            <span className="flex items-center gap-2">
-              📏 Line <span className="text-xs text-gray-400 ml-auto">L</span>
-            </span>
-          </DropdownItem>
-          <DropdownItem 
-            onClick={() => setTool(TOOLS.RECTANGLE)}
-            active={tool === TOOLS.RECTANGLE}
-          >
-            <span className="flex items-center gap-2">
-              ⬜ Rectangle <span className="text-xs text-gray-400 ml-auto">R</span>
-            </span>
-          </DropdownItem>
-          <DropdownItem 
-            onClick={() => setTool(TOOLS.CIRCLE)}
-            active={tool === TOOLS.CIRCLE}
-          >
-            <span className="flex items-center gap-2">
-              ⭕ Circle <span className="text-xs text-gray-400 ml-auto">C</span>
-            </span>
-          </DropdownItem>
-          <DropdownSeparator />
-          <DropdownItem 
-            onClick={() => setTool(TOOLS.TRIANGLE)}
-            active={tool === TOOLS.TRIANGLE}
-          >
-            <span className="flex items-center gap-2">
-              🔺 Triangle
-            </span>
-          </DropdownItem>
-          <DropdownItem 
-            onClick={() => setTool(TOOLS.ARROW)}
-            active={tool === TOOLS.ARROW}
-          >
-            <span className="flex items-center gap-2">
-              ➡️ Arrow
-            </span>
-          </DropdownItem>
-          <DropdownItem 
-            onClick={() => setTool(TOOLS.DIAMOND)}
-            active={tool === TOOLS.DIAMOND}
-          >
-            <span className="flex items-center gap-2">
-              🔷 Diamond
-            </span>
-          </DropdownItem>
-        </Dropdown>
-
-        {/* Text & Image */}
-        <div className="flex gap-1 p-1 glass rounded-xl">
-          <button
-            onClick={() => setTool(TOOLS.TEXT)}
-            className={`p-2.5 rounded-lg transition-all duration-200 ${
-              tool === TOOLS.TEXT 
-                ? 'bg-gradient-to-r from-sky-500 to-emerald-500 text-white shadow-lg' 
-                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
-            }`}
-            title="Text (T)"
-          >
-            🔤
-          </button>
-          <button
-            onClick={() => setTool(TOOLS.IMAGE)}
-            className={`p-2.5 rounded-lg transition-all duration-200 ${
-              tool === TOOLS.IMAGE 
-                ? 'bg-gradient-to-r from-sky-500 to-emerald-500 text-white shadow-lg' 
-                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
-            }`}
-            title="Image (I)"
-          >
-            🖼️
-          </button>
-        </div>
-
-        {/* Divider */}
-        <div className="w-px h-8 bg-slate-200" />
-
-        {/* Color Picker Dropdown */}
-        <Dropdown
-          trigger={
-            <button className="flex items-center gap-2 px-3 py-2.5 glass rounded-xl hover:bg-slate-100 transition-all duration-200">
-              <div 
-                className="w-6 h-6 rounded-md border-2 border-white shadow-sm" 
-                style={{ backgroundColor: color }}
-              />
-              <span className="text-sm text-slate-600">Color</span>
-              <ChevronDown className="w-4 h-4 text-slate-400" />
-            </button>
-          }
-          className="min-w-[200px]"
-        >
-          <div className="px-4 py-3">
-            <div className="grid grid-cols-4 gap-2">
-              {COLORS.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => setColor(c)}
-                  className={`w-10 h-10 rounded-lg transition-all duration-200 ${
-                    color === c 
-                      ? 'ring-2 ring-sky-500 ring-offset-2 scale-110' 
-                      : 'hover:scale-110'
-                  }`}
-                  style={{ backgroundColor: c }}
-                  title={c}
-                />
-              ))}
-            </div>
-          </div>
-        </Dropdown>
-
-        {/* Divider */}
-        <div className="w-px h-8 bg-slate-200" />
-
-        {/* Stroke Width / Font Size */}
-        {tool === TOOLS.TEXT ? (
-          <div className="flex items-center gap-2 glass rounded-xl px-3 py-2">
-            <span className="text-sm text-slate-500">Font:</span>
-            <input
-              type="range"
-              min="12"
-              max="72"
-              value={fontSize}
-              onChange={(e) => setFontSize(parseInt(e.target.value))}
-              className="w-24"
-            />
-            <span className="text-sm text-slate-600 w-6">{fontSize}</span>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 glass rounded-xl px-3 py-2">
-            <span className="text-sm text-slate-500">Size:</span>
-            <input
-              type="range"
-              min="1"
-              max="20"
-              value={strokeWidth}
-              onChange={(e) => setStrokeWidth(parseInt(e.target.value))}
-              className="w-24"
-            />
-            <span className="text-sm text-slate-600 w-6">{strokeWidth}</span>
-          </div>
-        )}
-
-        {/* Divider */}
-        <div className="w-px h-8 bg-slate-200" />
-
-        {/* Actions */}
-        <div className="flex gap-1.5">
-          <button
-            onClick={handleUndo}
-            className="glass-button px-3 py-2 text-sm"
-            title="Undo (Ctrl+Z)"
-          >
-            ↩️
-          </button>
-          <button
-            onClick={handleRedo}
-            className="glass-button px-3 py-2 text-sm"
-            title="Redo (Ctrl+Y)"
-          >
-            ↪️
-          </button>
-          <button
-            onClick={handleClear}
-            className="px-3 py-2 text-sm bg-red-100 text-red-600 rounded-xl border border-red-200 
-                     hover:bg-red-200 transition-all duration-200"
-            title="Clear All"
-          >
-            🗑️
-          </button>
-          
-          {/* Export Dropdown */}
-          <Dropdown
-            trigger={
-              <button
-                className="px-3 py-2 text-sm bg-emerald-100 text-emerald-600 rounded-xl border border-emerald-200 
-                         hover:bg-emerald-200 transition-all duration-200 flex items-center gap-1"
-                title="Export"
-              >
-                📥 <ChevronDown className="w-3 h-3" />
-              </button>
-            }
-          >
-            <DropdownItem onClick={() => handleExport('png')}>
-              <span className="flex items-center gap-2">
-                🖼️ Export as PNG
-              </span>
-            </DropdownItem>
-            <DropdownItem onClick={() => handleExport('svg')}>
-              <span className="flex items-center gap-2">
-                📐 Export as SVG
-              </span>
-            </DropdownItem>
-            <DropdownSeparator />
-            <DropdownItem onClick={() => handleExport('pdf')}>
-              <span className="flex items-center gap-2">
-                📄 Export as PDF
-              </span>
-            </DropdownItem>
-          </Dropdown>
-        </div>
-
-        {/* Divider */}
-        <div className="w-px h-8 bg-slate-200" />
-
-        {/* Zoom Controls */}
-        <div className="flex items-center gap-1 glass rounded-xl p-1">
-          <button
-            onClick={handleZoomOut}
-            className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-all duration-200"
-            title="Zoom Out"
-          >
-            ➖
-          </button>
-          <button
-            onClick={handleResetZoom}
-            className="px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 rounded-lg min-w-[60px] transition-all duration-200"
-            title="Reset Zoom"
-          >
-            {Math.round(zoom * 100)}%
-          </button>
-          <button
-            onClick={handleZoomIn}
-            className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-all duration-200"
-            title="Zoom In"
-          >
-            ➕
-          </button>
-        </div>
-      </div>
+      <CanvasToolbar
+        tool={tool}
+        setTool={setTool}
+        color={color}
+        setColor={setColor}
+        strokeWidth={strokeWidth}
+        setStrokeWidth={setStrokeWidth}
+        fontSize={fontSize}
+        setFontSize={setFontSize}
+        zoom={zoom}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        onClear={handleClear}
+        onExport={handleExport}
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+        onResetZoom={handleResetZoom}
+        setSelectedStroke={setSelectedStroke}
+      />
 
       {/* Canvas Container */}
       <div 
@@ -2017,61 +1720,12 @@ export default function Canvas({
           />
         </div>
 
-        {/* Other users' cursors - realtime with will-change for GPU acceleration */}
-        {Object.entries(cursors).map(([userId, cursor]) => {
-          const screenPos = canvasToScreen(cursor.x, cursor.y)
-          
-          // Tool indicator emoji
-          const toolIcon = {
-            [TOOLS.PEN]: '✏️',
-            [TOOLS.ERASER]: '🧹',
-            [TOOLS.SELECT]: '👆',
-            [TOOLS.LINE]: '📏',
-            [TOOLS.RECTANGLE]: '⬜',
-            [TOOLS.CIRCLE]: '⭕',
-            [TOOLS.TRIANGLE]: '🔺',
-            [TOOLS.ARROW]: '➡️',
-            [TOOLS.DIAMOND]: '🔷',
-            [TOOLS.TEXT]: '🔤',
-            [TOOLS.IMAGE]: '🖼️',
-            [TOOLS.HAND]: '✋'
-          }[cursor.tool] || '✏️'
-          
-          return (
-            <div
-              key={userId}
-              className="absolute pointer-events-none"
-              style={{
-                transform: `translate(${screenPos.x - 8}px, ${screenPos.y - 8}px)`,
-                willChange: 'transform' // GPU accelerated
-              }}
-            >
-              {/* Cursor dot */}
-              <div
-                className="w-4 h-4 rounded-full border-2 border-white shadow-md"
-                style={{ backgroundColor: cursor.color }}
-              />
-              
-              {/* Tool indicator */}
-              <div 
-                className="absolute -top-5 -right-5 w-6 h-6 flex items-center justify-center text-xs rounded-full border-2 border-white shadow-md"
-                style={{ backgroundColor: cursor.color }}
-              >
-                {toolIcon}
-              </div>
-              
-              {/* Username label */}
-              {showCursorNames && (
-                <span
-                  className="absolute top-5 left-2 text-xs px-1.5 py-0.5 rounded whitespace-nowrap shadow-sm"
-                  style={{ backgroundColor: cursor.color, color: 'white' }}
-                >
-                  {cursor.username}
-                </span>
-              )}
-            </div>
-          )
-        })}
+        {/* Other users' cursors */}
+        <CursorOverlay
+          cursors={cursors}
+          canvasToScreen={canvasToScreen}
+          showCursorNames={showCursorNames}
+        />
 
         {/* Text Input Overlay */}
         {textInput.show && (
@@ -2120,54 +1774,10 @@ export default function Canvas({
         </div>
 
         {/* Keyboard Shortcuts Modal */}
-        {showShortcuts && (
-          <div 
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in"
-            onClick={() => setShowShortcuts(false)}
-          >
-            <div 
-              className="glass-card p-6 max-w-md animate-scale-in"
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-white">Keyboard Shortcuts</h3>
-                <button 
-                  onClick={() => setShowShortcuts(false)}
-                  className="glass-button w-8 h-8 flex items-center justify-center text-white/50 hover:text-white"
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="grid grid-cols-2 gap-6 text-sm">
-                <div>
-                  <h4 className="font-medium mb-3 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">Tools</h4>
-                  <div className="space-y-2 text-white/70">
-                    <div><kbd className="bg-white/10 px-2 py-0.5 rounded-lg border border-white/20 mr-2">P</kbd> Pen</div>
-                    <div><kbd className="bg-white/10 px-2 py-0.5 rounded-lg border border-white/20 mr-2">E</kbd> Eraser</div>
-                    <div><kbd className="bg-white/10 px-2 py-0.5 rounded-lg border border-white/20 mr-2">L</kbd> Line</div>
-                    <div><kbd className="bg-white/10 px-2 py-0.5 rounded-lg border border-white/20 mr-2">R</kbd> Rectangle</div>
-                    <div><kbd className="bg-white/10 px-2 py-0.5 rounded-lg border border-white/20 mr-2">C</kbd> Circle</div>
-                    <div><kbd className="bg-white/10 px-2 py-0.5 rounded-lg border border-white/20 mr-2">T</kbd> Text</div>
-                    <div><kbd className="bg-white/10 px-2 py-0.5 rounded-lg border border-white/20 mr-2">I</kbd> Image</div>
-                    <div><kbd className="bg-white/10 px-2 py-0.5 rounded-lg border border-white/20 mr-2">H</kbd> Hand (pan)</div>
-                  </div>
-                </div>
-                <div>
-                  <h4 className="font-medium mb-3 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400">Actions</h4>
-                  <div className="space-y-2 text-white/70">
-                    <div><kbd className="bg-white/10 px-2 py-0.5 rounded-lg border border-white/20 mr-2">Ctrl+Z</kbd> Undo</div>
-                    <div><kbd className="bg-white/10 px-2 py-0.5 rounded-lg border border-white/20 mr-2">Ctrl+Y</kbd> Redo</div>
-                    <div><kbd className="bg-white/10 px-2 py-0.5 rounded-lg border border-white/20 mr-2">Ctrl+S</kbd> Save</div>
-                    <div><kbd className="bg-white/10 px-2 py-0.5 rounded-lg border border-white/20 mr-2">Ctrl+E</kbd> Export</div>
-                    <div><kbd className="bg-white/10 px-2 py-0.5 rounded-lg border border-white/20 mr-2">Space</kbd> Pan</div>
-                    <div><kbd className="bg-white/10 px-2 py-0.5 rounded-lg border border-white/20 mr-2">Scroll</kbd> Zoom</div>
-                    <div><kbd className="bg-white/10 px-2 py-0.5 rounded-lg border border-white/20 mr-2">Esc</kbd> Close modal</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        <KeyboardShortcutsModal
+          isOpen={showShortcuts}
+          onClose={() => setShowShortcuts(false)}
+        />
       </div>
     </div>
   )
