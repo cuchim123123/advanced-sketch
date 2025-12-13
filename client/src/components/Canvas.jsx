@@ -1127,7 +1127,7 @@ export default function Canvas({
   return (
     <div className="flex flex-col h-full bg-slate-100">
       {/* Toolbar */}
-      <div className="glass border-b border-slate-200 p-3 flex flex-wrap items-center gap-4">
+      <div className="glass border-b border-slate-200 p-3 flex flex-wrap items-center gap-4 relative z-50">
         {/* Basic Tools (Select, Pen, Eraser, Hand) */}
         <div className="flex gap-1 p-1 glass rounded-xl">
           <button

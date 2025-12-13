@@ -35,7 +35,7 @@ export function Dropdown({
       {isOpen && (
         <div 
           className={cn(
-            "absolute z-50 mt-1 min-w-[160px] rounded-md border border-gray-200 bg-white shadow-lg",
+            "absolute z-[100] mt-1 min-w-[160px] rounded-md border border-gray-200 bg-white shadow-lg",
             align === 'right' ? 'right-0' : 'left-0',
             className
           )}
