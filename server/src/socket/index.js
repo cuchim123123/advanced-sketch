@@ -199,12 +199,23 @@ module.exports = (io) => {
      * Client emits stroke data in real-time
      * Server broadcasts to room with proper synchronization
      */
-    socket.on('draw:stroke', async ({ stroke }) => {
+    socket.on('draw:stroke', async ({ stroke, isPreview }) => {
       if (!socket.roomCode) return;
 
       const roomState = roomStates.get(socket.roomCode);
       if (!roomState) return;
 
+      // For preview strokes, just relay immediately without storing
+      if (isPreview) {
+        socket.to(socket.roomCode).emit('draw:stroke', {
+          stroke: { ...stroke, userId: socket.user._id?.toString() || socket.user.id },
+          username: socket.user.username,
+          isPreview: true
+        });
+        return;
+      }
+
+      // Final stroke - store and broadcast
       // Decompress if stroke was optimized
       const decompressedStroke = processIncomingStroke(stroke);
 
@@ -252,12 +263,11 @@ module.exports = (io) => {
       // Sync strokes array with Map
       roomState.strokes = Array.from(roomState.strokesMap.values());
 
-      // Broadcast to others (not back to sender) - send original optimized format
-      // ✅ Include sequence number for client-side ordering
+      // Broadcast FINAL stroke to others (not back to sender)
       socket.to(socket.roomCode).emit('draw:stroke', {
-        stroke: { ...stroke, sequence: sequenceNumber }, // Add sequence for ordering
+        stroke: { ...stroke, sequence: sequenceNumber },
         username: socket.user.username,
-        isPreview: stroke.isPreview || false
+        isPreview: false // This is a final stroke
       });
     });
 

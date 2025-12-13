@@ -64,6 +64,14 @@ export default function Canvas({
   const [isDragging, setIsDragging] = useState(false)
   const dragOffset = useRef({ x: 0, y: 0 })
   
+  // Cache container rect to avoid getBoundingClientRect every mousemove
+  const containerRectCache = useRef(null)
+  const updateContainerRect = useCallback(() => {
+    if (containerRef.current) {
+      containerRectCache.current = containerRef.current.getBoundingClientRect()
+    }
+  }, [])
+  
   // Transform state (resize/rotate)
   const [transformMode, setTransformMode] = useState(null) // 'resize-nw', 'resize-ne', 'resize-sw', 'resize-se', 'rotate'
   const transformStart = useRef({ x: 0, y: 0, width: 0, height: 0, rotation: 0 })
@@ -84,8 +92,8 @@ export default function Canvas({
   
   const MIN_ZOOM = 0.25
   const MAX_ZOOM = 4
-  const CANVAS_WIDTH = 3000 // Virtual canvas width
-  const CANVAS_HEIGHT = 1500 // Virtual canvas height
+  const CANVAS_WIDTH = 1920 // Virtual canvas width (Full HD)
+  const CANVAS_HEIGHT = 1080 // Virtual canvas height (Full HD)
   
   // Generate dynamic cursor based on tool and stroke width
   const getCursor = useMemo(() => {
@@ -225,14 +233,27 @@ export default function Canvas({
     
     setupCanvas()
     
+    // Initialize cached rect
+    containerRectCache.current = container.getBoundingClientRect()
+    
+    // Update rect on scroll (can change position)
+    const handleScroll = () => {
+      containerRectCache.current = container.getBoundingClientRect()
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    
     // Use ResizeObserver for container size changes (sidebar toggle, etc.)
     const resizeObserver = new ResizeObserver(() => {
-      // No need to resize canvas, just ensure it's visible
+      // Update cached rect when container resizes
+      containerRectCache.current = container.getBoundingClientRect()
     })
     
     resizeObserver.observe(container)
     
-    return () => resizeObserver.disconnect()
+    return () => {
+      resizeObserver.disconnect()
+      window.removeEventListener('scroll', handleScroll)
+    }
   }, [])
 
   // Helper to redraw with specific strokes array (used by resize handler)
@@ -252,16 +273,25 @@ export default function Canvas({
     })
   }
 
+  // Track previous strokes to detect changes
+  const prevStrokesRef = useRef([])
+  const prevPreviewStrokesRef = useRef({})
+
   // Redraw when strokes or preview strokes change
+  // NOTE: Always full redraw for correctness. Optimization can come later with layered canvas.
   useEffect(() => {
+    const ctx = contextRef.current
+    if (!ctx) return
+
+    // Combine final strokes + preview strokes
     const allStrokes = [...strokes, ...Object.values(previewStrokes)]
     redrawWithStrokes(allStrokes)
+    
     // Invalidate shape preview snapshot so next draw uses fresh state
     shapePreviewSnapshot.current = null
     
     // Draw selection highlight if there's a selected stroke
     if (selectedStroke && tool === TOOLS.SELECT) {
-      // Find the current position of the selected stroke in the updated strokes
       const currentStrokeData = strokes.find(s => s.id === selectedStroke.id)
       if (currentStrokeData) {
         drawSelectionHighlight(currentStrokeData)
@@ -572,8 +602,8 @@ export default function Canvas({
   }
 
   const getCoordinates = (e) => {
-    const container = containerRef.current
-    const rect = container.getBoundingClientRect()
+    // Use cached rect (updated on scroll/resize) to avoid layout thrashing
+    const rect = containerRectCache.current || containerRef.current?.getBoundingClientRect()
     // Handle both mouse and touch events, including touchend (uses changedTouches)
     const clientX = e.clientX ?? e.touches?.[0]?.clientX ?? e.changedTouches?.[0]?.clientX ?? 0
     const clientY = e.clientY ?? e.touches?.[0]?.clientY ?? e.changedTouches?.[0]?.clientY ?? 0
@@ -699,13 +729,13 @@ export default function Canvas({
       points: [{ x, y }],
       startPoint: { x, y }
     }
+    lastSentPointIndex.current = 0 // Reset for new stroke
 
     if (tool === TOOLS.PEN || tool === TOOLS.ERASER) {
+      // Just set style, actual drawing happens in draw()
       const ctx = contextRef.current
-      ctx.beginPath()
-      ctx.strokeStyle = tool === TOOLS.ERASER ? '#ffffff' : color
-      ctx.lineWidth = strokeWidth
-      ctx.moveTo(x, y)
+      ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
     }
   }
 
@@ -713,11 +743,14 @@ export default function Canvas({
   const rafRef = useRef(null)
   const pendingPoint = useRef(null)
   const lastEmitTime = useRef(0)
+  const lastSentPointIndex = useRef(0) // Track which points already sent
   const EMIT_THROTTLE = 50 // Emit every 50ms max
   
   // Ref to track drawing state for use in RAF callbacks (avoids stale closure)
   const isDrawingRef = useRef(false)
   
+  // Last point for incremental drawing
+  const lastDrawPoint = useRef(null)
   const draw = (e) => {
     if (!isDrawingRef.current) return
     if (!currentStroke.current) return
@@ -725,21 +758,41 @@ export default function Canvas({
     const { x, y } = getCoordinates(e)
     pendingPoint.current = { x, y }
 
-    // For pen/eraser, draw immediately without RAF for lowest latency
+    // For pen/eraser, draw ONLY the new segment (not entire path!)
     if (tool === TOOLS.PEN || tool === TOOLS.ERASER) {
       const ctx = contextRef.current
+      const prev = lastDrawPoint.current || currentStroke.current.startPoint
+      
+      // Draw single line segment - O(1) instead of O(n)!
+      ctx.beginPath()
+      ctx.strokeStyle = tool === TOOLS.ERASER ? '#ffffff' : color
+      ctx.lineWidth = strokeWidth
+      ctx.moveTo(prev.x, prev.y)
       ctx.lineTo(x, y)
       ctx.stroke()
+      
+      lastDrawPoint.current = { x, y }
       currentStroke.current.points.push({ x, y })
 
-      // Throttle socket emit to reduce network load
+      // Throttle socket emit - send NEW points since last emit
       const now = Date.now()
       if (socket && now - lastEmitTime.current > EMIT_THROTTLE) {
-        const optimized = optimizeStrokeForTransmit(currentStroke.current, {
-          simplifyEpsilon: 1.5,
-          useDelta: true
-        })
-        socket.emit('draw:stroke', { stroke: optimized })
+        // Send only points that haven't been sent yet
+        const newPoints = currentStroke.current.points.slice(lastSentPointIndex.current)
+        if (newPoints.length > 0) {
+          socket.emit('draw:stroke', { 
+            stroke: {
+              id: currentStroke.current.id,
+              tool: currentStroke.current.tool,
+              color: currentStroke.current.color,
+              strokeWidth: currentStroke.current.strokeWidth,
+              startPoint: currentStroke.current.startPoint,
+              points: currentStroke.current.points, // Send FULL points for other users to render
+            },
+            isPreview: true // Mark as preview so other clients render incrementally
+          })
+          lastSentPointIndex.current = currentStroke.current.points.length
+        }
         lastEmitTime.current = now
       }
     } else {
@@ -866,11 +919,17 @@ export default function Canvas({
     currentStroke.current = null
     startPoint.current = null
     pendingPoint.current = null // Clear pending point
+    pendingDrawEvent.current = null // Clear pending draw event
+    lastDrawPoint.current = null // Reset for next stroke
     shapePreviewSnapshot.current = null // Reset shape preview snapshot
     // Cancel any pending RAF
     if (rafRef.current) {
       cancelAnimationFrame(rafRef.current)
       rafRef.current = null
+    }
+    if (drawRafId.current) {
+      cancelAnimationFrame(drawRafId.current)
+      drawRafId.current = null
     }
   }
 
@@ -1120,10 +1179,40 @@ export default function Canvas({
     setIsPanning(false)
   }
 
-  // Cursor updates are now realtime (no throttle)
+  // Throttle refs for cursor
+  const lastCursorEmit = useRef(0)
+  
+  // RAF-based draw scheduling - sync with browser paint cycle
+  const drawRafId = useRef(null)
+  const pendingDrawEvent = useRef(null)
   
   // Handle cursor move without drawing
   const handleMouseMove = (e) => {
+    // FAST PATH: If drawing, schedule for next RAF (sync with display refresh)
+    if (isDrawing) {
+      // Store latest event (newer events override older ones)
+      pendingDrawEvent.current = e
+      
+      // Only schedule ONE RAF per frame
+      if (!drawRafId.current) {
+        drawRafId.current = requestAnimationFrame(() => {
+          drawRafId.current = null
+          if (pendingDrawEvent.current && isDrawingRef.current) {
+            draw(pendingDrawEvent.current)
+            
+            // Emit cursor position to others (throttled to ~30fps)
+            const now = Date.now()
+            if (socket && now - lastCursorEmit.current > 33) {
+              const { x, y } = getCoordinates(pendingDrawEvent.current)
+              socket.emit('cursor:move', { x, y, tool })
+              lastCursorEmit.current = now
+            }
+          }
+        })
+      }
+      return
+    }
+    
     // Handle panning (space+drag, middle mouse, or hand tool)
     if (isPanning && lastPanPoint.current) {
       const dx = e.clientX - lastPanPoint.current.x
@@ -1133,11 +1222,12 @@ export default function Canvas({
       return
     }
     
-    const { x, y } = getCoordinates(e)
-    
-    // Emit cursor position and current tool in realtime
-    if (socket && !isPanning) {
+    // Throttle cursor emit to 30fps (not every pixel!)
+    const now = Date.now()
+    if (socket && !isPanning && now - lastCursorEmit.current > 33) {
+      const { x, y } = getCoordinates(e)
       socket.emit('cursor:move', { x, y, tool })
+      lastCursorEmit.current = now
     }
     
     // Handle transform mode (resize/rotate)
@@ -1248,10 +1338,6 @@ export default function Canvas({
       // Draw selection highlight
       drawSelectionHighlight(updatedStroke)
       return
-    }
-    
-    if (isDrawing) {
-      draw(e)
     }
   }
   
@@ -1383,7 +1469,16 @@ export default function Canvas({
   
   const handleTouchMove = (e) => {
     if (e.touches.length === 1 && !isPanning) {
-      draw(e)
+      // Use same RAF pattern as mouse for consistency
+      pendingDrawEvent.current = e
+      if (!drawRafId.current) {
+        drawRafId.current = requestAnimationFrame(() => {
+          drawRafId.current = null
+          if (pendingDrawEvent.current && isDrawingRef.current) {
+            draw(pendingDrawEvent.current)
+          }
+        })
+      }
     }
   }
   
