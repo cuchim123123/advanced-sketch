@@ -310,15 +310,17 @@ module.exports = (io) => {
      * CURSOR MOVE
      * No server-side throttle - client already throttles at 60fps
      * Server just relays immediately for lowest latency
+     * Now includes tool information for collaborative cursor indicators
      */
-    socket.on('cursor:move', ({ x, y }) => {
+    socket.on('cursor:move', ({ x, y, tool }) => {
       if (!socket.roomCode) return;
       
       // Broadcast to others immediately (no throttle - client handles it)
       socket.to(socket.roomCode).emit('cursor:move', {
         userId: socket.user._id,
         x,
-        y
+        y,
+        tool
       });
     });
 

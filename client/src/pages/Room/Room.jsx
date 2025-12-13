@@ -170,13 +170,14 @@ export default function Room() {
     let cursorUpdatePending = false
     const pendingCursors = {}
     
-    sock.on('cursor:move', ({ userId, x, y }) => {
+    sock.on('cursor:move', ({ userId, x, y, tool }) => {
       // Queue cursor update
       const { participants } = useRoomStore.getState()
       const participant = participants.find(p => p.id === userId)
       pendingCursors[userId] = {
         x,
         y,
+        tool: tool || pendingCursors[userId]?.tool || 'pen', // Include current tool
         color: participant?.color || pendingCursors[userId]?.color || '#888',
         username: participant?.username || pendingCursors[userId]?.username || 'User'
       }

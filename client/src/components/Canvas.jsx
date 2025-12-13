@@ -64,6 +64,10 @@ export default function Canvas({
   const [isDragging, setIsDragging] = useState(false)
   const dragOffset = useRef({ x: 0, y: 0 })
   
+  // Transform state (resize/rotate)
+  const [transformMode, setTransformMode] = useState(null) // 'resize-nw', 'resize-ne', 'resize-sw', 'resize-se', 'rotate'
+  const transformStart = useRef({ x: 0, y: 0, width: 0, height: 0, rotation: 0 })
+  
   // Keyboard shortcuts modal
   const [showShortcuts, setShowShortcuts] = useState(false)
   
@@ -268,6 +272,20 @@ export default function Canvas({
   const drawStroke = (stroke, ctx) => {
     if (!stroke || !stroke.tool) return
     
+    ctx.save()
+    
+    // Apply rotation if stroke has one
+    if (stroke.rotation && stroke.startPoint && stroke.endPoint) {
+      const bounds = getStrokeBounds(stroke)
+      if (bounds) {
+        const centerX = bounds.x + bounds.width / 2
+        const centerY = bounds.y + bounds.height / 2
+        ctx.translate(centerX, centerY)
+        ctx.rotate(stroke.rotation * Math.PI / 180)
+        ctx.translate(-centerX, -centerY)
+      }
+    }
+    
     ctx.beginPath()
     ctx.strokeStyle = stroke.tool === TOOLS.ERASER ? '#ffffff' : (stroke.color || '#000000')
     ctx.lineWidth = stroke.strokeWidth || 3
@@ -283,6 +301,7 @@ export default function Canvas({
       const clampedWidth = Math.max(-maxSize, Math.min(maxSize, width))
       const clampedHeight = Math.max(-maxSize, Math.min(maxSize, height))
       ctx.strokeRect(stroke.startPoint.x, stroke.startPoint.y, clampedWidth, clampedHeight)
+      ctx.restore()
       return
     } else if (stroke.tool === TOOLS.CIRCLE) {
       const radius = Math.sqrt(
@@ -341,6 +360,7 @@ export default function Canvas({
       ctx.font = `${stroke.fontSize || 16}px Arial, sans-serif`
       ctx.fillStyle = stroke.color || '#000000'
       ctx.fillText(stroke.text || '', stroke.startPoint.x, stroke.startPoint.y)
+      ctx.restore()
       return
     } else if (stroke.tool === TOOLS.IMAGE && stroke.imageData) {
       // Draw image with caching
@@ -370,6 +390,7 @@ export default function Canvas({
         }
         img.src = stroke.imageData
       }
+      ctx.restore()
       return
     } else {
       // Pen or eraser - draw path
@@ -381,47 +402,173 @@ export default function Canvas({
       }
     }
     ctx.stroke()
+    ctx.restore()
   }
 
-  // Draw selection highlight around selected element
-  const drawSelectionHighlight = (stroke) => {
-    if (!stroke) return
+  // Get bounds of any stroke for selection/transform
+  const getStrokeBounds = (stroke) => {
+    if (!stroke) return null
     const ctx = contextRef.current
-    if (!ctx) return
-    
-    let bounds = null
     
     if (stroke.tool === TOOLS.TEXT && stroke.startPoint) {
-      ctx.font = `${stroke.fontSize || 16}px Arial, sans-serif`
-      const textWidth = ctx.measureText(stroke.text || '').width
+      if (ctx) ctx.font = `${stroke.fontSize || 16}px Arial, sans-serif`
+      const textWidth = ctx ? ctx.measureText(stroke.text || '').width : 100
       const textHeight = stroke.fontSize || 16
-      bounds = {
-        x: stroke.startPoint.x - 4,
-        y: stroke.startPoint.y - textHeight - 4,
-        width: textWidth + 8,
-        height: textHeight + 8
+      return {
+        x: stroke.startPoint.x,
+        y: stroke.startPoint.y - textHeight,
+        width: textWidth,
+        height: textHeight
       }
     } else if (stroke.tool === TOOLS.IMAGE && stroke.startPoint) {
       const cachedImg = imageCache.current.get(stroke.id)
       const width = stroke.width || cachedImg?.width || 100
       const height = stroke.height || cachedImg?.height || 100
-      bounds = {
-        x: stroke.startPoint.x - 4,
-        y: stroke.startPoint.y - 4,
-        width: width + 8,
-        height: height + 8
+      return {
+        x: stroke.startPoint.x,
+        y: stroke.startPoint.y,
+        width: width,
+        height: height
+      }
+    } else if (stroke.startPoint && stroke.endPoint) {
+      // Shape tools (line, rect, circle, etc.)
+      const minX = Math.min(stroke.startPoint.x, stroke.endPoint.x)
+      const minY = Math.min(stroke.startPoint.y, stroke.endPoint.y)
+      const maxX = Math.max(stroke.startPoint.x, stroke.endPoint.x)
+      const maxY = Math.max(stroke.startPoint.y, stroke.endPoint.y)
+      return {
+        x: minX,
+        y: minY,
+        width: maxX - minX || 1,
+        height: maxY - minY || 1
+      }
+    }
+    return null
+  }
+
+  // Draw selection highlight with resize handles
+  const drawSelectionHighlight = (stroke) => {
+    if (!stroke) return
+    const ctx = contextRef.current
+    if (!ctx) return
+    
+    const bounds = getStrokeBounds(stroke)
+    if (!bounds) return
+    
+    const padding = 4
+    const handleSize = 8
+    const rotation = stroke.rotation || 0
+    
+    ctx.save()
+    
+    // Apply rotation around center if needed
+    if (rotation !== 0) {
+      const centerX = bounds.x + bounds.width / 2
+      const centerY = bounds.y + bounds.height / 2
+      ctx.translate(centerX, centerY)
+      ctx.rotate(rotation * Math.PI / 180)
+      ctx.translate(-centerX, -centerY)
+    }
+    
+    // Selection border
+    ctx.strokeStyle = '#0ea5e9'
+    ctx.lineWidth = 2
+    ctx.setLineDash([5, 5])
+    ctx.strokeRect(
+      bounds.x - padding,
+      bounds.y - padding,
+      bounds.width + padding * 2,
+      bounds.height + padding * 2
+    )
+    ctx.setLineDash([])
+    
+    // Resize handles (corners)
+    ctx.fillStyle = '#ffffff'
+    ctx.strokeStyle = '#0ea5e9'
+    ctx.lineWidth = 2
+    
+    const handles = [
+      { x: bounds.x - padding - handleSize/2, y: bounds.y - padding - handleSize/2, cursor: 'nw-resize', type: 'resize-nw' },
+      { x: bounds.x + bounds.width + padding - handleSize/2, y: bounds.y - padding - handleSize/2, cursor: 'ne-resize', type: 'resize-ne' },
+      { x: bounds.x - padding - handleSize/2, y: bounds.y + bounds.height + padding - handleSize/2, cursor: 'sw-resize', type: 'resize-sw' },
+      { x: bounds.x + bounds.width + padding - handleSize/2, y: bounds.y + bounds.height + padding - handleSize/2, cursor: 'se-resize', type: 'resize-se' }
+    ]
+    
+    handles.forEach(handle => {
+      ctx.fillRect(handle.x, handle.y, handleSize, handleSize)
+      ctx.strokeRect(handle.x, handle.y, handleSize, handleSize)
+    })
+    
+    // Rotation handle (circle above top center)
+    const rotateHandleY = bounds.y - padding - 25
+    const rotateHandleX = bounds.x + bounds.width / 2
+    
+    // Line connecting to rotation handle
+    ctx.beginPath()
+    ctx.moveTo(rotateHandleX, bounds.y - padding)
+    ctx.lineTo(rotateHandleX, rotateHandleY + 8)
+    ctx.stroke()
+    
+    // Rotation circle
+    ctx.beginPath()
+    ctx.arc(rotateHandleX, rotateHandleY, 8, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
+    
+    // Rotation icon (curved arrow)
+    ctx.strokeStyle = '#0ea5e9'
+    ctx.lineWidth = 1.5
+    ctx.beginPath()
+    ctx.arc(rotateHandleX, rotateHandleY, 4, -Math.PI * 0.7, Math.PI * 0.3)
+    ctx.stroke()
+    
+    ctx.restore()
+  }
+
+  // Check if point is on a transform handle
+  const getTransformHandleAtPoint = (x, y, stroke) => {
+    if (!stroke) return null
+    const bounds = getStrokeBounds(stroke)
+    if (!bounds) return null
+    
+    const padding = 4
+    const handleSize = 12 // Slightly larger hit area
+    const rotation = stroke.rotation || 0
+    
+    // Transform point if rotation is applied
+    let tx = x, ty = y
+    if (rotation !== 0) {
+      const centerX = bounds.x + bounds.width / 2
+      const centerY = bounds.y + bounds.height / 2
+      const rad = -rotation * Math.PI / 180
+      const cos = Math.cos(rad)
+      const sin = Math.sin(rad)
+      tx = cos * (x - centerX) - sin * (y - centerY) + centerX
+      ty = sin * (x - centerX) + cos * (y - centerY) + centerY
+    }
+    
+    // Check rotation handle first
+    const rotateHandleY = bounds.y - padding - 25
+    const rotateHandleX = bounds.x + bounds.width / 2
+    if (Math.hypot(tx - rotateHandleX, ty - rotateHandleY) <= 12) {
+      return 'rotate'
+    }
+    
+    // Check corner handles
+    const handles = [
+      { x: bounds.x - padding, y: bounds.y - padding, type: 'resize-nw' },
+      { x: bounds.x + bounds.width + padding, y: bounds.y - padding, type: 'resize-ne' },
+      { x: bounds.x - padding, y: bounds.y + bounds.height + padding, type: 'resize-sw' },
+      { x: bounds.x + bounds.width + padding, y: bounds.y + bounds.height + padding, type: 'resize-se' }
+    ]
+    
+    for (const handle of handles) {
+      if (Math.abs(tx - handle.x) <= handleSize && Math.abs(ty - handle.y) <= handleSize) {
+        return handle.type
       }
     }
     
-    if (bounds) {
-      ctx.save()
-      ctx.strokeStyle = '#0ea5e9'
-      ctx.lineWidth = 2
-      ctx.setLineDash([5, 5])
-      ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height)
-      ctx.setLineDash([])
-      ctx.restore()
-    }
+    return null
   }
 
   const getCoordinates = (e) => {
@@ -445,39 +592,30 @@ export default function Canvas({
     }
   }
 
-  // Hit detection for selecting text and images
+  // Hit detection for selecting text, images, and shapes
   const findStrokeAtPoint = (x, y) => {
     // Search in reverse order (top-most first)
     for (let i = strokes.length - 1; i >= 0; i--) {
       const stroke = strokes[i]
       if (!stroke) continue
       
-      if (stroke.tool === TOOLS.TEXT && stroke.startPoint) {
-        // Hit test for text - approximate bounding box
-        const ctx = contextRef.current
-        if (ctx) {
-          ctx.font = `${stroke.fontSize || 16}px Arial, sans-serif`
-          const textWidth = ctx.measureText(stroke.text || '').width
-          const textHeight = stroke.fontSize || 16
-          
-          // Text is drawn from bottom-left, so adjust bounds
-          if (x >= stroke.startPoint.x && 
-              x <= stroke.startPoint.x + textWidth &&
-              y >= stroke.startPoint.y - textHeight &&
-              y <= stroke.startPoint.y) {
-            return stroke
-          }
+      const bounds = getStrokeBounds(stroke)
+      if (bounds) {
+        // Apply rotation transform to test point if stroke is rotated
+        const rotation = stroke.rotation || 0
+        let tx = x, ty = y
+        if (rotation !== 0) {
+          const centerX = bounds.x + bounds.width / 2
+          const centerY = bounds.y + bounds.height / 2
+          const rad = -rotation * Math.PI / 180
+          const cos = Math.cos(rad)
+          const sin = Math.sin(rad)
+          tx = cos * (x - centerX) - sin * (y - centerY) + centerX
+          ty = sin * (x - centerX) + cos * (y - centerY) + centerY
         }
-      } else if (stroke.tool === TOOLS.IMAGE && stroke.startPoint) {
-        // Hit test for image
-        const cachedImg = imageCache.current.get(stroke.id)
-        const width = stroke.width || cachedImg?.width || 100
-        const height = stroke.height || cachedImg?.height || 100
         
-        if (x >= stroke.startPoint.x &&
-            x <= stroke.startPoint.x + width &&
-            y >= stroke.startPoint.y &&
-            y <= stroke.startPoint.y + height) {
+        if (tx >= bounds.x && tx <= bounds.x + bounds.width &&
+            ty >= bounds.y && ty <= bounds.y + bounds.height) {
           return stroke
         }
       }
@@ -492,14 +630,33 @@ export default function Canvas({
     // Handle select tool - find and select stroke at point
     if (tool === TOOLS.SELECT) {
       const { x, y } = getCoordinates(e)
+      
+      // First check if clicking on a transform handle of selected stroke
+      if (selectedStroke) {
+        const handleType = getTransformHandleAtPoint(x, y, selectedStroke)
+        if (handleType) {
+          setTransformMode(handleType)
+          const bounds = getStrokeBounds(selectedStroke)
+          transformStart.current = {
+            x, y,
+            bounds: { ...bounds },
+            originalStroke: { ...selectedStroke },
+            rotation: selectedStroke.rotation || 0
+          }
+          return
+        }
+      }
+      
+      // Otherwise, try to select a stroke
       const hitStroke = findStrokeAtPoint(x, y)
       
       if (hitStroke) {
         setSelectedStroke(hitStroke)
         setIsDragging(true)
+        const bounds = getStrokeBounds(hitStroke)
         dragOffset.current = {
-          x: x - hitStroke.startPoint.x,
-          y: y - hitStroke.startPoint.y
+          x: x - (bounds?.x || hitStroke.startPoint.x),
+          y: y - (bounds?.y || hitStroke.startPoint.y)
         }
       } else {
         setSelectedStroke(null)
@@ -737,15 +894,222 @@ export default function Canvas({
     }
   }
 
-  const handleExport = () => {
+  // Export format state
+  const [showExportMenu, setShowExportMenu] = useState(false)
+
+  const handleExport = (format = 'png') => {
     const canvas = canvasRef.current
     if (!canvas) return
+    
+    const filename = `sketch-${new Date().toISOString().slice(0, 10)}`
 
-    // Create a temporary link to download
+    if (format === 'png') {
+      const link = document.createElement('a')
+      link.download = `${filename}.png`
+      link.href = canvas.toDataURL('image/png')
+      link.click()
+    } else if (format === 'svg') {
+      exportAsSVG(filename)
+    } else if (format === 'pdf') {
+      exportAsPDF(filename)
+    }
+    setShowExportMenu(false)
+  }
+  
+  // Generate SVG from strokes
+  const exportAsSVG = (filename) => {
+    const svgNS = 'http://www.w3.org/2000/svg'
+    const svg = document.createElementNS(svgNS, 'svg')
+    svg.setAttribute('width', CANVAS_WIDTH)
+    svg.setAttribute('height', CANVAS_HEIGHT)
+    svg.setAttribute('viewBox', `0 0 ${CANVAS_WIDTH} ${CANVAS_HEIGHT}`)
+    svg.setAttribute('xmlns', svgNS)
+    
+    // White background
+    const bg = document.createElementNS(svgNS, 'rect')
+    bg.setAttribute('width', '100%')
+    bg.setAttribute('height', '100%')
+    bg.setAttribute('fill', 'white')
+    svg.appendChild(bg)
+    
+    // Draw all strokes
+    strokes.forEach(stroke => {
+      if (!stroke) return
+      
+      const rotation = stroke.rotation || 0
+      let group = null
+      
+      // Create group for rotation if needed
+      if (rotation !== 0) {
+        group = document.createElementNS(svgNS, 'g')
+        const bounds = getStrokeBounds(stroke)
+        if (bounds) {
+          const cx = bounds.x + bounds.width / 2
+          const cy = bounds.y + bounds.height / 2
+          group.setAttribute('transform', `rotate(${rotation} ${cx} ${cy})`)
+        }
+      }
+      
+      let element = null
+      
+      if (stroke.tool === TOOLS.LINE && stroke.startPoint && stroke.endPoint) {
+        element = document.createElementNS(svgNS, 'line')
+        element.setAttribute('x1', stroke.startPoint.x)
+        element.setAttribute('y1', stroke.startPoint.y)
+        element.setAttribute('x2', stroke.endPoint.x)
+        element.setAttribute('y2', stroke.endPoint.y)
+        element.setAttribute('stroke', stroke.color || '#000')
+        element.setAttribute('stroke-width', stroke.strokeWidth || 3)
+        element.setAttribute('stroke-linecap', 'round')
+      } else if (stroke.tool === TOOLS.RECTANGLE && stroke.startPoint && stroke.endPoint) {
+        element = document.createElementNS(svgNS, 'rect')
+        const x = Math.min(stroke.startPoint.x, stroke.endPoint.x)
+        const y = Math.min(stroke.startPoint.y, stroke.endPoint.y)
+        const w = Math.abs(stroke.endPoint.x - stroke.startPoint.x)
+        const h = Math.abs(stroke.endPoint.y - stroke.startPoint.y)
+        element.setAttribute('x', x)
+        element.setAttribute('y', y)
+        element.setAttribute('width', w)
+        element.setAttribute('height', h)
+        element.setAttribute('stroke', stroke.color || '#000')
+        element.setAttribute('stroke-width', stroke.strokeWidth || 3)
+        element.setAttribute('fill', 'none')
+      } else if (stroke.tool === TOOLS.CIRCLE && stroke.startPoint && stroke.endPoint) {
+        element = document.createElementNS(svgNS, 'circle')
+        const radius = Math.sqrt(
+          Math.pow(stroke.endPoint.x - stroke.startPoint.x, 2) +
+          Math.pow(stroke.endPoint.y - stroke.startPoint.y, 2)
+        )
+        element.setAttribute('cx', stroke.startPoint.x)
+        element.setAttribute('cy', stroke.startPoint.y)
+        element.setAttribute('r', radius)
+        element.setAttribute('stroke', stroke.color || '#000')
+        element.setAttribute('stroke-width', stroke.strokeWidth || 3)
+        element.setAttribute('fill', 'none')
+      } else if (stroke.tool === TOOLS.TRIANGLE && stroke.startPoint && stroke.endPoint) {
+        element = document.createElementNS(svgNS, 'polygon')
+        const sx = stroke.startPoint.x
+        const sy = stroke.startPoint.y
+        const ex = stroke.endPoint.x
+        const ey = stroke.endPoint.y
+        const points = `${(sx + ex) / 2},${sy} ${ex},${ey} ${sx},${ey}`
+        element.setAttribute('points', points)
+        element.setAttribute('stroke', stroke.color || '#000')
+        element.setAttribute('stroke-width', stroke.strokeWidth || 3)
+        element.setAttribute('fill', 'none')
+      } else if (stroke.tool === TOOLS.DIAMOND && stroke.startPoint && stroke.endPoint) {
+        element = document.createElementNS(svgNS, 'polygon')
+        const sx = stroke.startPoint.x
+        const sy = stroke.startPoint.y
+        const ex = stroke.endPoint.x
+        const ey = stroke.endPoint.y
+        const cx = (sx + ex) / 2
+        const cy = (sy + ey) / 2
+        const points = `${cx},${sy} ${ex},${cy} ${cx},${ey} ${sx},${cy}`
+        element.setAttribute('points', points)
+        element.setAttribute('stroke', stroke.color || '#000')
+        element.setAttribute('stroke-width', stroke.strokeWidth || 3)
+        element.setAttribute('fill', 'none')
+      } else if (stroke.tool === TOOLS.ARROW && stroke.startPoint && stroke.endPoint) {
+        const g = document.createElementNS(svgNS, 'g')
+        const line = document.createElementNS(svgNS, 'line')
+        line.setAttribute('x1', stroke.startPoint.x)
+        line.setAttribute('y1', stroke.startPoint.y)
+        line.setAttribute('x2', stroke.endPoint.x)
+        line.setAttribute('y2', stroke.endPoint.y)
+        line.setAttribute('stroke', stroke.color || '#000')
+        line.setAttribute('stroke-width', stroke.strokeWidth || 3)
+        g.appendChild(line)
+        
+        // Arrowhead
+        const angle = Math.atan2(
+          stroke.endPoint.y - stroke.startPoint.y,
+          stroke.endPoint.x - stroke.startPoint.x
+        )
+        const headLen = 15
+        const arrowhead = document.createElementNS(svgNS, 'polyline')
+        const ax1 = stroke.endPoint.x - headLen * Math.cos(angle - Math.PI / 6)
+        const ay1 = stroke.endPoint.y - headLen * Math.sin(angle - Math.PI / 6)
+        const ax2 = stroke.endPoint.x - headLen * Math.cos(angle + Math.PI / 6)
+        const ay2 = stroke.endPoint.y - headLen * Math.sin(angle + Math.PI / 6)
+        arrowhead.setAttribute('points', `${ax1},${ay1} ${stroke.endPoint.x},${stroke.endPoint.y} ${ax2},${ay2}`)
+        arrowhead.setAttribute('stroke', stroke.color || '#000')
+        arrowhead.setAttribute('stroke-width', stroke.strokeWidth || 3)
+        arrowhead.setAttribute('fill', 'none')
+        g.appendChild(arrowhead)
+        element = g
+      } else if (stroke.tool === TOOLS.TEXT && stroke.startPoint) {
+        element = document.createElementNS(svgNS, 'text')
+        element.setAttribute('x', stroke.startPoint.x)
+        element.setAttribute('y', stroke.startPoint.y)
+        element.setAttribute('font-family', 'Arial, sans-serif')
+        element.setAttribute('font-size', stroke.fontSize || 16)
+        element.setAttribute('fill', stroke.color || '#000')
+        element.textContent = stroke.text || ''
+      } else if (stroke.tool === TOOLS.PEN && stroke.points?.length > 0) {
+        element = document.createElementNS(svgNS, 'polyline')
+        const points = stroke.points.map(p => `${p.x},${p.y}`).join(' ')
+        element.setAttribute('points', points)
+        element.setAttribute('stroke', stroke.color || '#000')
+        element.setAttribute('stroke-width', stroke.strokeWidth || 3)
+        element.setAttribute('stroke-linecap', 'round')
+        element.setAttribute('stroke-linejoin', 'round')
+        element.setAttribute('fill', 'none')
+      } else if (stroke.tool === TOOLS.IMAGE && stroke.imageData) {
+        element = document.createElementNS(svgNS, 'image')
+        element.setAttribute('x', stroke.startPoint.x)
+        element.setAttribute('y', stroke.startPoint.y)
+        element.setAttribute('width', stroke.width || 100)
+        element.setAttribute('height', stroke.height || 100)
+        element.setAttributeNS('http://www.w3.org/1999/xlink', 'href', stroke.imageData)
+      }
+      
+      if (element) {
+        if (group) {
+          group.appendChild(element)
+          svg.appendChild(group)
+        } else {
+          svg.appendChild(element)
+        }
+      }
+    })
+    
+    // Download SVG
+    const svgData = new XMLSerializer().serializeToString(svg)
+    const blob = new Blob([svgData], { type: 'image/svg+xml' })
+    const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
-    link.download = `sketch-${new Date().toISOString().slice(0, 10)}.png`
-    link.href = canvas.toDataURL('image/png')
+    link.download = `${filename}.svg`
+    link.href = url
     link.click()
+    URL.revokeObjectURL(url)
+  }
+  
+  // Export as PDF using canvas to image
+  const exportAsPDF = async (filename) => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    
+    // Create PDF using jsPDF (dynamically imported)
+    try {
+      const { jsPDF } = await import('jspdf')
+      
+      // Create PDF with canvas dimensions (scaled to fit A4 or similar)
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF({
+        orientation: CANVAS_WIDTH > CANVAS_HEIGHT ? 'landscape' : 'portrait',
+        unit: 'px',
+        format: [CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2] // Scale down for reasonable file size
+      })
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2)
+      pdf.save(`${filename}.pdf`)
+    } catch (error) {
+      console.error('PDF export failed:', error)
+      // Fallback: alert user to install jspdf
+      alert('PDF export requires jspdf library. Falling back to PNG export.')
+      handleExport('png')
+    }
   }
 
   // Handle mouse leaving canvas
@@ -771,21 +1135,113 @@ export default function Canvas({
     
     const { x, y } = getCoordinates(e)
     
-    // Emit cursor position in realtime (no throttle for instant feedback)
+    // Emit cursor position and current tool in realtime
     if (socket && !isPanning) {
-      socket.emit('cursor:move', { x, y })
+      socket.emit('cursor:move', { x, y, tool })
+    }
+    
+    // Handle transform mode (resize/rotate)
+    if (transformMode && selectedStroke && transformStart.current) {
+      const { bounds, originalStroke } = transformStart.current
+      let updatedStroke = { ...selectedStroke }
+      
+      if (transformMode === 'rotate') {
+        // Calculate rotation angle from center
+        const centerX = bounds.x + bounds.width / 2
+        const centerY = bounds.y + bounds.height / 2
+        const startAngle = Math.atan2(
+          transformStart.current.y - centerY,
+          transformStart.current.x - centerX
+        )
+        const currentAngle = Math.atan2(y - centerY, x - centerX)
+        const deltaAngle = (currentAngle - startAngle) * 180 / Math.PI
+        updatedStroke.rotation = ((originalStroke.rotation || 0) + deltaAngle) % 360
+      } else {
+        // Handle resize
+        const dx = x - transformStart.current.x
+        const dy = y - transformStart.current.y
+        
+        let newX = bounds.x
+        let newY = bounds.y
+        let newWidth = bounds.width
+        let newHeight = bounds.height
+        
+        // Calculate new dimensions based on handle
+        if (transformMode.includes('w')) { // West (left)
+          newX = bounds.x + dx
+          newWidth = bounds.width - dx
+        }
+        if (transformMode.includes('e')) { // East (right)
+          newWidth = bounds.width + dx
+        }
+        if (transformMode.includes('n')) { // North (top)
+          newY = bounds.y + dy
+          newHeight = bounds.height - dy
+        }
+        if (transformMode.includes('s')) { // South (bottom)
+          newHeight = bounds.height + dy
+        }
+        
+        // Ensure minimum size
+        if (newWidth < 10) newWidth = 10
+        if (newHeight < 10) newHeight = 10
+        
+        // Update stroke based on type
+        if (updatedStroke.tool === TOOLS.IMAGE) {
+          updatedStroke.startPoint = { x: newX, y: newY }
+          updatedStroke.width = newWidth
+          updatedStroke.height = newHeight
+        } else if (updatedStroke.tool === TOOLS.TEXT) {
+          // For text, just move the position (scaling text is complex)
+          updatedStroke.startPoint = { x: newX, y: newY + newHeight }
+        } else if (updatedStroke.startPoint && updatedStroke.endPoint) {
+          // For shapes, update start and end points
+          updatedStroke.startPoint = { x: newX, y: newY }
+          updatedStroke.endPoint = { x: newX + newWidth, y: newY + newHeight }
+        }
+      }
+      
+      setSelectedStroke(updatedStroke)
+      
+      // Redraw with updated stroke
+      const updatedStrokes = strokes.map(s => 
+        s.id === selectedStroke.id ? updatedStroke : s
+      )
+      const allStrokes = [...updatedStrokes, ...Object.values(previewStrokes)]
+      redrawWithStrokes(allStrokes)
+      drawSelectionHighlight(updatedStroke)
+      return
     }
     
     // Handle dragging selected element
     if (isDragging && selectedStroke) {
       const newX = x - dragOffset.current.x
       const newY = y - dragOffset.current.y
+      const bounds = getStrokeBounds(selectedStroke)
       
       // Update stroke position locally for preview
-      const updatedStroke = {
-        ...selectedStroke,
-        startPoint: { x: newX, y: newY }
+      let updatedStroke = { ...selectedStroke }
+      
+      if (updatedStroke.tool === TOOLS.TEXT) {
+        // Text startPoint is at baseline, not top
+        const textHeight = updatedStroke.fontSize || 16
+        updatedStroke.startPoint = { x: newX, y: newY + textHeight }
+      } else if (updatedStroke.startPoint && updatedStroke.endPoint) {
+        // For shapes, move both points
+        const dx = newX - bounds.x
+        const dy = newY - bounds.y
+        updatedStroke.startPoint = {
+          x: selectedStroke.startPoint.x + dx,
+          y: selectedStroke.startPoint.y + dy
+        }
+        updatedStroke.endPoint = {
+          x: selectedStroke.endPoint.x + dx,
+          y: selectedStroke.endPoint.y + dy
+        }
+      } else {
+        updatedStroke.startPoint = { x: newX, y: newY }
       }
+      
       setSelectedStroke(updatedStroke)
       
       // Redraw with updated position
@@ -1337,14 +1793,36 @@ export default function Canvas({
           >
             🗑️
           </button>
-          <button
-            onClick={handleExport}
-            className="px-3 py-2 text-sm bg-emerald-100 text-emerald-600 rounded-xl border border-emerald-200 
-                     hover:bg-emerald-200 transition-all duration-200"
-            title="Export as PNG (Ctrl+E)"
+          
+          {/* Export Dropdown */}
+          <Dropdown
+            trigger={
+              <button
+                className="px-3 py-2 text-sm bg-emerald-100 text-emerald-600 rounded-xl border border-emerald-200 
+                         hover:bg-emerald-200 transition-all duration-200 flex items-center gap-1"
+                title="Export"
+              >
+                📥 <ChevronDown className="w-3 h-3" />
+              </button>
+            }
           >
-            📥
-          </button>
+            <DropdownItem onClick={() => handleExport('png')}>
+              <span className="flex items-center gap-2">
+                🖼️ Export as PNG
+              </span>
+            </DropdownItem>
+            <DropdownItem onClick={() => handleExport('svg')}>
+              <span className="flex items-center gap-2">
+                📐 Export as SVG
+              </span>
+            </DropdownItem>
+            <DropdownSeparator />
+            <DropdownItem onClick={() => handleExport('pdf')}>
+              <span className="flex items-center gap-2">
+                📄 Export as PDF
+              </span>
+            </DropdownItem>
+          </Dropdown>
         </div>
 
         {/* Divider */}
@@ -1396,6 +1874,20 @@ export default function Canvas({
         onMouseUp={(e) => {
           if (isPanning) {
             setIsPanning(false)
+          } else if (transformMode && selectedStroke) {
+            // Finish transform - save the new state
+            setTransformMode(null)
+            transformStart.current = null
+            
+            // Update the stroke in parent state
+            if (onStrokeUpdate) {
+              onStrokeUpdate(selectedStroke)
+            }
+            
+            // Emit update to server
+            if (socket) {
+              socket.emit('draw:update', { stroke: selectedStroke })
+            }
           } else if (isDragging && selectedStroke) {
             // Finish dragging - save the new position
             setIsDragging(false)
@@ -1448,6 +1940,23 @@ export default function Canvas({
         {/* Other users' cursors - realtime with will-change for GPU acceleration */}
         {Object.entries(cursors).map(([userId, cursor]) => {
           const screenPos = canvasToScreen(cursor.x, cursor.y)
+          
+          // Tool indicator emoji
+          const toolIcon = {
+            [TOOLS.PEN]: '✏️',
+            [TOOLS.ERASER]: '🧹',
+            [TOOLS.SELECT]: '👆',
+            [TOOLS.LINE]: '📏',
+            [TOOLS.RECTANGLE]: '⬜',
+            [TOOLS.CIRCLE]: '⭕',
+            [TOOLS.TRIANGLE]: '🔺',
+            [TOOLS.ARROW]: '➡️',
+            [TOOLS.DIAMOND]: '🔷',
+            [TOOLS.TEXT]: '🔤',
+            [TOOLS.IMAGE]: '🖼️',
+            [TOOLS.HAND]: '✋'
+          }[cursor.tool] || '✏️'
+          
           return (
             <div
               key={userId}
@@ -1457,13 +1966,24 @@ export default function Canvas({
                 willChange: 'transform' // GPU accelerated
               }}
             >
+              {/* Cursor dot */}
               <div
-                className="w-4 h-4 rounded-full border-2 border-white"
+                className="w-4 h-4 rounded-full border-2 border-white shadow-md"
                 style={{ backgroundColor: cursor.color }}
               />
+              
+              {/* Tool indicator */}
+              <div 
+                className="absolute -top-5 -right-5 w-6 h-6 flex items-center justify-center text-xs rounded-full border-2 border-white shadow-md"
+                style={{ backgroundColor: cursor.color }}
+              >
+                {toolIcon}
+              </div>
+              
+              {/* Username label */}
               {showCursorNames && (
                 <span
-                  className="absolute top-4 left-2 text-xs px-1 rounded whitespace-nowrap"
+                  className="absolute top-5 left-2 text-xs px-1.5 py-0.5 rounded whitespace-nowrap shadow-sm"
                   style={{ backgroundColor: cursor.color, color: 'white' }}
                 >
                   {cursor.username}
