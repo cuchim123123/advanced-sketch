@@ -1,0 +1,137 @@
+/* Admin Panel - Clean Design */
+
+.admin-panel-container {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 1.25rem;
+  background: linear-gradient(180deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+  padding: 1.25rem;
+  min-height: 100vh;
+  width: 100%;
+  position: relative;
+  overflow-x: hidden;
+  align-items: flex-start;
+}
+
+.admin-panel-sidebar {
+  position: sticky;
+  top: 1.25rem;
+  z-index: 10;
+  width: 280px;
+  align-self: flex-start;
+}
+
+.admin-sidebar-shell {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.admin-panel-main {
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+  min-height: auto;
+}
+
+.admin-panel-content {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.admin-dashboard-shell {
+  background: transparent;
+  padding: 1.5rem;
+  flex: 1;
+  overflow: visible;
+  border-radius: 12px;
+}
+
+.admin-mobile-menu-toggle {
+  display: none;
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  z-index: 50;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 0.75rem;
+  color: white;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s;
+}
+
+.admin-mobile-menu-toggle:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: scale(1.05);
+}
+
+.admin-panel-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 40;
+  display: none;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .admin-panel-container {
+    grid-template-columns: 1fr;
+    padding: 0.75rem;
+  }
+
+  .admin-panel-sidebar {
+    position: fixed;
+    left: -100%;
+    top: 0;
+    height: 100vh;
+    width: 280px;
+    z-index: 45;
+    transition: left 0.3s ease;
+    padding: 1rem;
+  }
+
+  .admin-panel-sidebar.open {
+    left: 0;
+  }
+
+  .admin-mobile-menu-toggle {
+    display: flex;
+  }
+
+  .admin-panel-overlay {
+    display: block;
+  }
+
+  .admin-panel-sidebar.open ~ .admin-panel-overlay {
+    display: block;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-panel-container {
+    padding: 0.5rem;
+  }
+
+  .admin-panel-sidebar {
+    width: 100%;
+  }
+
+  .admin-dashboard-shell {
+    padding: 1rem;
+  }
+}
