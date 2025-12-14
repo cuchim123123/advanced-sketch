@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const { User } = require('../models');
-const { sendEmail } = require('../libs/mailer');
+const { sendEmail } = require('../libs/mailer.lib');
 const otpService = require('../services/otp.service');
 
 const generateToken = (id) => {

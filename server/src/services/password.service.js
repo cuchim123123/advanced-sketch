@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { User } = require('../models');
-const { sendEmail } = require('../libs/mailer');
+const { sendEmail } = require('../libs/mailer.lib');
 
 const RESET_TTL_MINUTES = Number(process.env.RESET_TTL_MINUTES) || 15;
 
