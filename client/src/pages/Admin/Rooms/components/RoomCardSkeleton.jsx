@@ -1,56 +1,28 @@
-import { cardStyle } from '../../styles/adminStyles'
-
-const shimmerStyle = {
-  background: 'linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%)',
-  backgroundSize: '200% 100%',
-  animation: 'shimmer 1.5s infinite',
-  borderRadius: '4px'
-}
-
 export default function RoomCardSkeleton() {
   return (
-    <div style={cardStyle}>
-      <style>
-        {`
-          @keyframes shimmer {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
-          }
-        `}
-      </style>
-      
+    <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6">
       {/* Header skeleton */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'flex-start',
-        marginBottom: '1rem'
-      }}>
-        <div style={{ ...shimmerStyle, width: '60%', height: '24px' }} />
-        <div style={{ ...shimmerStyle, width: '60px', height: '24px', borderRadius: '20px' }} />
+      <div className="flex justify-between items-start mb-4">
+        <div className="w-[60%] h-6 rounded animate-shimmer" />
+        <div className="w-[60px] h-6 rounded-full animate-shimmer" />
       </div>
 
       {/* Stats skeleton */}
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-        <div style={{ ...shimmerStyle, width: '80px', height: '20px' }} />
-        <div style={{ ...shimmerStyle, width: '100px', height: '20px' }} />
+      <div className="flex gap-4 mb-4">
+        <div className="w-20 h-5 rounded animate-shimmer" />
+        <div className="w-[100px] h-5 rounded animate-shimmer" />
       </div>
 
       {/* Owner skeleton */}
-      <div style={{ 
-        padding: '0.75rem',
-        background: 'rgba(255, 255, 255, 0.03)',
-        borderRadius: '8px',
-        marginBottom: '1rem'
-      }}>
-        <div style={{ ...shimmerStyle, width: '40px', height: '14px', marginBottom: '0.5rem' }} />
-        <div style={{ ...shimmerStyle, width: '100px', height: '18px' }} />
+      <div className="p-3 bg-white/[0.03] rounded-lg mb-4">
+        <div className="w-10 h-3.5 mb-2 rounded animate-shimmer" />
+        <div className="w-[100px] h-[18px] rounded animate-shimmer" />
       </div>
 
       {/* Actions skeleton */}
-      <div style={{ display: 'flex', gap: '0.5rem' }}>
-        <div style={{ ...shimmerStyle, flex: 1, height: '36px', borderRadius: '8px' }} />
-        <div style={{ ...shimmerStyle, width: '80px', height: '36px', borderRadius: '8px' }} />
+      <div className="flex gap-2">
+        <div className="flex-1 h-9 rounded-lg animate-shimmer" />
+        <div className="w-20 h-9 rounded-lg animate-shimmer" />
       </div>
     </div>
   )
