@@ -20,6 +20,9 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
   } = useRoomStore()
   
   const kickedRef = useRef(false)
+  // Use ref for toast to avoid re-running effect when toast reference changes
+  const toastRef = useRef(toast)
+  toastRef.current = toast
   
   const [socket, setSocket] = useState(null)
   const [strokes, setStrokes] = useState([])
@@ -183,23 +186,23 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
 
     // Room events
     sock.on('room:saved', ({ version }) => {
-      toast.success(`Snapshot saved (v${version})`)
+      toastRef.current.success(`Snapshot saved (v${version})`)
     })
 
     sock.on('room:restored', ({ strokes: restoredStrokes, version }) => {
       setStrokes(restoredStrokes || [])
-      toast.success(`Restored to version ${version}`)
+      toastRef.current.success(`Restored to version ${version}`)
     })
 
     sock.on('error', ({ message }) => {
       console.error('Socket error:', message)
-      toast.error(message)
+      toastRef.current.error(message)
     })
 
     sock.on('user:kicked', () => {
       if (kickedRef.current) return
       kickedRef.current = true
-      toast.kicked()
+      toastRef.current.kicked()
       setTimeout(() => navigate('/dashboard'), 2000)
     })
 
@@ -226,7 +229,9 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
       disconnectSocket()
       clearRoom()
     }
-  }, [code, loaderRoom, navigate, setCurrentRoom, setParticipants, addParticipant, removeParticipant, clearRoom, toast])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code, loaderRoom, navigate, setCurrentRoom, setParticipants, addParticipant, removeParticipant, clearRoom])
+  // Note: toast is intentionally excluded to prevent reconnection on toast updates
 
   // Update cursors when participants change
   useEffect(() => {
@@ -259,6 +264,10 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
 export function useRoomActions({ socket, code, toast, confirm, strokes, connected }) {
   const { updateRoom } = useRoomStore()
   
+  // Use ref for toast to avoid callback recreation
+  const toastRef = useRef(toast)
+  toastRef.current = toast
+  
   const [showHistory, setShowHistory] = useState(false)
   const [historyList, setHistoryList] = useState([])
   const [historyLoading, setHistoryLoading] = useState(false)
@@ -267,9 +276,9 @@ export function useRoomActions({ socket, code, toast, confirm, strokes, connecte
   const handleSave = useCallback(() => {
     if (socket) {
       socket.emit('room:save')
-      toast.success('Saved!')
+      toastRef.current.success('Saved!')
     }
-  }, [socket, toast])
+  }, [socket])
 
   // Auto-save every 2 minutes
   useEffect(() => {
@@ -309,11 +318,11 @@ export function useRoomActions({ socket, code, toast, confirm, strokes, connecte
       const { data } = await api.get(`/rooms/${code}/history`)
       setHistoryList(data.data.history || [])
     } catch (error) {
-      toast.error('Failed to load history')
+      toastRef.current.error('Failed to load history')
     } finally {
       setHistoryLoading(false)
     }
-  }, [code, toast])
+  }, [code])
 
   const toggleHistory = useCallback(() => {
     if (!showHistory) {
@@ -348,9 +357,9 @@ export function useRoomActions({ socket, code, toast, confirm, strokes, connecte
     
     if (confirmed && socket) {
       socket.emit('user:kick', { targetUserId })
-      toast.success('User has been kicked')
+      toastRef.current.success('User has been kicked')
     }
-  }, [socket, confirm, toast])
+  }, [socket, confirm])
 
   const handleSaveSettings = useCallback(async (updates) => {
     setSettingsLoading(true)
@@ -361,8 +370,8 @@ export function useRoomActions({ socket, code, toast, confirm, strokes, connecte
 
   const copyInviteLink = useCallback(() => {
     navigator.clipboard.writeText(`${window.location.origin}/join/${code}`)
-    toast.success('Invite link copied to clipboard!')
-  }, [code, toast])
+    toastRef.current.success('Invite link copied to clipboard!')
+  }, [code])
 
   return {
     handleSave,
