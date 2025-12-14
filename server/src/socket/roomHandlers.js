@@ -12,6 +12,7 @@ const {
   getRoomGuests,
   cleanupRoomGuests
 } = require('./roomState');
+const { forceSave } = require('./autoSave');
 
 /**
  * Handle room:join event
@@ -63,10 +64,15 @@ async function handleRoomJoin(socket, io, { roomCode }) {
       const history = await SketchHistory.findOne({ room: room._id })
         .sort({ version: -1 });
       
+      console.log(`[room:join] Loading room ${roomCode}, history found:`, history ? `${history.strokes?.length || 0} strokes` : 'none');
+      
       setRoomState(roomCode, {
         strokes: history?.strokes || [],
         version: history?.version || 1
       });
+    } else {
+      const existingState = getRoomState(roomCode);
+      console.log(`[room:join] Room ${roomCode} already in memory:`, existingState?.strokes?.length || 0, 'strokes');
     }
 
     // Get all active participants
@@ -283,6 +289,9 @@ async function handleDisconnect(socket) {
       username: socket.user.username,
       isGuest: socket.isGuest
     });
+
+    // Force save any pending changes
+    await forceSave(socket.roomCode);
 
     // Check if room is empty
     const room = await Room.findOne({ code: socket.roomCode });
