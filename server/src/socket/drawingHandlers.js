@@ -48,6 +48,11 @@ function handleDrawStroke(socket, io, { stroke, isPreview }) {
     roomState.redoStack.set(userId, []);
   }
 
+  // Initialize strokes array if not exists
+  if (!roomState.strokes) {
+    roomState.strokes = [];
+  }
+
   // Use Map for O(1) lookup
   if (!roomState.strokesMap) {
     roomState.strokesMap = new Map(
