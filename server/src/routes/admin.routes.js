@@ -1,8 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const { protect } = require('../middleware/auth')
-const User = require('../models/User')
-const Room = require('../models/Room')
+const { User, Room } = require('../models')
 
 // Admin middleware - check if user is admin
 const adminMiddleware = (req, res, next) => {

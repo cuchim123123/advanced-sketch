@@ -42,9 +42,9 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/rooms', require('./routes/rooms'));
-app.use('/api/admin', require('./routes/admin'));
+app.use('/api/auth', require('./routes/auth.routes'));
+app.use('/api/rooms', require('./routes/rooms.routes'));
+app.use('/api/admin', require('./routes/admin.routes'));
 
 // Health check
 app.get('/health', (req, res) => {
