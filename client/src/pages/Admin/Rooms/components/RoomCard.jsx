@@ -1,107 +1,70 @@
 import { Users as UsersIcon, Calendar, Eye, Trash2 } from 'lucide-react'
-import { cardStyle, actionButtonStyle } from '../../styles/adminStyles'
 
 export default function RoomCard({ room, onView, onDelete }) {
   return (
-    <div
-      style={cardStyle}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'translateY(-4px)'
-        e.currentTarget.style.boxShadow = '0 12px 28px rgba(0, 0, 0, 0.3)'
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'translateY(0)'
-        e.currentTarget.style.boxShadow = 'none'
-      }}
-    >
+    <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_28px_rgba(0,0,0,0.3)]">
       {/* Room Header */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'flex-start',
-        marginBottom: '1rem'
-      }}>
-        <h3 style={{ 
-          color: 'white', 
-          fontSize: '1.125rem', 
-          fontWeight: '600',
-          margin: 0,
-          flex: 1,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap'
-        }}>
+      <div className="flex justify-between items-start mb-4">
+        <h3 className="text-white text-lg font-semibold m-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
           {room.name}
         </h3>
-        <span style={{
-          padding: '0.25rem 0.75rem',
-          borderRadius: '20px',
-          fontSize: '0.75rem',
-          fontWeight: '600',
-          background: room.isPublic ? 
-            'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-          color: room.isPublic ? '#10b981' : '#ef4444',
-          marginLeft: '0.5rem'
-        }}>
+        <span className={`
+          py-1 px-3 rounded-full text-xs font-semibold ml-2
+          ${room.isPublic 
+            ? 'bg-emerald-500/10 text-emerald-500' 
+            : 'bg-red-500/10 text-red-500'
+          }
+        `}>
           {room.isPublic ? 'Public' : 'Private'}
         </span>
       </div>
 
       {/* Room Stats */}
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <UsersIcon size={16} color="rgba(255, 255, 255, 0.6)" />
-          <span style={{ fontSize: '0.875rem', color: 'rgba(255, 255, 255, 0.6)' }}>
+      <div className="flex gap-4 mb-4">
+        <div className="flex items-center gap-2">
+          <UsersIcon size={16} className="text-white/60" />
+          <span className="text-sm text-white/60">
             {room.activeParticipants || 0} online
           </span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Calendar size={16} color="rgba(255, 255, 255, 0.6)" />
-          <span style={{ fontSize: '0.875rem', color: 'rgba(255, 255, 255, 0.6)' }}>
+        <div className="flex items-center gap-2">
+          <Calendar size={16} className="text-white/60" />
+          <span className="text-sm text-white/60">
             {new Date(room.createdAt).toLocaleDateString()}
           </span>
         </div>
       </div>
 
       {/* Owner Info */}
-      <div style={{ 
-        padding: '0.75rem',
-        background: 'rgba(255, 255, 255, 0.03)',
-        borderRadius: '8px',
-        marginBottom: '1rem'
-      }}>
-        <p style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.5)', marginBottom: '0.25rem' }}>
+      <div className="p-3 bg-white/[0.03] rounded-lg mb-4">
+        <p className="text-xs text-white/50 mb-1">
           Owner
         </p>
-        <p style={{ fontSize: '0.875rem', color: 'white', fontWeight: '500' }}>
+        <p className="text-sm text-white font-medium">
           {room.owner?.username || 'Unknown'}
         </p>
       </div>
 
       {/* Actions */}
-      <div style={{ display: 'flex', gap: '0.5rem' }}>
+      <div className="flex gap-2">
         <button
           onClick={(e) => {
             e.stopPropagation()
             onView(room)
           }}
-          style={{ ...actionButtonStyle, flex: 1 }}
+          className="flex-1 flex items-center justify-center gap-2 py-2 px-3 bg-white/5 border border-white/10 rounded-lg text-white text-sm font-medium cursor-pointer transition-all duration-200 hover:bg-white/10"
         >
           <Eye size={16} />
-          <span style={{ marginLeft: '0.5rem' }}>View</span>
+          <span>View</span>
         </button>
         <button
           onClick={(e) => {
             e.stopPropagation()
             onDelete(room)
           }}
-          style={{
-            ...actionButtonStyle,
-            background: 'rgba(239, 68, 68, 0.1)',
-            borderColor: 'rgba(239, 68, 68, 0.2)'
-          }}
+          className="flex items-center justify-center p-2 bg-red-500/10 border border-red-500/20 rounded-lg cursor-pointer transition-all duration-200 hover:bg-red-500/20"
         >
-          <Trash2 size={16} color="#ef4444" />
+          <Trash2 size={16} className="text-red-500" />
         </button>
       </div>
     </div>
