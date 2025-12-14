@@ -66,19 +66,12 @@ const Rooms = () => {
   return (
     <div>
       {/* Header */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        marginBottom: '2rem',
-        flexWrap: 'wrap',
-        gap: '1rem'
-      }}>
+      <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
         <div>
-          <h1 style={{ fontSize: '2rem', fontWeight: '700', color: 'white', marginBottom: '0.5rem' }}>
+          <h1 className="text-3xl font-bold text-white mb-2">
             Room Management
           </h1>
-          <p style={{ fontSize: '1rem', color: 'rgba(255, 255, 255, 0.6)' }}>
+          <p className="text-base text-white/60">
             Monitor and manage all collaboration rooms
           </p>
         </div>
@@ -90,41 +83,24 @@ const Rooms = () => {
       </div>
 
       {/* Search */}
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+      <div className="flex gap-4 mb-6 flex-wrap">
         <SearchBar value={searchQuery} onChange={handleSearchChange} />
       </div>
 
       {/* Content */}
       {loading ? (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-          gap: '1.5rem',
-          marginBottom: '2rem'
-        }}>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-6 mb-8">
           {[...Array(6)].map((_, i) => (
             <RoomCardSkeleton key={i} />
           ))}
         </div>
       ) : rooms.length === 0 ? (
-        <div style={{
-          background: 'rgba(255, 255, 255, 0.05)',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          borderRadius: '16px',
-          padding: '3rem',
-          textAlign: 'center'
-        }}>
-          <p style={{ color: 'rgba(255, 255, 255, 0.6)' }}>No rooms found</p>
+        <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-12 text-center">
+          <p className="text-white/60">No rooms found</p>
         </div>
       ) : (
         <>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-            gap: '1.5rem',
-            marginBottom: '2rem'
-          }}>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-6 mb-8">
             {rooms.map((room) => (
               <RoomCard
                 key={room._id}
