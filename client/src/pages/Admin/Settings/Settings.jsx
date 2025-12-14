@@ -5,42 +5,23 @@ const Settings = () => {
   return (
     <div>
       {/* Header */}
-      <div style={{ marginBottom: '2rem' }}>
-        <h1 style={{ 
-          fontSize: '2rem', 
-          fontWeight: '700', 
-          color: 'white',
-          marginBottom: '0.5rem'
-        }}>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-white mb-2">
           System Settings
         </h1>
-        <p style={{ 
-          fontSize: '1rem', 
-          color: 'rgba(255, 255, 255, 0.6)' 
-        }}>
+        <p className="text-base text-white/60">
           Configure application settings and preferences
         </p>
       </div>
 
       {/* Settings Sections */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      <div className="flex flex-col gap-6">
         {/* General Settings */}
-        <div style={{
-          background: 'rgba(255, 255, 255, 0.05)',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          borderRadius: '16px',
-          padding: '1.5rem'
-        }}>
-          <h2 style={{ 
-            fontSize: '1.25rem', 
-            fontWeight: '600', 
-            color: 'white',
-            marginBottom: '1.5rem'
-          }}>
+        <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6">
+          <h2 className="text-xl font-semibold text-white mb-6">
             General Settings
           </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div className="flex flex-col gap-4">
             <SettingItem 
               label="Application Name"
               description="The name displayed across the application"
@@ -62,22 +43,11 @@ const Settings = () => {
         </div>
 
         {/* Security Settings */}
-        <div style={{
-          background: 'rgba(255, 255, 255, 0.05)',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          borderRadius: '16px',
-          padding: '1.5rem'
-        }}>
-          <h2 style={{ 
-            fontSize: '1.25rem', 
-            fontWeight: '600', 
-            color: 'white',
-            marginBottom: '1.5rem'
-          }}>
+        <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6">
+          <h2 className="text-xl font-semibold text-white mb-6">
             Security Settings
           </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div className="flex flex-col gap-4">
             <ToggleSetting 
               label="Require Email Verification"
               description="Force users to verify email before using the app"
@@ -97,22 +67,11 @@ const Settings = () => {
         </div>
 
         {/* Room Settings */}
-        <div style={{
-          background: 'rgba(255, 255, 255, 0.05)',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          borderRadius: '16px',
-          padding: '1.5rem'
-        }}>
-          <h2 style={{ 
-            fontSize: '1.25rem', 
-            fontWeight: '600', 
-            color: 'white',
-            marginBottom: '1.5rem'
-          }}>
+        <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6">
+          <h2 className="text-xl font-semibold text-white mb-6">
             Room Settings
           </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div className="flex flex-col gap-4">
             <ToggleSetting 
               label="Auto-save Canvas"
               description="Automatically save canvas state every few minutes"
@@ -132,61 +91,12 @@ const Settings = () => {
         </div>
 
         {/* Action Buttons */}
-        <div style={{ 
-          display: 'flex', 
-          gap: '1rem', 
-          justifyContent: 'flex-end',
-          paddingTop: '1rem'
-        }}>
-          <button
-            style={{
-              padding: '0.875rem 1.5rem',
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '10px',
-              color: 'white',
-              fontSize: '0.875rem',
-              fontWeight: '600',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem'
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.background = 'rgba(255, 255, 255, 0.08)'
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.background = 'rgba(255, 255, 255, 0.05)'
-            }}
-          >
+        <div className="flex gap-4 justify-end pt-4">
+          <button className="py-3.5 px-6 bg-white/5 border border-white/10 rounded-[10px] text-white text-sm font-semibold cursor-pointer transition-all duration-200 flex items-center gap-2 hover:bg-white/[0.08]">
             <RefreshCw size={16} />
             Reset to Defaults
           </button>
-          <button
-            style={{
-              padding: '0.875rem 1.5rem',
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              border: 'none',
-              borderRadius: '10px',
-              color: 'white',
-              fontSize: '0.875rem',
-              fontWeight: '600',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem'
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.transform = 'scale(1.05)'
-              e.target.style.boxShadow = '0 8px 20px rgba(102, 126, 234, 0.4)'
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.transform = 'scale(1)'
-              e.target.style.boxShadow = 'none'
-            }}
-          >
+          <button className="py-3.5 px-6 bg-gradient-to-br from-indigo-500 to-purple-600 border-none rounded-[10px] text-white text-sm font-semibold cursor-pointer transition-all duration-200 flex items-center gap-2 hover:scale-105 hover:shadow-[0_8px_20px_rgba(102,126,234,0.4)]">
             <Save size={16} />
             Save Changes
           </button>
@@ -198,110 +108,45 @@ const Settings = () => {
 
 // Helper Components
 const SettingItem = ({ label, description, value, type = 'text' }) => (
-  <div style={{ 
-    padding: '1rem',
-    background: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: '10px',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: '1rem',
-    flexWrap: 'wrap'
-  }}>
-    <div style={{ flex: 1, minWidth: '200px' }}>
-      <p style={{ 
-        fontSize: '0.875rem', 
-        fontWeight: '600',
-        color: 'white',
-        marginBottom: '0.25rem'
-      }}>
+  <div className="p-4 bg-white/[0.03] rounded-[10px] flex justify-between items-center gap-4 flex-wrap">
+    <div className="flex-1 min-w-[200px]">
+      <p className="text-sm font-semibold text-white mb-1">
         {label}
       </p>
-      <p style={{ 
-        fontSize: '0.75rem', 
-        color: 'rgba(255, 255, 255, 0.5)'
-      }}>
+      <p className="text-xs text-white/50">
         {description}
       </p>
     </div>
     <input
       type={type}
       defaultValue={value}
-      style={{
-        padding: '0.5rem 0.75rem',
-        background: 'rgba(255, 255, 255, 0.05)',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
-        borderRadius: '8px',
-        color: 'white',
-        fontSize: '0.875rem',
-        outline: 'none',
-        width: '150px'
-      }}
+      className="py-2 px-3 bg-white/5 border border-white/10 rounded-lg text-white text-sm outline-none w-[150px] focus:bg-white/10 focus:border-white/20 transition-all duration-200"
     />
   </div>
 )
 
 const ToggleSetting = ({ label, description, enabled }) => (
-  <div style={{ 
-    padding: '1rem',
-    background: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: '10px',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: '1rem',
-    flexWrap: 'wrap'
-  }}>
-    <div style={{ flex: 1, minWidth: '200px' }}>
-      <p style={{ 
-        fontSize: '0.875rem', 
-        fontWeight: '600',
-        color: 'white',
-        marginBottom: '0.25rem'
-      }}>
+  <div className="p-4 bg-white/[0.03] rounded-[10px] flex justify-between items-center gap-4 flex-wrap">
+    <div className="flex-1 min-w-[200px]">
+      <p className="text-sm font-semibold text-white mb-1">
         {label}
       </p>
-      <p style={{ 
-        fontSize: '0.75rem', 
-        color: 'rgba(255, 255, 255, 0.5)'
-      }}>
+      <p className="text-xs text-white/50">
         {description}
       </p>
     </div>
-    <label style={{ 
-      position: 'relative', 
-      display: 'inline-block', 
-      width: '50px', 
-      height: '26px',
-      cursor: 'pointer'
-    }}>
+    <label className="relative inline-block w-[50px] h-[26px] cursor-pointer">
       <input 
         type="checkbox" 
         defaultChecked={enabled}
-        style={{ opacity: 0, width: 0, height: 0 }}
+        className="sr-only peer"
       />
-      <span style={{
-        position: 'absolute',
-        cursor: 'pointer',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: enabled ? '#667eea' : 'rgba(255, 255, 255, 0.1)',
-        transition: '0.3s',
-        borderRadius: '26px'
-      }}>
-        <span style={{
-          position: 'absolute',
-          content: '',
-          height: '18px',
-          width: '18px',
-          left: enabled ? '28px' : '4px',
-          bottom: '4px',
-          background: 'white',
-          transition: '0.3s',
-          borderRadius: '50%'
-        }} />
+      <span className="absolute inset-0 bg-white/10 rounded-full transition-all duration-300 peer-checked:bg-indigo-500">
+        <span className={`
+          absolute w-[18px] h-[18px] bottom-1 bg-white rounded-full transition-all duration-300
+          ${enabled ? 'left-7' : 'left-1'}
+          peer-checked:left-7
+        `} />
       </span>
     </label>
   </div>
