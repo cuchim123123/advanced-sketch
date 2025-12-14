@@ -8,6 +8,9 @@ export function useCanvasKeyboard({
   tool,
   setTool,
   setSpacePressed,
+  setIsPanning,
+  setSelectedStroke,
+  setShowShortcuts,
   onDelete,
   onUndo,
   onRedo,
@@ -15,7 +18,7 @@ export function useCanvasKeyboard({
   onZoomIn,
   onZoomOut,
   onResetZoom,
-  onEscape,
+  onExport,
   disabled = false
 }) {
   // Keyboard shortcuts
@@ -44,12 +47,6 @@ export function useCanvasKeyboard({
       return
     }
     
-    // Escape
-    if (e.key === 'Escape' && onEscape) {
-      onEscape()
-      return
-    }
-    
     // Ctrl/Cmd shortcuts
     if (e.ctrlKey || e.metaKey) {
       switch (e.key.toLowerCase()) {
@@ -64,6 +61,10 @@ export function useCanvasKeyboard({
         case 'y':
           e.preventDefault()
           if (onRedo) onRedo()
+          break
+        case 'e':
+          e.preventDefault()
+          if (onExport) onExport()
           break
         case '0':
           e.preventDefault()
@@ -87,11 +88,10 @@ export function useCanvasKeyboard({
     // Tool shortcuts (single keys)
     switch (e.key.toLowerCase()) {
       case 'v':
-      case 's':
         setTool(TOOLS.SELECT)
+        if (setSelectedStroke) setSelectedStroke(null)
         break
       case 'p':
-      case 'b': // brush
         setTool(TOOLS.PEN)
         break
       case 'e':
@@ -106,25 +106,33 @@ export function useCanvasKeyboard({
       case 'r':
         setTool(TOOLS.RECTANGLE)
         break
-      case 'o':
+      case 'c':
         setTool(TOOLS.CIRCLE)
         break
       case 't':
         setTool(TOOLS.TEXT)
         break
-      case 'a':
-        setTool(TOOLS.ARROW)
+      case 'i':
+        setTool(TOOLS.IMAGE)
+        break
+      case '?':
+        if (setShowShortcuts) setShowShortcuts(prev => !prev)
+        break
+      case 'escape':
+        if (setShowShortcuts) setShowShortcuts(false)
+        if (setSelectedStroke) setSelectedStroke(null)
         break
       default:
         break
     }
-  }, [disabled, setTool, setSpacePressed, onDelete, onUndo, onRedo, onClear, onZoomIn, onZoomOut, onResetZoom, onEscape])
+  }, [disabled, setTool, setSpacePressed, setSelectedStroke, setShowShortcuts, onDelete, onUndo, onRedo, onClear, onZoomIn, onZoomOut, onResetZoom, onExport])
 
   const handleKeyUp = useCallback((e) => {
     if (e.code === 'Space') {
       setSpacePressed(false)
+      if (setIsPanning) setIsPanning(false)
     }
-  }, [setSpacePressed])
+  }, [setSpacePressed, setIsPanning])
 
   // Attach keyboard listeners
   useEffect(() => {

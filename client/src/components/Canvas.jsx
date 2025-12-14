@@ -17,6 +17,7 @@ import {
 import { useCanvasExport } from '../hooks/useCanvasExport'
 import { useCanvasState } from './canvas/hooks/useCanvasState'
 import { useCanvasZoom } from './canvas/hooks/useCanvasZoom'
+import { useCanvasKeyboard } from './canvas/hooks/useCanvasKeyboard'
 import CanvasToolbar from './canvas/components/CanvasToolbar'
 import CursorOverlay from './canvas/components/CursorOverlay'
 import KeyboardShortcutsModal from './canvas/components/KeyboardShortcutsModal'
@@ -117,71 +118,6 @@ export default function Canvas({
     return 'crosshair'
   }, [tool, strokeWidth, zoom])
   
-  // Handle spacebar for pan mode
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      // Ignore if typing in input/textarea
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
-      
-      if (e.code === 'Space' && !e.repeat) {
-        e.preventDefault()
-        setSpacePressed(true)
-      }
-      
-      // Keyboard shortcuts
-      if (e.ctrlKey || e.metaKey) {
-        switch (e.key.toLowerCase()) {
-          case 'z':
-            e.preventDefault()
-            if (e.shiftKey) {
-              handleRedo() // Ctrl+Shift+Z = Redo
-            } else {
-              handleUndo() // Ctrl+Z = Undo
-            }
-            break
-          case 'y':
-            e.preventDefault()
-            handleRedo() // Ctrl+Y = Redo
-            break
-          case 'e':
-            e.preventDefault()
-            handleExport() // Ctrl+E = Export
-            break
-        }
-      } else {
-        // Tool shortcuts (single keys)
-        switch (e.key.toLowerCase()) {
-          case 'v': setTool(TOOLS.SELECT); setSelectedStroke(null); break
-          case 'p': setTool(TOOLS.PEN); break
-          case 'e': setTool(TOOLS.ERASER); break
-          case 'l': setTool(TOOLS.LINE); break
-          case 'r': setTool(TOOLS.RECTANGLE); break
-          case 'c': setTool(TOOLS.CIRCLE); break
-          case 't': setTool(TOOLS.TEXT); break
-          case 'i': setTool(TOOLS.IMAGE); break
-          case 'h': setTool(TOOLS.HAND); break
-          case '?': setShowShortcuts(prev => !prev); break
-          case 'escape': 
-            setShowShortcuts(false)
-            setSelectedStroke(null)
-            break
-        }
-      }
-    }
-    const handleKeyUp = (e) => {
-      if (e.code === 'Space') {
-        setSpacePressed(false)
-        setIsPanning(false)
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    window.addEventListener('keyup', handleKeyUp)
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown)
-      window.removeEventListener('keyup', handleKeyUp)
-    }
-  }, [])
-
   // Clear selection when switching away from select tool
   useEffect(() => {
     if (tool !== TOOLS.SELECT) {
@@ -721,6 +657,23 @@ export default function Canvas({
     exportCanvas(format)
     setShowExportMenu(false)
   }
+  
+  // Use keyboard shortcuts hook
+  useCanvasKeyboard({
+    tool,
+    setTool,
+    setSpacePressed,
+    setIsPanning,
+    setSelectedStroke,
+    setShowShortcuts,
+    onUndo: handleUndo,
+    onRedo: handleRedo,
+    onExport: handleExport,
+    onZoomIn: handleZoomIn,
+    onZoomOut: handleZoomOut,
+    onResetZoom: handleResetZoom,
+    disabled
+  })
 
   // Handle mouse leaving canvas
   const handleMouseLeave = () => {
