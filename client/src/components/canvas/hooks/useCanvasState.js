@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { TOOLS } from '../canvas/constants'
+import { TOOLS } from '../constants'
 
 /**
  * Hook to manage canvas state (tool, color, stroke settings)
