@@ -305,6 +305,18 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
     })
   }, [participants])
 
+  // Retry connection
+  const retryConnection = useCallback(() => {
+    const sock = getSocket()
+    if (sock) {
+      if (!sock.connected) {
+        sock.connect()
+      }
+      // Re-emit room join
+      sock.emit('room:join', { roomCode: code })
+    }
+  }, [code])
+
   return {
     socket,
     strokes,
@@ -312,7 +324,8 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
     previewStrokes,
     cursors,
     connected,
-    roomReady
+    roomReady,
+    retryConnection
   }
 }
 

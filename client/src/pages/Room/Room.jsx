@@ -6,7 +6,7 @@ import { useConfirm } from '@/components/ConfirmModal'
 import Canvas from '@/components/Canvas'
 import Chat from '@/components/Chat'
 import RoomSettingsModal from '@/components/RoomSettingsModal'
-import { Sparkles } from 'lucide-react'
+import { Sparkles, WifiOff, RefreshCw, LogOut } from 'lucide-react'
 
 // Local components and hooks
 import { useRoomSocket, useRoomActions } from './hooks'
@@ -34,7 +34,8 @@ export default function Room() {
     previewStrokes,
     cursors,
     connected,
-    roomReady
+    roomReady,
+    retryConnection
   } = useRoomSocket({ code, loaderRoom, toast })
 
   // Room actions (clear, kick, etc.)
@@ -97,6 +98,38 @@ export default function Room() {
       <div className="flex-1 flex overflow-hidden relative">
         {/* Canvas */}
         <div className="flex-1 min-w-0 relative">
+          {/* Disconnected overlay */}
+          {!connected && roomReady && (
+            <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center">
+              <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm mx-4 text-center">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <WifiOff className="w-8 h-8 text-red-500" />
+                </div>
+                <h3 className="text-xl font-bold text-slate-800 mb-2">Connection Lost</h3>
+                <p className="text-slate-600 mb-6">
+                  Your connection to the room has been interrupted. 
+                  Your recent changes may not be saved.
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => navigate('/dashboard')}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Leave
+                  </button>
+                  <button
+                    onClick={retryConnection}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-sky-500 hover:bg-sky-600 text-white rounded-xl font-medium transition-colors"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Retry
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          
           {/* Loading overlay */}
           {!roomReady && (
             <div className="absolute inset-0 z-50 bg-slate-100 flex flex-col items-center justify-center">

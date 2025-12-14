@@ -23,7 +23,6 @@ import { useCanvasState } from './useCanvasState'
 import { useCanvasZoom } from './useCanvasZoom'
 import { useCanvasKeyboard } from './useCanvasKeyboard'
 import { useCanvasExport } from '@/hooks/useCanvasExport'
-import { offlineQueue } from '@/services'
 
 export function useCanvas({
   socket,
@@ -125,27 +124,6 @@ export function useCanvas({
       if (stroke?.tool) drawStroke(stroke, ctx, refs.imageCache.current)
     })
   }, [])
-
-  // ========== EMIT HELPER (with offline queue) ==========
-  const safeEmit = useCallback((event, data, options = {}) => {
-    if (!socket) return
-    
-    // Events that should be queued when offline
-    const queueableEvents = [
-      'draw:stroke', 'draw:complete', 'draw:update', 
-      'draw:undo', 'draw:redo', 'draw:clear'
-    ]
-    
-    // Skip preview events from queue (they're transient)
-    const skipQueue = options.skipQueue || (data?.isPreview === true)
-    
-    if (socket.connected) {
-      socket.emit(event, data)
-    } else if (queueableEvents.includes(event) && !skipQueue) {
-      // Queue for replay when back online
-      offlineQueue.enqueue(event, data)
-    }
-  }, [socket])
 
   // ========== INITIALIZATION ==========
   useEffect(() => {
@@ -329,13 +307,13 @@ export function useCanvas({
 
       const now = Date.now()
       // Increase throttle from 50ms to 100ms for preview strokes
-      if (socket && now - refs.lastEmitTime.current > 100) {
+      if (socket?.connected && now - refs.lastEmitTime.current > 100) {
         // Only send delta points (new points since last emit) instead of all points
         const lastSentIdx = refs.lastSentPointIndex.current || 0
         const newPoints = refs.currentStroke.current.points.slice(lastSentIdx)
         refs.lastSentPointIndex.current = refs.currentStroke.current.points.length
         
-        safeEmit('draw:stroke', { 
+        socket.emit('draw:stroke', { 
           stroke: {
             id: refs.currentStroke.current.id,
             tool: refs.currentStroke.current.tool,
@@ -346,7 +324,7 @@ export function useCanvas({
             pointsOffset: lastSentIdx, // Where these points start
           },
           isPreview: true
-        }, { skipQueue: true })
+        })
         refs.lastEmitTime.current = now
       }
     } else {
@@ -356,15 +334,15 @@ export function useCanvas({
           if (!refs.pendingPoint.current || !isDrawingRef.current || !refs.currentStroke.current) return
           drawShapePreview(refs.pendingPoint.current)
           const now = Date.now()
-          if (socket && now - refs.lastEmitTime.current > 50) {
+          if (socket?.connected && now - refs.lastEmitTime.current > 50) {
             refs.currentStroke.current.endPoint = { x: refs.pendingPoint.current.x, y: refs.pendingPoint.current.y }
-            safeEmit('draw:stroke', { stroke: refs.currentStroke.current, isPreview: true }, { skipQueue: true })
+            socket.emit('draw:stroke', { stroke: refs.currentStroke.current, isPreview: true })
             refs.lastEmitTime.current = now
           }
         })
       }
     }
-  }, [tool, color, strokeWidth, socket, getCoordinates, safeEmit])
+  }, [tool, color, strokeWidth, socket, getCoordinates])
 
   const drawShapePreview = useCallback((point) => {
     const { x, y } = point
@@ -430,10 +408,10 @@ export function useCanvas({
 
       if (onStrokeAdd) onStrokeAdd(refs.currentStroke.current)
 
-      if (socket) {
+      if (socket?.connected) {
         const optimized = optimizeStrokeForTransmit(refs.currentStroke.current, { simplifyEpsilon: 1.0, useDelta: true })
-        safeEmit('draw:stroke', { stroke: optimized, isPreview: false })
-        safeEmit('draw:complete', { strokeId: refs.currentStroke.current.id })
+        socket.emit('draw:stroke', { stroke: optimized, isPreview: false })
+        socket.emit('draw:complete', { strokeId: refs.currentStroke.current.id })
       }
     }
 
@@ -497,11 +475,11 @@ export function useCanvas({
     drawSelectionHighlight(updatedStroke, refs.context.current, refs.imageCache.current)
     
     const now = Date.now()
-    if (socket && now - refs.lastTransformEmit.current > 66) {
-      safeEmit('draw:update', { stroke: updatedStroke, isPreview: true }, { skipQueue: true })
+    if (socket?.connected && now - refs.lastTransformEmit.current > 66) {
+      socket.emit('draw:update', { stroke: updatedStroke, isPreview: true })
       refs.lastTransformEmit.current = now
     }
-  }, [transformMode, socket, redrawWithStrokes, safeEmit])
+  }, [transformMode, socket, redrawWithStrokes])
 
   const handleDragMove = useCallback((x, y) => {
     const originalStroke = originalStrokeRef.current
@@ -526,11 +504,11 @@ export function useCanvas({
     drawSelectionHighlight(updatedStroke, refs.context.current, refs.imageCache.current)
     
     const now = Date.now()
-    if (socket && now - refs.lastTransformEmit.current > 66) {
-      safeEmit('draw:update', { stroke: updatedStroke, isPreview: true }, { skipQueue: true })
+    if (socket?.connected && now - refs.lastTransformEmit.current > 66) {
+      socket.emit('draw:update', { stroke: updatedStroke, isPreview: true })
       refs.lastTransformEmit.current = now
     }
-  }, [socket, redrawWithStrokes, safeEmit])
+  }, [socket, redrawWithStrokes])
 
   // ========== MOUSE HANDLERS ==========
   const handleMouseMove = useCallback((e) => {
@@ -597,7 +575,7 @@ export function useCanvas({
       refs.pendingTransformStroke.current = null
       setSelectedStroke(finalStroke)
       if (onStrokeUpdate) onStrokeUpdate(finalStroke)
-      safeEmit('draw:update', { stroke: finalStroke })
+      if (socket?.connected) socket.emit('draw:update', { stroke: finalStroke })
     } else if (isDragging && selectedStroke) {
       const finalStroke = refs.pendingTransformStroke.current || selectedStroke
       setIsDragging(false)
@@ -605,11 +583,11 @@ export function useCanvas({
       refs.pendingTransformStroke.current = null
       setSelectedStroke(finalStroke)
       if (onStrokeUpdate) onStrokeUpdate(finalStroke)
-      safeEmit('draw:update', { stroke: finalStroke })
+      if (socket?.connected) socket.emit('draw:update', { stroke: finalStroke })
     } else {
       stopDrawing()
     }
-  }, [zoom.isPanning, transformMode, isDragging, selectedStroke, socket, onStrokeUpdate, stopDrawing, setTransformMode, setSelectedStroke, setIsDragging, safeEmit])
+  }, [zoom.isPanning, transformMode, isDragging, selectedStroke, socket, onStrokeUpdate, stopDrawing, setTransformMode, setSelectedStroke, setIsDragging])
 
   const handleMouseLeave = useCallback(() => {
     if (isDrawing) stopDrawing()
@@ -644,11 +622,11 @@ export function useCanvas({
   // ========== ACTIONS ==========
   const handleClear = useCallback(() => {
     if (onClear) onClear()
-    else safeEmit('draw:clear')
-  }, [onClear, safeEmit])
+    else if (socket?.connected) socket.emit('draw:clear')
+  }, [onClear, socket])
 
-  const handleUndo = useCallback(() => { safeEmit('draw:undo') }, [safeEmit])
-  const handleRedo = useCallback(() => { safeEmit('draw:redo') }, [safeEmit])
+  const handleUndo = useCallback(() => { if (socket?.connected) socket.emit('draw:undo') }, [socket])
+  const handleRedo = useCallback(() => { if (socket?.connected) socket.emit('draw:redo') }, [socket])
   const handleResetZoom = useCallback(() => {
     zoom.handleResetZoom(refs.container, CANVAS_WIDTH, CANVAS_HEIGHT)
   }, [zoom.handleResetZoom])
@@ -684,10 +662,12 @@ export function useCanvas({
     }
 
     if (onStrokeAdd) onStrokeAdd(textStroke)
-    safeEmit('draw:stroke', { stroke: textStroke })
-    safeEmit('draw:complete', { strokeId: textStroke.id })
+    if (socket?.connected) {
+      socket.emit('draw:stroke', { stroke: textStroke })
+      socket.emit('draw:complete', { strokeId: textStroke.id })
+    }
     setTextInput({ show: false, x: 0, y: 0, value: '' })
-  }, [textInput, color, fontSize, onStrokeAdd, safeEmit, setTextInput])
+  }, [textInput, color, fontSize, onStrokeAdd, socket, setTextInput])
 
   const handleTextKeyDown = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleTextSubmit() }
@@ -732,8 +712,10 @@ export function useCanvas({
         }
 
         if (onStrokeAdd) onStrokeAdd(imageStroke)
-        safeEmit('draw:stroke', { stroke: imageStroke })
-        safeEmit('draw:complete', { strokeId: imageStroke.id })
+        if (socket?.connected) {
+          socket.emit('draw:stroke', { stroke: imageStroke })
+          socket.emit('draw:complete', { strokeId: imageStroke.id })
+        }
         redrawWithStrokes([...refs.strokes.current, imageStroke])
         refs.pendingImagePosition.current = null
       }
@@ -743,7 +725,7 @@ export function useCanvas({
     
     reader.readAsDataURL(file)
     e.target.value = ''
-  }, [onStrokeAdd, safeEmit, redrawWithStrokes])
+  }, [onStrokeAdd, socket, redrawWithStrokes])
 
   // ========== RETURN ==========
   return {

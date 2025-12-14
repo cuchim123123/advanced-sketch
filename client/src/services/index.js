@@ -12,6 +12,3 @@ export {
   getSocket, 
   disconnectSocket 
 } from './socket.service'
-
-// Offline queue service
-export { offlineQueue } from './offlineQueue.service'
