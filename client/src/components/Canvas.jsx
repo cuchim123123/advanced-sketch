@@ -17,9 +17,9 @@ import {
   drawSelectionHighlight
 } from './canvas/strokeRenderer'
 import { useCanvasExport } from '../hooks/useCanvasExport'
-import CanvasToolbar from './canvas/CanvasToolbar'
-import CursorOverlay from './canvas/CursorOverlay'
-import KeyboardShortcutsModal from './canvas/KeyboardShortcutsModal'
+import CanvasToolbar from './canvas/components/CanvasToolbar'
+import CursorOverlay from './canvas/components/CursorOverlay'
+import KeyboardShortcutsModal from './canvas/components/KeyboardShortcutsModal'
 
 export default function Canvas({ 
   socket, 

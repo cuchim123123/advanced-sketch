@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { TOOL_ICONS } from './constants'
+import { TOOL_ICONS } from '../constants'
 
 /**
  * Overlay showing other users' cursors

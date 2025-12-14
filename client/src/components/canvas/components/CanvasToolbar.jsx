@@ -1,7 +1,7 @@
 import { memo } from 'react'
-import { Dropdown, DropdownItem, DropdownSeparator } from '../ui/dropdown'
+import { Dropdown, DropdownItem, DropdownSeparator } from '../../ui/dropdown'
 import { ChevronDown } from 'lucide-react'
-import { TOOLS, COLORS, SHAPE_TOOLS } from './constants'
+import { TOOLS, COLORS, SHAPE_TOOLS } from '../constants'
 
 /**
  * Canvas toolbar with tools, colors, and actions
