@@ -20,7 +20,6 @@ export function useDashboardSocket() {
 
   // Handle socket events for participant count (realtime, no refetch)
   const handleRoomUpdate = useCallback(({ roomCode, participantCount }) => {
-    console.log('[dashboard] WS update:', roomCode, 'participants:', participantCount)
     // Only update count, don't refetch - WS is for count updates only
     updateRoomParticipantCount(roomCode, participantCount)
   }, [updateRoomParticipantCount])

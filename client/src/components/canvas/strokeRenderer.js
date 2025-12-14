@@ -24,7 +24,6 @@ export function drawStroke(stroke, ctx, imageCache) {
 
   // Apply rotation for all strokes that have rotation and startPoint
   if (stroke.rotation && stroke.startPoint) {
-    console.log('[drawStroke] Applying rotation:', stroke.id, stroke.rotation)
     const bounds = getStrokeBounds(stroke, ctx, imageCache)
     if (bounds) {
       const centerX = bounds.x + bounds.width / 2

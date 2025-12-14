@@ -98,13 +98,11 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
     const retryInterval = setInterval(() => {
       if (sock.connected && !roomReadyRef.current && retryCount < maxRetries) {
         retryCount++
-        console.log(`[useRoomSocket] Retrying room:join (attempt ${retryCount}/${maxRetries})`)
         sock.emit('room:join', { roomCode: code })
       } else {
         clearInterval(retryInterval)
         // If still not ready after all retries, show error
         if (!roomReadyRef.current && retryCount >= maxRetries) {
-          console.error(`[useRoomSocket] Failed to join room after ${maxRetries} attempts`)
           toastRef.current.error('Failed to join room. Please refresh the page or try again later.')
         }
       }
@@ -221,11 +219,9 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
     })
 
     sock.on('draw:reorder', ({ strokeIds }) => {
-      console.log('[draw:reorder] Received strokeIds:', strokeIds?.map(id => id?.slice(-4)))
       setStrokes(prev => {
         const strokeMap = new Map(prev.map(s => [s.id, s]))
         const newStrokes = strokeIds.map(id => strokeMap.get(id)).filter(Boolean)
-        console.log('[draw:reorder] New order:', newStrokes.map(s => ({ id: s.id?.slice(-4), tool: s.tool })))
         return newStrokes
       })
     })
@@ -262,12 +258,10 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
     })
 
     sock.on('error', ({ message }) => {
-      console.error('Socket error:', message)
       toastRef.current.error(message)
     })
 
     sock.on('save:error', ({ message }) => {
-      console.warn('[Auto-save] Save failed:', message)
       toastRef.current.warning(message || 'Auto-save failed. Your changes may not be saved.')
     })
 

@@ -943,8 +943,8 @@ export function useCanvas({
   const handleImageUpload = useCallback((e) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (!file.type.startsWith('image/')) { alert('Please select an image file'); return }
-    if (file.size > 2 * 1024 * 1024) { alert('Image too large. Please select an image under 2MB.'); return }
+    if (!file.type.startsWith('image/')) { toast?.error('Please select an image file'); return }
+    if (file.size > 2 * 1024 * 1024) { toast?.error('Image too large. Please select an image under 2MB.'); return }
 
     const reader = new FileReader()
     reader.onload = (event) => {

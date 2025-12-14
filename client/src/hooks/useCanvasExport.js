@@ -215,8 +215,7 @@ async function exportAsPDF(filename, canvas) {
     pdf.addImage(imgData, 'PNG', 0, 0, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2)
     pdf.save(`${filename}.pdf`)
   } catch (error) {
-    console.error('PDF export failed:', error)
-    alert('PDF export requires jspdf library. Falling back to PNG export.')
+    // PDF export failed, fall back to PNG
     const link = document.createElement('a')
     link.download = `${filename}.png`
     link.href = canvas.toDataURL('image/png')

@@ -157,7 +157,6 @@ function handleDrawStroke(socket, io, { stroke, isPreview }) {
   // Validate stroke data (full validation for final strokes)
   const validation = validateStroke(stroke);
   if (!validation.valid) {
-    console.warn(`[draw:stroke] Invalid stroke from ${socket.user.username}: ${validation.error}`);
     socket.emit('error', { message: validation.error });
     return;
   }
@@ -271,14 +270,8 @@ function handleDrawUpdate(socket, { stroke, isPreview }) {
   // Validate stroke data
   const validation = validateStroke(stroke);
   if (!validation.valid) {
-    console.warn(`[draw:update] Invalid stroke from ${socket.user.username}: ${validation.error}`);
     socket.emit('error', { message: validation.error });
     return;
-  }
-
-  // Debug: log incoming stroke
-  if (stroke.rotation !== undefined) {
-    console.log(`[draw:update] Received stroke with rotation:`, { id: stroke.id, rotation: stroke.rotation, isPreview });
   }
 
   // If this is a preview (during drag/resize), only broadcast without saving to state
@@ -310,11 +303,6 @@ function handleDrawUpdate(socket, { stroke, isPreview }) {
         roomState.strokes[existingIndex] = updatedStroke;
       }
       
-      // Debug: confirm rotation saved
-      if (updatedStroke.rotation !== undefined) {
-        console.log(`[draw:update] Stroke updated in memory:`, { id: updatedStroke.id, rotation: updatedStroke.rotation });
-      }
-      
       socket.to(socket.roomCode).emit('draw:update', { 
         stroke: { ...stroke, sequence: sequenceNumber } 
       });
@@ -332,11 +320,6 @@ function handleDrawUpdate(socket, { stroke, isPreview }) {
         ...stroke,
         timestamp: new Date()
       };
-      
-      // Debug: confirm rotation saved
-      if (roomState.strokes[existingIndex].rotation !== undefined) {
-        console.log(`[draw:update] Stroke updated in memory (array):`, { id: stroke.id, rotation: roomState.strokes[existingIndex].rotation });
-      }
       
       socket.to(socket.roomCode).emit('draw:update', { stroke });
       
@@ -451,12 +434,8 @@ function handleDrawReorder(socket, io, { strokeIds }) {
   if (!roomState) return;
 
   if (!strokeIds || !Array.isArray(strokeIds)) {
-    console.warn(`[draw:reorder] Invalid strokeIds from ${socket.user.username}`);
     return;
   }
-
-  console.log(`[draw:reorder] Reordering ${strokeIds.length} strokes in room ${socket.roomCode}`);
-  console.log(`[draw:reorder] Before:`, roomState.strokes?.map(s => ({ id: s.id?.slice(-4), tool: s.tool })));
 
   // Reorder strokes based on strokeIds array
   if (roomState.strokesMap) {
@@ -474,8 +453,6 @@ function handleDrawReorder(socket, io, { strokeIds }) {
       .map(id => strokeMap.get(id))
       .filter(Boolean);
   }
-
-  console.log(`[draw:reorder] After:`, roomState.strokes?.map(s => ({ id: s.id?.slice(-4), tool: s.tool })));
 
   // Broadcast reorder to all clients in room (including sender for confirmation)
   io.to(socket.roomCode).emit('draw:reorder', { strokeIds });

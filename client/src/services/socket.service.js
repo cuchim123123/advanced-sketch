@@ -56,7 +56,7 @@ export const connectSocket = () => {
   })
 
   socket.on('connect', () => {
-    console.log('Socket connected:', socket.id)
+    // Socket connected
   })
 
   socket.on('connect_error', (error) => {
@@ -67,12 +67,9 @@ export const connectSocket = () => {
       // These are expected during reconnection, don't spam console
       return
     }
-    console.error('Socket connection error:', error.message)
   })
 
   socket.on('disconnect', (reason) => {
-    console.log('Socket disconnected:', reason)
-    
     // If server disconnected us, try to reconnect after a short delay
     if (reason === 'io server disconnect') {
       reconnectTimer = setTimeout(() => {
@@ -83,7 +80,7 @@ export const connectSocket = () => {
 
   // Handle reconnection events (silent)
   socket.io.on('reconnect', (attempt) => {
-    console.log(`Reconnected after ${attempt} attempts`)
+    // Reconnected after attempts
   })
 
   socket.io.on('reconnect_attempt', () => {
