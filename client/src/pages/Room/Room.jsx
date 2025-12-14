@@ -65,8 +65,9 @@ export default function Room() {
     }
   }
 
-  // Loading state
-  if (!currentRoom) {
+  // Loading state - use loaderRoom as fallback since currentRoom may not be set yet
+  const room = currentRoom || loaderRoom
+  if (!room) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/50 to-slate-900 flex items-center justify-center">
         <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-8 flex flex-col items-center gap-4">
@@ -81,11 +82,11 @@ export default function Room() {
     <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-slate-900 via-purple-900/50 to-slate-900">
       {/* Header */}
       <RoomHeader
-        roomName={currentRoom.name}
+        roomName={room.name}
         roomCode={code}
         connected={connected}
         participantCount={participants.filter(p => p.id !== user?.id).length + 1}
-        isOwner={currentRoom?.isOwner}
+        isOwner={room?.isOwner}
         showHistory={showHistory}
         onLeave={() => navigate('/dashboard')}
         onSave={handleSave}
