@@ -178,16 +178,28 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
       })
     })
 
-    sock.on('draw:update', ({ stroke }) => {
-      setStrokes(prev => prev.map(s => {
-        if (s.id === stroke.id) {
-          if (stroke.sequence && s.sequence && stroke.sequence <= s.sequence) {
-            return s
+    sock.on('draw:update', ({ stroke, isPreview }) => {
+      if (isPreview) {
+        // Preview update (during drag/resize) - temporarily show in strokes for smooth preview
+        setStrokes(prev => prev.map(s => {
+          if (s.id === stroke.id) {
+            return { ...s, ...stroke, _isPreview: true }
           }
-          return { ...s, ...stroke }
-        }
-        return s
-      }))
+          return s
+        }))
+      } else {
+        // Final update - apply permanently
+        setStrokes(prev => prev.map(s => {
+          if (s.id === stroke.id) {
+            if (stroke.sequence && s.sequence && stroke.sequence <= s.sequence) {
+              return s
+            }
+            const { _isPreview, ...rest } = s // Remove preview flag
+            return { ...rest, ...stroke }
+          }
+          return s
+        }))
+      }
     })
 
     sock.on('draw:clear', () => {

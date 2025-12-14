@@ -8,8 +8,8 @@ export function drawStroke(stroke, ctx, imageCache) {
 
   ctx.save()
 
-  // Apply rotation if stroke has one
-  if (stroke.rotation && stroke.startPoint && stroke.endPoint) {
+  // Apply rotation for all strokes that have rotation and startPoint
+  if (stroke.rotation && stroke.startPoint) {
     const bounds = getStrokeBounds(stroke, ctx, imageCache)
     if (bounds) {
       const centerX = bounds.x + bounds.width / 2

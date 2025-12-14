@@ -46,8 +46,7 @@ export default function Canvas({
   const startPoint = useRef(null)
   
   // Text input state
-  const [textInput, setTextInput] = useState({ show: false, tính năng xoay hình hoạt động chưa chuẩn, tính năng di chuyển và kéo để resize giật giật 
-người dùng khác không thấy resize hay move liên tục realtime mà chỉ thấy kết quả sau khi thả chuộtx: 0, y: 0, value: '' })
+  const [textInput, setTextInput] = useState({ show: false, x: 0, y: 0, value: '' })
   const textInputRef = useRef(null)
   
   // Image upload ref
@@ -389,11 +388,15 @@ người dùng khác không thấy resize hay move liên tục realtime mà ch�
         if (handleType) {
           setTransformMode(handleType)
           const bounds = getStrokeBounds(selectedStroke, contextRef.current, imageCache.current)
+          const centerX = bounds.x + bounds.width / 2
+          const centerY = bounds.y + bounds.height / 2
           transformStart.current = {
             x, y,
             bounds: { ...bounds },
             originalStroke: { ...selectedStroke },
-            rotation: selectedStroke.rotation || 0
+            rotation: selectedStroke.rotation || 0,
+            // Store initial angle for rotation calculation
+            startAngle: Math.atan2(y - centerY, x - centerX)
           }
           return
         }
@@ -697,6 +700,12 @@ người dùng khác không thấy resize hay move liên tục realtime mà ch�
 
   // Throttle refs for cursor
   const lastCursorEmit = useRef(0)
+  // Throttle ref for transform/drag preview emit
+  const lastTransformEmit = useRef(0)
+  
+  // RAF for transform/drag to prevent jitter
+  const transformRafId = useRef(null)
+  const pendingTransformStroke = useRef(null)
   
   // RAF-based draw scheduling - sync with browser paint cycle
   const drawRafId = useRef(null)
@@ -753,16 +762,16 @@ người dùng khác không thấy resize hay move liên tục realtime mà ch�
       let updatedStroke = { ...selectedStroke }
       
       if (transformMode === 'rotate') {
-        // Calculate rotation angle from center
+        // Calculate rotation angle from center using initial angle as reference
         const centerX = bounds.x + bounds.width / 2
         const centerY = bounds.y + bounds.height / 2
-        const startAngle = Math.atan2(
-          transformStart.current.y - centerY,
-          transformStart.current.x - centerX
-        )
         const currentAngle = Math.atan2(y - centerY, x - centerX)
-        const deltaAngle = (currentAngle - startAngle) * 180 / Math.PI
-        updatedStroke.rotation = ((originalStroke.rotation || 0) + deltaAngle) % 360
+        const deltaAngle = (currentAngle - transformStart.current.startAngle) * 180 / Math.PI
+        // Normalize rotation to 0-360
+        let newRotation = (originalStroke.rotation || 0) + deltaAngle
+        while (newRotation < 0) newRotation += 360
+        while (newRotation >= 360) newRotation -= 360
+        updatedStroke.rotation = newRotation
       } else {
         // Handle resize
         const dx = x - transformStart.current.x
@@ -799,7 +808,9 @@ người dùng khác không thấy resize hay move liên tục realtime mà ch�
           updatedStroke.width = newWidth
           updatedStroke.height = newHeight
         } else if (updatedStroke.tool === TOOLS.TEXT) {
-          // For text, just move the position (scaling text is complex)
+          // For text, scale fontSize proportionally and update position
+          const scaleY = newHeight / bounds.height
+          updatedStroke.fontSize = Math.max(8, Math.round((originalStroke.fontSize || 16) * scaleY))
           updatedStroke.startPoint = { x: newX, y: newY + newHeight }
         } else if (updatedStroke.startPoint && updatedStroke.endPoint) {
           // For shapes, update start and end points
@@ -808,15 +819,34 @@ người dùng khác không thấy resize hay move liên tục realtime mà ch�
         }
       }
       
-      setSelectedStroke(updatedStroke)
+      // Store pending update for RAF (avoid excessive state updates)
+      pendingTransformStroke.current = updatedStroke
       
-      // Redraw with updated stroke
-      const updatedStrokes = strokes.map(s => 
-        s.id === selectedStroke.id ? updatedStroke : s
-      )
-      const allStrokes = [...updatedStrokes, ...Object.values(previewStrokes)]
-      redrawWithStrokes(allStrokes)
-      drawSelectionHighlight(updatedStroke, contextRef.current, imageCache.current)
+      // Schedule single RAF for transform update
+      if (!transformRafId.current) {
+        transformRafId.current = requestAnimationFrame(() => {
+          transformRafId.current = null
+          if (!pendingTransformStroke.current) return
+          
+          const stroke = pendingTransformStroke.current
+          setSelectedStroke(stroke)
+          
+          // Redraw with updated stroke
+          const updatedStrokes = strokes.map(s => 
+            s.id === selectedStroke.id ? stroke : s
+          )
+          const allStrokes = [...updatedStrokes, ...Object.values(previewStrokes)]
+          redrawWithStrokes(allStrokes)
+          drawSelectionHighlight(stroke, contextRef.current, imageCache.current)
+        })
+      }
+      
+      // Emit preview to others (throttled to ~20fps for transform)
+      const now = Date.now()
+      if (socket && now - lastTransformEmit.current > 50) {
+        socket.emit('draw:update', { stroke: updatedStroke, isPreview: true })
+        lastTransformEmit.current = now
+      }
       return
     }
     
@@ -844,17 +874,36 @@ người dùng khác không thấy resize hay move liên tục realtime mà ch�
         updatedStroke.startPoint = { x: newStartX, y: newStartY }
       }
       
-      setSelectedStroke(updatedStroke)
+      // Store pending update for RAF (avoid excessive state updates)
+      pendingTransformStroke.current = updatedStroke
       
-      // Redraw with updated position
-      const updatedStrokes = strokes.map(s => 
-        s.id === selectedStroke.id ? updatedStroke : s
-      )
-      const allStrokes = [...updatedStrokes, ...Object.values(previewStrokes)]
-      redrawWithStrokes(allStrokes)
+      // Schedule single RAF for drag update
+      if (!transformRafId.current) {
+        transformRafId.current = requestAnimationFrame(() => {
+          transformRafId.current = null
+          if (!pendingTransformStroke.current) return
+          
+          const stroke = pendingTransformStroke.current
+          setSelectedStroke(stroke)
+          
+          // Redraw with updated position
+          const updatedStrokes = strokes.map(s => 
+            s.id === selectedStroke.id ? stroke : s
+          )
+          const allStrokes = [...updatedStrokes, ...Object.values(previewStrokes)]
+          redrawWithStrokes(allStrokes)
+          
+          // Draw selection highlight
+          drawSelectionHighlight(stroke, contextRef.current, imageCache.current)
+        })
+      }
       
-      // Draw selection highlight
-      drawSelectionHighlight(updatedStroke, contextRef.current, imageCache.current)
+      // Emit preview to others (throttled to ~20fps)
+      const now = Date.now()
+      if (socket && now - lastTransformEmit.current > 50) {
+        socket.emit('draw:update', { stroke: updatedStroke, isPreview: true })
+        lastTransformEmit.current = now
+      }
       return
     }
   }
@@ -1197,6 +1246,13 @@ người dùng khác không thấy resize hay move liên tục realtime mà ch�
         }}
         onMouseMove={handleMouseMove}
         onMouseUp={(e) => {
+          // Cancel any pending transform RAF
+          if (transformRafId.current) {
+            cancelAnimationFrame(transformRafId.current)
+            transformRafId.current = null
+          }
+          pendingTransformStroke.current = null
+          
           if (isPanning) {
             setIsPanning(false)
           } else if (transformMode && selectedStroke) {

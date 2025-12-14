@@ -117,12 +117,19 @@ function handleDrawErase(socket, io, { strokeId }) {
 /**
  * Handle draw:update event
  */
-function handleDrawUpdate(socket, { stroke }) {
+function handleDrawUpdate(socket, { stroke, isPreview }) {
   if (!socket.roomCode) return;
 
   const roomState = getRoomState(socket.roomCode);
   if (!roomState) return;
 
+  // If this is a preview (during drag/resize), only broadcast without saving to state
+  if (isPreview) {
+    socket.to(socket.roomCode).emit('draw:update', { stroke, isPreview: true });
+    return;
+  }
+
+  // Final update - save to state
   if (!roomState.sequenceCounter) {
     roomState.sequenceCounter = 0;
   }
