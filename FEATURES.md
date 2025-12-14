@@ -3,6 +3,8 @@
 ## Overview
 Advanced Sketch is a real-time collaborative drawing application built with React, Socket.io, and Canvas API. It supports multiple users drawing simultaneously with live cursor tracking and automatic synchronization.
 
+**Last Updated**: December 14, 2025
+
 ---
 
 ## 🎨 Drawing Tools
@@ -13,7 +15,7 @@ Advanced Sketch is a real-time collaborative drawing application built with Reac
 | **Select** | `V` | Select and move existing strokes (text, images, shapes) | Can select any stroke, text, or image by clicking; selected element shows handles; can drag to move; selection persists until deselected or another is selected. |
 | **Pen** | `P` | Freehand drawing with customizable color and stroke width | Drawing with mouse/finger creates a visible path; color and width match toolbar settings; path is added to stroke list. |
 | **Eraser** | `E` | Erase strokes by clicking on them | Clicking a stroke removes it from canvas and stroke list; cannot erase locked/hidden strokes. |
-| **Hand** | `H` | Pan around the canvas without drawing | Dragging with hand tool moves the visible canvas; no new strokes are created. |
+| **Hand** | `H` | Pan around the canvas without drawing | Dragging with hand tool moves the visible canvas; no new strokes are created. Hand tool does NOT create any stroke data. |
 
 ### Shape Tools
 | Tool | Shortcut | Description | Testable Criteria |
@@ -111,12 +113,21 @@ RAF batching for cursor updates: Cursor updates are batched per animation frame 
 ### Room Features
 | Feature | Description | Testable Criteria |
 |---------|-------------|-------------------|
-| **Create Room** | Create a new collaborative room | Clicking create generates a new room code; user is redirected to new room; room appears in list. |
+| **Create Room** | Create a new collaborative room (public or private) | Clicking create generates a new room code; user is redirected to new room; room appears in list. Public rooms visible to all users. |
 | **Join Room** | Join existing room via code or invite link | Entering code or clicking link joins room; user appears in participant list. |
-| **Room Settings** | Configure room name and settings (owner only) | Owner can open settings; can change name; changes are saved and reflected for all. |
+| **Room Settings** | Configure room name, visibility, and max participants (owner only) | Owner can open settings; can change name/visibility/max; changes are saved and reflected for all. |
+| **Public/Private Toggle** | Set room visibility on creation | Public rooms appear in "Public Rooms" tab; private rooms only accessible via code/link. |
 | **Invite Link** | Copy shareable invite link | Clicking copy copies link to clipboard; link works for joining room. |
 | **Kick Users** | Room owner can remove participants | Owner can remove any user; kicked user is disconnected and notified. |
 | **Leave Room** | Exit the room | Clicking leave removes user from room; user is redirected to home. |
+
+### Dashboard Features
+| Feature | Description | Testable Criteria |
+|---------|-------------|-------------------|
+| **My Rooms** | View rooms you own | Shows list of owned rooms with participant count, visibility status. |
+| **Public Rooms** | Browse all public rooms | Shows list of public rooms from all users; can join directly. |
+| **Participant Count** | Real-time participant count on room cards | Count shows current users in room (registered + guests); updates via polling every 10s when tab active. |
+| **Smart Polling** | Auto-refresh only when tab is visible | Polling pauses when tab is hidden; resumes when tab is visible; reduces server load. |
 
 ### Room Permissions
 **Owner**: Full control (settings, kick, save, restore, clear). Owner actions are restricted to owner only.
@@ -125,6 +136,7 @@ RAF batching for cursor updates: Cursor updates are batched per animation frame 
 ### Auto-save
 Automatic save every 2 minutes. State is saved to server; no data loss on disconnect.
 Manual save available via button or `Ctrl+S`. User can trigger save at any time; confirmation shown.
+**Empty canvas save**: Auto-save works even when all strokes are undone (saves empty array).
 
 ---
 
@@ -217,7 +229,9 @@ Clear visual feedback for selected tools. Selected tool is visually distinct; fe
 
 ## 🔧 Technical Features
 
-### Canvas Rendering
+### Canvas Architecture
+- **Orchestrator Pattern**: Canvas.jsx acts as pure orchestrator (~180 lines), delegating logic to `useCanvas` hook (~700 lines)
+- **Hook Separation**: Drawing, transform, text, image handlers extracted into dedicated hooks
 - HTML5 Canvas 2D API. All drawing is rendered on HTML5 canvas; no SVG overlays.
 - 2x resolution for retina displays. On retina screens, canvas is double-sized for sharpness.
 - Efficient redraw on stroke changes. Only changed regions are redrawn; performance is smooth for 1000+ strokes.
@@ -228,11 +242,17 @@ WebSocket-based real-time communication. All collaboration uses WebSocket; no po
 Automatic reconnection handling. If disconnected, app reconnects automatically; user is notified.
 Stroke point batching. Multiple points are sent in a single message for efficiency.
 Delta encoding for positions. Only changed positions are sent; reduces bandwidth.
+**Dashboard polling optimization**: Only polls when tab is visible; pauses in background.
 
 ### State Management
 Zustand for global state. All app state is managed by Zustand; no Redux or Context API.
 React Router for navigation. Page navigation uses React Router; URLs update correctly.
 Optimistic UI updates. UI updates immediately on action; server confirmation may arrive later.
+**Room state in memory**: Guest participants stored in memory (not DB); registered users in SessionParticipant collection.
+
+### Data Validation
+- **Stroke tool validation**: Only valid tools saved to DB (pen, eraser, line, rectangle, circle, text, image, arrow, diamond, triangle)
+- **Non-drawing tools filtered**: Hand and Select tools never create stroke data
 
 ---
 
@@ -241,6 +261,44 @@ Optimistic UI updates. UI updates immediately on action; server confirmation may
 **Desktop Browsers**: Chrome, Firefox, Safari, Edge. All features work in these browsers; no major bugs.
 **Touch Devices**: iPad, tablets (pinch zoom, touch drawing). Drawing, panning, zooming work with touch; gestures are smooth.
 **Mobile**: Responsive design (optimized for larger screens). UI adapts to small screens; all features accessible.
+
+---
+
+## ⚠️ Known Edge Cases & Limitations
+
+### ✅ Handled Edge Cases
+| Edge Case | How it's Handled |
+|-----------|------------------|
+| **Room initialization race** | Uses lock mechanism with `markRoomInitializing()` and `finally` block ensures lock is always released |
+| **Concurrent room joins** | Users wait via `waitForRoomReady()` while first user initializes |
+| **Empty canvas save** | Auto-save handles empty strokes array (after undo all) |
+| **Invalid tool strokes** | `autoSave.js` filters out non-drawing tools (hand, select) before saving |
+| **Socket disconnection** | Auto-reconnection with exponential backoff; room state preserved in memory |
+| **Guest participant tracking** | In-memory tracking with proper cleanup on disconnect |
+
+### ⚠️ Known Limitations (Not Yet Handled)
+
+#### Critical
+| Issue | Description | Impact |
+|-------|-------------|--------|
+| **Network partition data loss** | If user draws while disconnected, strokes added locally but socket emit fails silently | User loses work |
+| **No offline queue** | Strokes drawn offline are not queued for retry when connection restores | Data loss |
+
+#### High Priority
+| Issue | Description | Impact |
+|-------|-------------|--------|
+| **Auto-save silent failure** | Auto-save errors logged but users not notified | User thinks work is saved when it isn't |
+| **No server-side stroke validation** | Strokes accepted without bounds/size/sanitization checks | Potential XSS, memory bloat |
+| **No server-side image size limit** | Client limits 2MB but server accepts any size | Malicious client could send huge images |
+| **Memory unbounded growth** | In-memory room state grows with active drawing; no TTL cleanup for active rooms | Server memory issues |
+
+#### Medium Priority
+| Issue | Description | Impact |
+|-------|-------------|--------|
+| **Undo/redo conflicts** | User A draws, User B transforms, User A undoes = User B's changes lost | Confusing UX |
+| **Chat XSS** | Chat messages only trimmed, not sanitized | Potential XSS |
+| **Guest ID spoofing** | Guest IDs trusted from client | One guest could impersonate another |
+| **Room join timeout no feedback** | After 3 retries (15s), no error shown to user | User stuck on loading |
 
 ---
 
