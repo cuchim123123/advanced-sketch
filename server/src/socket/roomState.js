@@ -10,6 +10,16 @@ const roomStates = new Map();
 const guestParticipants = new Map();
 
 /**
+ * Debounce timers for auto-save
+ */
+const saveTimers = new Map();
+
+/**
+ * Track dirty rooms (have unsaved changes)
+ */
+const dirtyRooms = new Set();
+
+/**
  * Get or initialize room state
  */
 async function getRoomState(roomCode) {
@@ -35,6 +45,50 @@ function hasRoomState(roomCode) {
  */
 function deleteRoomState(roomCode) {
   roomStates.delete(roomCode);
+  dirtyRooms.delete(roomCode);
+  if (saveTimers.has(roomCode)) {
+    clearTimeout(saveTimers.get(roomCode));
+    saveTimers.delete(roomCode);
+  }
+}
+
+/**
+ * Mark room as dirty (has unsaved changes)
+ */
+function markRoomDirty(roomCode) {
+  dirtyRooms.add(roomCode);
+}
+
+/**
+ * Check if room is dirty
+ */
+function isRoomDirty(roomCode) {
+  return dirtyRooms.has(roomCode);
+}
+
+/**
+ * Mark room as clean (saved)
+ */
+function markRoomClean(roomCode) {
+  dirtyRooms.delete(roomCode);
+}
+
+/**
+ * Get/set save timer for debouncing
+ */
+function getSaveTimer(roomCode) {
+  return saveTimers.get(roomCode);
+}
+
+function setSaveTimer(roomCode, timer) {
+  saveTimers.set(roomCode, timer);
+}
+
+function clearSaveTimer(roomCode) {
+  if (saveTimers.has(roomCode)) {
+    clearTimeout(saveTimers.get(roomCode));
+    saveTimers.delete(roomCode);
+  }
 }
 
 /**
@@ -85,5 +139,12 @@ module.exports = {
   getGuestParticipant,
   setGuestParticipant,
   getRoomGuests,
-  cleanupRoomGuests
+  cleanupRoomGuests,
+  // Auto-save helpers
+  markRoomDirty,
+  markRoomClean,
+  isRoomDirty,
+  getSaveTimer,
+  setSaveTimer,
+  clearSaveTimer
 };
