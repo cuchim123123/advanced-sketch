@@ -16,7 +16,7 @@ const strokeSchema = new mongoose.Schema({
   },
   tool: {
     type: String,
-    enum: ['pen', 'eraser', 'line', 'rectangle', 'circle', 'text', 'image', 'arrow', 'diamond', 'triangle'],
+    // Removed enum restriction - tools can be extended and some may not be drawing tools
     default: 'pen'
   },
   points: [{

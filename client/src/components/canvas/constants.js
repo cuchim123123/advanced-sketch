@@ -24,6 +24,20 @@ export const SHAPE_TOOLS = [
   TOOLS.DIAMOND
 ]
 
+// Drawing tools that create strokes (excludes select, hand)
+export const DRAWING_TOOLS = [
+  TOOLS.PEN,
+  TOOLS.ERASER,
+  TOOLS.LINE,
+  TOOLS.RECTANGLE,
+  TOOLS.CIRCLE,
+  TOOLS.TRIANGLE,
+  TOOLS.ARROW,
+  TOOLS.DIAMOND,
+  TOOLS.TEXT,
+  TOOLS.IMAGE
+]
+
 // Available colors
 export const COLORS = [
   '#000000', '#FF0000', '#00FF00', '#0000FF',
