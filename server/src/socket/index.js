@@ -97,6 +97,6 @@ module.exports = (io) => {
     socket.on('chat:send', (data) => handleChatSend(socket, io, data));
     
     // Disconnect
-    socket.on('disconnect', () => handleDisconnect(socket));
+    socket.on('disconnect', () => handleDisconnect(socket, io));
   });
 };

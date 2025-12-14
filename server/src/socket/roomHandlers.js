@@ -271,7 +271,7 @@ async function handleUserKick(socket, io, { targetUserId }) {
 /**
  * Handle disconnect event
  */
-async function handleDisconnect(socket) {
+async function handleDisconnect(socket, io) {
   const userType = socket.isGuest ? 'Guest' : 'User';
   console.log(`${userType} disconnected: ${socket.user.username}`);
 

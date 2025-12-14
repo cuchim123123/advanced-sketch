@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from 'react'
-import { socket } from '@/services/socket'
+import { getSocket, connectSocket } from '@/services'
 import { useRoomStore } from '@/store'
 
 /**
@@ -14,10 +14,12 @@ export function useDashboardSocket() {
   }, [updateRoomParticipantCount])
 
   useEffect(() => {
-    // Connect socket if not connected
-    if (!socket.connected) {
-      socket.connect()
+    // Get or connect socket
+    let socket = getSocket()
+    if (!socket) {
+      socket = connectSocket()
     }
+    if (!socket) return
 
     // Listen for room updates
     socket.on('dashboard:roomUpdate', handleRoomUpdate)
@@ -26,6 +28,4 @@ export function useDashboardSocket() {
       socket.off('dashboard:roomUpdate', handleRoomUpdate)
     }
   }, [handleRoomUpdate])
-
-  return { connected: socket.connected }
 }
