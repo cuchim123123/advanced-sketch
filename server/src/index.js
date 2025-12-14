@@ -70,4 +70,38 @@ server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
+// Graceful shutdown - save all rooms before exit
+const { roomStates } = require('./socket/roomState');
+const { forceSave } = require('./socket/autoSave');
+
+async function gracefulShutdown(signal) {
+  console.log(`\n${signal} received. Saving all rooms...`);
+  
+  const savePromises = [];
+  for (const roomCode of roomStates.keys()) {
+    savePromises.push(forceSave(roomCode));
+  }
+  
+  try {
+    await Promise.all(savePromises);
+    console.log(`Saved ${savePromises.length} rooms`);
+  } catch (error) {
+    console.error('Error saving rooms:', error);
+  }
+  
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+  
+  // Force exit after 10s
+  setTimeout(() => {
+    console.log('Forcing exit...');
+    process.exit(1);
+  }, 10000);
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
 module.exports = { app, io };
