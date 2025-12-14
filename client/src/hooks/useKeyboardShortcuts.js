@@ -8,7 +8,6 @@ export function useKeyboardShortcuts({
   onToolChange,
   onUndo,
   onRedo,
-  onSave,
   onExport,
   onToggleShortcuts,
   onEscape,
@@ -38,10 +37,6 @@ export function useKeyboardShortcuts({
         case 'y':
           e.preventDefault()
           onRedo?.()
-          break
-        case 's':
-          e.preventDefault()
-          onSave?.()
           break
         case 'e':
           e.preventDefault()
@@ -86,7 +81,7 @@ export function useKeyboardShortcuts({
           break
       }
     }
-  }, [onToolChange, onUndo, onRedo, onSave, onExport, onToggleShortcuts, onEscape, setSpacePressed])
+  }, [onToolChange, onUndo, onRedo, onExport, onToggleShortcuts, onEscape, setSpacePressed])
 
   const handleKeyUp = useCallback((e) => {
     if (e.code === 'Space') {
