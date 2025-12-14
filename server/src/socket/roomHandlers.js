@@ -7,6 +7,10 @@ const {
   setRoomState, 
   hasRoomState,
   deleteRoomState,
+  isRoomInitializing,
+  markRoomInitializing,
+  waitForRoomReady,
+  completeRoomInit,
   getGuestParticipant,
   setGuestParticipant,
   getRoomGuests,
@@ -59,20 +63,36 @@ async function handleRoomJoin(socket, io, { roomCode }) {
       );
     }
 
-    // Initialize room state if needed
+    // Initialize room state if needed (with lock to prevent race conditions)
     if (!hasRoomState(roomCode)) {
-      const history = await SketchHistory.findOne({ room: room._id })
-        .sort({ version: -1 });
-      
-      console.log(`[room:join] Loading room ${roomCode}, history found:`, history ? `${history.strokes?.length || 0} strokes` : 'none');
-      
-      setRoomState(roomCode, {
-        strokes: history?.strokes || [],
-        version: history?.version || 1
-      });
+      // Check if another user is already initializing this room
+      if (isRoomInitializing(roomCode)) {
+        console.log(`[room:join] Room ${roomCode} is being initialized, waiting...`);
+        await waitForRoomReady(roomCode);
+        console.log(`[room:join] Room ${roomCode} ready after wait`);
+      } else {
+        // Mark as initializing to prevent race conditions
+        markRoomInitializing(roomCode);
+        
+        try {
+          const history = await SketchHistory.findOne({ room: room._id })
+            .sort({ version: -1 });
+          
+          console.log(`[room:join] Loading room ${roomCode}, history found:`, history ? `${history.strokes?.length || 0} strokes, version ${history.version}` : 'none');
+          
+          const initialState = {
+            strokes: history?.strokes || [],
+            version: history?.version || 0
+          };
+          setRoomState(roomCode, initialState);
+          console.log(`[room:join] Set state for ${roomCode}:`, initialState.strokes.length, 'strokes, version', initialState.version);
+        } finally {
+          completeRoomInit(roomCode);
+        }
+      }
     } else {
       const existingState = getRoomState(roomCode);
-      console.log(`[room:join] Room ${roomCode} already in memory:`, existingState?.strokes?.length || 0, 'strokes');
+      console.log(`[room:join] Room ${roomCode} already in memory:`, existingState?.strokes?.length || 0, 'strokes, version', existingState?.version);
     }
 
     // Get all active participants
@@ -131,23 +151,38 @@ async function handleRoomJoin(socket, io, { roomCode }) {
  * Handle room:save event
  */
 async function handleRoomSave(socket) {
-  if (!socket.roomCode) return;
+  if (!socket.roomCode) {
+    console.log('[room:save] No roomCode');
+    return;
+  }
 
   try {
     const room = await Room.findOne({ code: socket.roomCode });
     const roomState = getRoomState(socket.roomCode);
 
+    // Debug: console.log(`[room:save] Room ${socket.roomCode}: room=${!!room}, state=${!!roomState}, strokes=${roomState?.strokes?.length || 0}, version=${roomState?.version}`);
+
     if (room && roomState) {
+      // Ensure version is a valid number
+      const currentVersion = typeof roomState.version === 'number' && !isNaN(roomState.version) 
+        ? roomState.version 
+        : 0;
+      const newVersion = currentVersion + 1;
+
       await SketchHistory.create({
         room: room._id,
-        version: roomState.version + 1,
-        strokes: roomState.strokes,
-        createdBy: socket.user._id
+        version: newVersion,
+        strokes: roomState.strokes || [],
+        createdBy: socket.user._id || null
       });
 
-      roomState.version += 1;
+      roomState.version = newVersion;
 
+      // Debug: console.log(`[room:save] Saved! Version: ${roomState.version}, strokes: ${roomState.strokes?.length || 0}`);
       socket.emit('room:saved', { version: roomState.version });
+    } else {
+      console.log('[room:save] Missing room or roomState');
+      socket.emit('error', { message: 'Room not found' });
     }
   } catch (error) {
     console.error('Save error:', error);

@@ -20,9 +20,14 @@ const saveTimers = new Map();
 const dirtyRooms = new Set();
 
 /**
+ * Track rooms currently being initialized (to prevent race conditions)
+ */
+const initializingRooms = new Map();
+
+/**
  * Get or initialize room state
  */
-async function getRoomState(roomCode) {
+function getRoomState(roomCode) {
   return roomStates.get(roomCode);
 }
 
@@ -31,6 +36,8 @@ async function getRoomState(roomCode) {
  */
 function setRoomState(roomCode, state) {
   roomStates.set(roomCode, state);
+  // Clear initializing flag when state is set
+  initializingRooms.delete(roomCode);
 }
 
 /**
@@ -41,11 +48,52 @@ function hasRoomState(roomCode) {
 }
 
 /**
+ * Check if room is currently being initialized
+ */
+function isRoomInitializing(roomCode) {
+  return initializingRooms.has(roomCode);
+}
+
+/**
+ * Mark room as initializing (returns promise that resolves when ready)
+ */
+function markRoomInitializing(roomCode) {
+  if (!initializingRooms.has(roomCode)) {
+    let resolve;
+    const promise = new Promise(r => { resolve = r; });
+    initializingRooms.set(roomCode, { promise, resolve });
+  }
+  return initializingRooms.get(roomCode);
+}
+
+/**
+ * Wait for room initialization to complete
+ */
+async function waitForRoomReady(roomCode) {
+  const init = initializingRooms.get(roomCode);
+  if (init) {
+    await init.promise;
+  }
+}
+
+/**
+ * Complete room initialization
+ */
+function completeRoomInit(roomCode) {
+  const init = initializingRooms.get(roomCode);
+  if (init && init.resolve) {
+    init.resolve();
+  }
+  initializingRooms.delete(roomCode);
+}
+
+/**
  * Delete room state
  */
 function deleteRoomState(roomCode) {
   roomStates.delete(roomCode);
   dirtyRooms.delete(roomCode);
+  initializingRooms.delete(roomCode);
   if (saveTimers.has(roomCode)) {
     clearTimeout(saveTimers.get(roomCode));
     saveTimers.delete(roomCode);
@@ -136,6 +184,12 @@ module.exports = {
   setRoomState,
   hasRoomState,
   deleteRoomState,
+  // Room initialization lock
+  isRoomInitializing,
+  markRoomInitializing,
+  waitForRoomReady,
+  completeRoomInit,
+  // Guest helpers
   getGuestParticipant,
   setGuestParticipant,
   getRoomGuests,
