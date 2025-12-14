@@ -8,7 +8,11 @@ export function MyRoomCard({ room, onEdit, onDelete, onCopyLink }) {
     <div className="glass rounded-xl p-4 hover:bg-slate-50 transition-all duration-300 group">
       <div className="flex justify-between items-start mb-2">
         <h3 className="font-semibold text-lg text-slate-800">{room.name}</h3>
-        <div className="flex gap-1">
+        <div className="flex gap-1 items-center">
+          <span className="text-xs bg-sky-100 text-sky-700 px-2 py-1 rounded-lg flex items-center gap-1 border border-sky-300">
+            <Users className="w-3 h-3" />
+            {room.participantCount || 0}/{room.maxParticipants}
+          </span>
           {room.isPublic ? (
             <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded-lg flex items-center gap-1 border border-emerald-300">
               <Globe className="w-3 h-3" /> Public
