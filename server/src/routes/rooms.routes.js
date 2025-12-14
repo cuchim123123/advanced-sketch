@@ -1,6 +1,6 @@
 const express = require('express');
 const { Room, SketchHistory, SessionParticipant } = require('../models');
-const { protect, optionalAuth } = require('../middleware/auth');
+const { protect, optionalAuth } = require('../middleware/auth.middleware');
 
 const router = express.Router();
 
