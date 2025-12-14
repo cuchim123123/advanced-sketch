@@ -29,7 +29,6 @@ export default function Canvas({
   onStrokeAdd,   // Callback when user draws a stroke
   onStrokeUpdate, // Callback when user moves a stroke
   onClear,       // Callback for clear confirmation
-  onSave,        // Callback for save
   cursors = {},
   showCursorNames = true,
   disabled = false  // Disable drawing when room is loading
@@ -47,7 +46,8 @@ export default function Canvas({
   const startPoint = useRef(null)
   
   // Text input state
-  const [textInput, setTextInput] = useState({ show: false, x: 0, y: 0, value: '' })
+  const [textInput, setTextInput] = useState({ show: false, tính năng xoay hình hoạt động chưa chuẩn, tính năng di chuyển và kéo để resize giật giật 
+người dùng khác không thấy resize hay move liên tục realtime mà chỉ thấy kết quả sau khi thả chuộtx: 0, y: 0, value: '' })
   const textInputRef = useRef(null)
   
   // Image upload ref
@@ -129,10 +129,6 @@ export default function Canvas({
             e.preventDefault()
             handleRedo() // Ctrl+Y = Redo
             break
-          case 's':
-            e.preventDefault()
-            if (onSave) onSave() // Ctrl+S = Save
-            break
           case 'e':
             e.preventDefault()
             handleExport() // Ctrl+E = Export
@@ -170,7 +166,7 @@ export default function Canvas({
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
     }
-  }, [onSave])
+  }, [])
 
   // Clear selection when switching away from select tool
   useEffect(() => {
@@ -752,6 +748,7 @@ export default function Canvas({
     
     // Handle transform mode (resize/rotate)
     if (transformMode && selectedStroke && transformStart.current) {
+      const { x, y } = getCoordinates(e)
       const { bounds, originalStroke } = transformStart.current
       let updatedStroke = { ...selectedStroke }
       
@@ -825,6 +822,7 @@ export default function Canvas({
     
     // Handle dragging selected element
     if (isDragging && selectedStroke) {
+      const { x, y } = getCoordinates(e)
       // Calculate new startPoint position
       const newStartX = x - dragOffset.current.x
       const newStartY = y - dragOffset.current.y
