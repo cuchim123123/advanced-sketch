@@ -1,11 +1,19 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { useRoomStore } from '@/store/roomStore'
 import { useToast } from '@/components/Toast'
 import { useConfirm } from '@/components/ConfirmModal'
 import RoomSettingsModal from '@/components/RoomSettingsModal'
-import { Globe, Lock, Users, Plus, LogIn, LogOut, User, Sparkles, UserCircle, Settings } from 'lucide-react'
+import { Globe, Lock, Plus, LogIn } from 'lucide-react'
+import {
+  DashboardHeader,
+  GuestBanner,
+  MyRoomCard,
+  PublicRoomCard,
+  CreateRoomModal,
+  JoinRoomModal
+} from './components'
 
 export default function Dashboard() {
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -15,23 +23,20 @@ export default function Dashboard() {
   const [isPublic, setIsPublic] = useState(false)
   const [maxParticipants, setMaxParticipants] = useState(10)
   const [joinCode, setJoinCode] = useState('')
-  const [activeTab, setActiveTab] = useState('my') // 'my' or 'public'
+  const [activeTab, setActiveTab] = useState('my')
+  
   const toast = useToast()
   const confirm = useConfirm()
-
-  const { user, logout, isGuest } = useAuthStore()
-  const { rooms, publicRooms, fetchRooms, fetchPublicRooms, createRoom, joinRoom, deleteRoom, updateRoom, loading, error } = useRoomStore()
   const navigate = useNavigate()
 
+  const { isGuest } = useAuthStore()
+  const { rooms, publicRooms, fetchRooms, fetchPublicRooms, createRoom, joinRoom, deleteRoom, updateRoom, loading, error } = useRoomStore()
+
   useEffect(() => {
-    // Only fetch user's rooms if not a guest
-    if (!isGuest) {
-      fetchRooms()
-    }
-    // Always fetch public rooms (anyone can see them)
+    if (!isGuest) fetchRooms()
     fetchPublicRooms()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isGuest]) // Re-run when isGuest changes
+  }, [isGuest])
 
   const handleCreateRoom = async (e) => {
     e.preventDefault()
@@ -79,6 +84,17 @@ export default function Dashboard() {
     toast.success('Invite link copied to clipboard!')
   }
 
+  const handleUpdateRoom = async (updates) => {
+    const result = await updateRoom(editingRoom.code, updates)
+    if (result.success) {
+      toast.success('Room updated successfully')
+      setEditingRoom(null)
+      fetchRooms()
+    } else {
+      toast.error(result.error || 'Failed to update room')
+    }
+  }
+
   return (
     <div className="min-h-screen animated-gradient relative overflow-hidden">
       {/* Floating orbs */}
@@ -86,71 +102,12 @@ export default function Dashboard() {
       <div className="orb orb-cyan w-80 h-80 top-1/2 -right-40 animate-float" style={{ animationDelay: '-2s' }} />
       <div className="orb orb-pink w-64 h-64 bottom-20 left-1/4 animate-float" style={{ animationDelay: '-4s' }} />
 
-      {/* Header */}
-      <header className="glass border-b border-slate-200 sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-emerald-500 flex items-center justify-center glow-purple">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
-            <h1 className="text-2xl font-bold gradient-text">CoPad</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            {isGuest && (
-              <span className="px-3 py-1 text-xs font-medium bg-amber-100 text-amber-700 rounded-full border border-amber-300">
-                Guest
-              </span>
-            )}
-            <button
-              onClick={() => navigate('/profile')}
-              className="glass-button px-4 py-2 flex items-center gap-2"
-            >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-sky-400 to-emerald-400 flex items-center justify-center text-sm font-bold text-white">
-                {isGuest ? <UserCircle className="w-5 h-5" /> : (user?.username?.charAt(0)?.toUpperCase() || 'U')}
-              </div>
-              <span className="hidden sm:inline">{user?.username}</span>
-            </button>
-            {isGuest ? (
-              <Link
-                to="/login"
-                className="glass-button px-4 py-2 flex items-center gap-2"
-              >
-                <LogIn className="w-4 h-4" />
-                <span className="hidden sm:inline">Sign In</span>
-              </Link>
-            ) : (
-              <button
-                onClick={logout}
-                className="glass-button px-4 py-2 flex items-center gap-2"
-              >
-                <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline">Logout</span>
-              </button>
-            )}
-          </div>
-        </div>
-      </header>
+      <DashboardHeader />
 
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8 relative z-10">
-        {/* Guest notice */}
-        {isGuest && (
-          <div className="glass-strong rounded-xl p-4 mb-6 border border-amber-300 bg-amber-50 flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-3">
-              <UserCircle className="w-6 h-6 text-amber-600" />
-              <p className="text-amber-700">
-                You're browsing as a guest. Create an account to save your rooms and sketches!
-              </p>
-            </div>
-            <Link
-              to="/register"
-              className="px-4 py-2 bg-gradient-to-r from-sky-500 to-emerald-500 text-white rounded-lg hover:from-sky-600 hover:to-emerald-600 font-medium text-sm shadow-lg transition-all"
-            >
-              Create Account
-            </Link>
-          </div>
-        )}
+        {isGuest && <GuestBanner />}
 
+        {/* Action Buttons */}
         <div className="flex gap-4 mb-8">
           {!isGuest && (
             <button
@@ -214,57 +171,13 @@ export default function Dashboard() {
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {rooms.map((room) => (
-                  <div
+                  <MyRoomCard
                     key={room.id || room._id}
-                    className="glass rounded-xl p-4 hover:bg-slate-50 transition-all duration-300 group"
-                  >
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-semibold text-lg text-slate-800">{room.name}</h3>
-                      <div className="flex gap-1">
-                        {room.isPublic ? (
-                          <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded-lg flex items-center gap-1 border border-emerald-300">
-                            <Globe className="w-3 h-3" /> Public
-                          </span>
-                        ) : (
-                          <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-lg flex items-center gap-1 border border-slate-200">
-                            <Lock className="w-3 h-3" /> Private
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <p className="text-sm text-slate-400 mb-4 font-mono">Code: {room.code}</p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => navigate(`/room/${room.code}`)}
-                        className="flex-1 px-3 py-2 bg-gradient-to-r from-sky-500 to-emerald-500 text-white text-sm rounded-lg 
-                                 hover:from-sky-600 hover:to-emerald-600 transition-all duration-300"
-                      >
-                        Enter
-                      </button>
-                      <button
-                        onClick={() => setEditingRoom(room)}
-                        className="px-3 py-2 glass-button text-sm"
-                        title="Edit room settings"
-                      >
-                        <Settings className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => copyInviteLink(room.code)}
-                        className="px-3 py-2 glass-button text-sm"
-                        title="Copy invite link"
-                      >
-                        📋
-                      </button>
-                      <button
-                        onClick={() => handleDeleteRoom(room.code)}
-                        className="px-3 py-2 bg-red-500/20 text-red-300 text-sm rounded-xl hover:bg-red-500/30 
-                                 border border-red-500/30 transition-all duration-300"
-                        title="Delete room"
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  </div>
+                    room={room}
+                    onEdit={setEditingRoom}
+                    onDelete={handleDeleteRoom}
+                    onCopyLink={copyInviteLink}
+                  />
                 ))}
               </div>
             )}
@@ -285,31 +198,7 @@ export default function Dashboard() {
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {publicRooms.map((room) => (
-                  <div
-                    key={room.id || room._id}
-                    className="glass rounded-xl p-4 hover:bg-slate-50 transition-all duration-300 group"
-                  >
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-semibold text-lg text-slate-800">{room.name}</h3>
-                      <div className="flex gap-1 items-center">
-                        <span className="text-xs bg-sky-100 text-sky-700 px-2 py-1 rounded-lg flex items-center gap-1 border border-sky-300">
-                          <Users className="w-3 h-3" />
-                          {room.participantCount || 0}/{room.maxParticipants}
-                        </span>
-                      </div>
-                    </div>
-                    <p className="text-sm text-slate-500 mb-1">
-                      by {room.owner?.username || 'Unknown'}
-                    </p>
-                    <p className="text-xs text-slate-400 mb-4 font-mono">Code: {room.code}</p>
-                    <button
-                      onClick={() => navigate(`/room/${room.code}`)}
-                      className="w-full px-3 py-2 bg-gradient-to-r from-sky-500 to-blue-500 text-white text-sm rounded-lg 
-                               hover:from-sky-600 hover:to-blue-600 transition-all duration-300"
-                    >
-                      Join Room
-                    </button>
-                  </div>
+                  <PublicRoomCard key={room.id || room._id} room={room} />
                 ))}
               </div>
             )}
@@ -317,165 +206,35 @@ export default function Dashboard() {
         )}
       </main>
 
-      {/* Create Room Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="glass-card w-full max-w-md p-6 animate-scale-in">
-            <h2 className="text-xl font-semibold mb-4 text-slate-800">Create New Room</h2>
-            <form onSubmit={handleCreateRoom} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">
-                  Room Name
-                </label>
-                <input
-                  type="text"
-                  value={roomName}
-                  onChange={(e) => setRoomName(e.target.value)}
-                  className="w-full px-4 py-3 glass-input"
-                  placeholder="My Sketch Room"
-                  required
-                />
-              </div>
-              
-              {/* Visibility Toggle */}
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-2">
-                  Room Visibility
-                </label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsPublic(false)}
-                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 transition-all duration-300 ${
-                      !isPublic
-                        ? 'border-sky-500 bg-sky-50 text-sky-700'
-                        : 'border-slate-200 text-slate-400 hover:bg-slate-50'
-                    }`}
-                  >
-                    <Lock className="w-4 h-4" />
-                    <div className="text-left">
-                      <div className="font-medium">Private</div>
-                      <div className="text-xs opacity-75">Join via link only</div>
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsPublic(true)}
-                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 transition-all duration-300 ${
-                      isPublic
-                        ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                        : 'border-slate-200 text-slate-400 hover:bg-slate-50'
-                    }`}
-                  >
-                    <Globe className="w-4 h-4" />
-                    <div className="text-left">
-                      <div className="font-medium">Public</div>
-                      <div className="text-xs opacity-75">Visible to everyone</div>
-                    </div>
-                  </button>
-                </div>
-              </div>
+      {/* Modals */}
+      <CreateRoomModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        roomName={roomName}
+        setRoomName={setRoomName}
+        isPublic={isPublic}
+        setIsPublic={setIsPublic}
+        maxParticipants={maxParticipants}
+        setMaxParticipants={setMaxParticipants}
+        onSubmit={handleCreateRoom}
+        loading={loading}
+      />
 
-              {/* Max Participants */}
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">
-                  <Users className="w-4 h-4 inline mr-1" />
-                  Max Participants
-                </label>
-                <input
-                  type="number"
-                  min="2"
-                  max="50"
-                  value={maxParticipants}
-                  onChange={(e) => setMaxParticipants(parseInt(e.target.value) || 10)}
-                  className="w-full px-4 py-3 glass-input"
-                />
-              </div>
-              
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className="flex-1 px-4 py-3 glass-button"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1 px-4 py-3 bg-gradient-to-r from-sky-500 to-emerald-500 text-white rounded-xl 
-                           hover:from-sky-600 hover:to-emerald-600 transition-all duration-300 disabled:opacity-50"
-                >
-                  Create
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <JoinRoomModal
+        isOpen={showJoinModal}
+        onClose={() => setShowJoinModal(false)}
+        joinCode={joinCode}
+        setJoinCode={setJoinCode}
+        onSubmit={handleJoinRoom}
+        loading={loading}
+        error={error}
+      />
 
-      {/* Join Room Modal */}
-      {showJoinModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="glass-card w-full max-w-md p-6 animate-scale-in">
-            <h2 className="text-xl font-semibold mb-4 text-slate-800">Join Room</h2>
-            {error && (
-              <div className="bg-red-100 border border-red-300 text-red-700 p-3 rounded-xl text-sm mb-4">
-                {error}
-              </div>
-            )}
-            <form onSubmit={handleJoinRoom} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">
-                  Room Code
-                </label>
-                <input
-                  type="text"
-                  value={joinCode}
-                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                  className="w-full px-4 py-3 glass-input uppercase font-mono tracking-wider"
-                  placeholder="ABCD1234"
-                  required
-                  maxLength={8}
-                />
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowJoinModal(false)}
-                  className="flex-1 px-4 py-3 glass-button"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1 px-4 py-3 bg-gradient-to-r from-sky-500 to-blue-500 text-white rounded-xl 
-                           hover:from-sky-600 hover:to-blue-600 transition-all duration-300 disabled:opacity-50"
-                >
-                  Join
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Room Modal */}
       <RoomSettingsModal
         isOpen={!!editingRoom}
         onClose={() => setEditingRoom(null)}
         room={editingRoom}
-        onSave={async (updates) => {
-          const result = await updateRoom(editingRoom.code, updates)
-          if (result.success) {
-            toast.success('Room updated successfully')
-            setEditingRoom(null)
-            fetchRooms() // Refresh rooms list
-          } else {
-            toast.error(result.error || 'Failed to update room')
-          }
-        }}
+        onSave={handleUpdateRoom}
         loading={loading}
       />
     </div>
