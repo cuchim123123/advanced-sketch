@@ -38,6 +38,14 @@ export default function Dashboard() {
   useEffect(() => {
     if (!isGuest) fetchRooms()
     fetchPublicRooms()
+    
+    // Auto-refresh room list every 10 seconds for participant count updates
+    const refreshInterval = setInterval(() => {
+      if (!isGuest) fetchRooms()
+      fetchPublicRooms()
+    }, 10000)
+    
+    return () => clearInterval(refreshInterval)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isGuest])
 
