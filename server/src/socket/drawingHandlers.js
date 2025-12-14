@@ -3,6 +3,7 @@
  */
 const { processIncomingStroke } = require('../libs/strokeOptimization');
 const { getRoomState } = require('./roomState');
+const { scheduleAutoSave } = require('./autoSave');
 
 /**
  * Handle draw:stroke event
@@ -73,6 +74,9 @@ function handleDrawStroke(socket, io, { stroke, isPreview }) {
   // Sync strokes array with Map
   roomState.strokes = Array.from(roomState.strokesMap.values());
 
+  // Schedule auto-save (debounced)
+  scheduleAutoSave(socket.roomCode);
+
   // Broadcast to others
   socket.to(socket.roomCode).emit('draw:stroke', {
     stroke: { ...stroke, sequence: sequenceNumber },
@@ -103,6 +107,9 @@ function handleDrawErase(socket, io, { strokeId }) {
   } else {
     roomState.strokes = roomState.strokes.filter(s => s.id !== strokeId);
   }
+
+  // Schedule auto-save
+  scheduleAutoSave(socket.roomCode);
 
   io.to(socket.roomCode).emit('draw:erase', { strokeId });
 }
@@ -164,6 +171,9 @@ function handleDrawClear(socket, io) {
     roomState.strokesMap.clear();
   }
 
+  // Schedule auto-save
+  scheduleAutoSave(socket.roomCode);
+
   io.to(socket.roomCode).emit('draw:clear');
 }
 
@@ -193,6 +203,9 @@ function handleDrawUndo(socket, io) {
     
     roomState.strokes = roomState.strokes.filter(s => s.id !== lastStroke.id);
 
+    // Schedule auto-save
+    scheduleAutoSave(socket.roomCode);
+
     io.to(socket.roomCode).emit('draw:erase', { strokeId: lastStroke.id });
   }
 }
@@ -213,6 +226,9 @@ function handleDrawRedo(socket, io) {
 
   const strokeToRedo = userRedoStack.pop();
   roomState.strokes.push(strokeToRedo);
+
+  // Schedule auto-save
+  scheduleAutoSave(socket.roomCode);
 
   io.to(socket.roomCode).emit('draw:stroke', {
     stroke: strokeToRedo,
