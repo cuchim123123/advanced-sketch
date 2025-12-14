@@ -14,6 +14,10 @@ import {
   getStrokeBounds,
   drawSelectionHighlight
 } from './canvas/strokeRenderer'
+import {
+  findStrokeAtPoint as findStrokeUtil,
+  getTransformHandleAtPoint as getTransformHandleUtil
+} from './canvas/utils/hitDetection'
 import { useCanvasExport } from '../hooks/useCanvasExport'
 import { useCanvasState } from './canvas/hooks/useCanvasState'
 import { useCanvasZoom } from './canvas/hooks/useCanvasZoom'
@@ -230,50 +234,9 @@ export default function Canvas({
     }
   }, [strokes, previewStrokes, selectedStroke, tool, transformMode, isDragging])
 
-  // Check if point is on a transform handle
+  // Wrapper functions for utils (pass refs and cache)
   const getTransformHandleAtPoint = (x, y, stroke) => {
-    if (!stroke) return null
-    const bounds = getStrokeBounds(stroke, contextRef.current, imageCache.current)
-    if (!bounds) return null
-    
-    const padding = 4
-    const handleSize = 12 // Slightly larger hit area
-    const rotation = stroke.rotation || 0
-    
-    // Transform point if rotation is applied
-    let tx = x, ty = y
-    if (rotation !== 0) {
-      const centerX = bounds.x + bounds.width / 2
-      const centerY = bounds.y + bounds.height / 2
-      const rad = -rotation * Math.PI / 180
-      const cos = Math.cos(rad)
-      const sin = Math.sin(rad)
-      tx = cos * (x - centerX) - sin * (y - centerY) + centerX
-      ty = sin * (x - centerX) + cos * (y - centerY) + centerY
-    }
-    
-    // Check rotation handle first
-    const rotateHandleY = bounds.y - padding - 25
-    const rotateHandleX = bounds.x + bounds.width / 2
-    if (Math.hypot(tx - rotateHandleX, ty - rotateHandleY) <= 12) {
-      return 'rotate'
-    }
-    
-    // Check corner handles
-    const handles = [
-      { x: bounds.x - padding, y: bounds.y - padding, type: 'resize-nw' },
-      { x: bounds.x + bounds.width + padding, y: bounds.y - padding, type: 'resize-ne' },
-      { x: bounds.x - padding, y: bounds.y + bounds.height + padding, type: 'resize-sw' },
-      { x: bounds.x + bounds.width + padding, y: bounds.y + bounds.height + padding, type: 'resize-se' }
-    ]
-    
-    for (const handle of handles) {
-      if (Math.abs(tx - handle.x) <= handleSize && Math.abs(ty - handle.y) <= handleSize) {
-        return handle.type
-      }
-    }
-    
-    return null
+    return getTransformHandleUtil(x, y, stroke, contextRef.current, imageCache.current)
   }
 
   const getCoordinates = (e) => {
@@ -302,35 +265,9 @@ export default function Canvas({
     }
   }
 
-  // Hit detection for selecting text, images, and shapes
+  // Hit detection wrapper
   const findStrokeAtPoint = (x, y) => {
-    // Search in reverse order (top-most first)
-    for (let i = strokes.length - 1; i >= 0; i--) {
-      const stroke = strokes[i]
-      if (!stroke) continue
-      
-      const bounds = getStrokeBounds(stroke, contextRef.current, imageCache.current)
-      if (bounds) {
-        // Apply rotation transform to test point if stroke is rotated
-        const rotation = stroke.rotation || 0
-        let tx = x, ty = y
-        if (rotation !== 0) {
-          const centerX = bounds.x + bounds.width / 2
-          const centerY = bounds.y + bounds.height / 2
-          const rad = -rotation * Math.PI / 180
-          const cos = Math.cos(rad)
-          const sin = Math.sin(rad)
-          tx = cos * (x - centerX) - sin * (y - centerY) + centerX
-          ty = sin * (x - centerX) + cos * (y - centerY) + centerY
-        }
-        
-        if (tx >= bounds.x && tx <= bounds.x + bounds.width &&
-            ty >= bounds.y && ty <= bounds.y + bounds.height) {
-          return stroke
-        }
-      }
-    }
-    return null
+    return findStrokeUtil(strokes, x, y, contextRef.current, imageCache.current)
   }
 
   const startDrawing = (e) => {
