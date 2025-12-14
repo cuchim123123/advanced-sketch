@@ -69,10 +69,13 @@ async function performAutoSave(roomCode) {
     const room = await Room.findOne({ code: roomCode });
     const roomState = getRoomState(roomCode);
     
-    if (!room || !roomState || !roomState.strokes?.length) {
+    if (!room || !roomState) {
       markRoomClean(roomCode);
       return;
     }
+    
+    // Get strokes (can be empty array after undo all)
+    const strokes = roomState.strokes || [];
     
     // Upsert: update existing or create new
     // Use $set and strict: false to preserve all stroke fields (rotation, etc.)
@@ -80,7 +83,7 @@ async function performAutoSave(roomCode) {
       { room: room._id, version: roomState.version },
       { 
         $set: {
-          strokes: roomState.strokes,
+          strokes: strokes,
           updatedAt: new Date()
         }
       },
@@ -88,10 +91,10 @@ async function performAutoSave(roomCode) {
     );
     
     markRoomClean(roomCode);
-    console.log(`[auto-save] Room ${roomCode}: ${roomState.strokes.length} strokes saved`);
+    console.log(`[auto-save] Room ${roomCode}: ${strokes.length} strokes saved`);
     
     // Debug: log first stroke with rotation if exists
-    const rotatedStroke = roomState.strokes.find(s => s.rotation);
+    const rotatedStroke = strokes.find(s => s.rotation);
     if (rotatedStroke) {
       console.log(`[auto-save] Sample rotated stroke:`, { id: rotatedStroke.id, rotation: rotatedStroke.rotation, tool: rotatedStroke.tool });
     }
