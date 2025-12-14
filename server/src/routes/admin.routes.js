@@ -174,18 +174,31 @@ router.get('/rooms', protect, adminMiddleware, async (req, res) => {
 
     const rooms = await Room.find(query)
       .populate('owner', 'username email')
-      .populate('participants', 'username')
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
       .lean()
+
+    // Get active participant count for each room
+    const roomsWithParticipants = await Promise.all(
+      rooms.map(async (room) => {
+        const activeCount = await SessionParticipant.countDocuments({
+          room: room._id,
+          isActive: true
+        })
+        return {
+          ...room,
+          activeParticipants: activeCount
+        }
+      })
+    )
 
     const total = await Room.countDocuments(query)
 
     res.json({
       success: true,
       data: {
-        rooms,
+        rooms: roomsWithParticipants,
         currentPage: page,
         totalPages: Math.ceil(total / limit),
         total

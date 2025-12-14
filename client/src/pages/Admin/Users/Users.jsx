@@ -1,7 +1,17 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useCallback } from 'react'
 import { Search, Filter, Edit, Trash2, Eye, Plus, X } from 'lucide-react'
 import { api } from '@/services'
 import { toast } from 'sonner'
+import { usePolling } from '@/hooks'
+import { RefreshButton } from '@/components/ui'
+
+// Skeleton loading style
+const skeletonStyle = {
+  background: 'linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%)',
+  backgroundSize: '200% 100%',
+  animation: 'shimmer 1.5s infinite',
+  borderRadius: '4px'
+}
 
 const Users = () => {
   const [users, setUsers] = useState([])
@@ -13,12 +23,8 @@ const Users = () => {
   const [showModal, setShowModal] = useState(false)
   const [modalType, setModalType] = useState('view') // 'view', 'edit', 'delete'
 
-  useEffect(() => {
-    fetchUsers()
-  }, [currentPage, searchQuery])
-
-  const fetchUsers = async () => {
-    setLoading(true)
+  const fetchUsers = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const response = await api.get('/admin/users', {
         params: {
@@ -30,22 +36,26 @@ const Users = () => {
       setUsers(response.data?.data?.users || [])
       setTotalPages(response.data?.data?.totalPages || 1)
     } catch (error) {
-      toast.error('Failed to fetch users')
-      console.error(error)
+      if (!silent) toast.error('Failed to fetch users')
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
-  }
+  }, [currentPage, searchQuery])
+
+  // Auto-polling with visibility awareness
+  const { isRefreshing, manualRefresh } = usePolling(fetchUsers, {
+    pollInterval: 10000,
+    debounceTime: 3000
+  })
 
   const handleDelete = async (userId) => {
     try {
       await api.delete(`/admin/users/${userId}`)
       toast.success('User deleted successfully')
-      fetchUsers()
+      manualRefresh()
       setShowModal(false)
     } catch (error) {
       toast.error('Failed to delete user')
-      console.error(error)
     }
   }
 
@@ -62,6 +72,16 @@ const Users = () => {
 
   return (
     <div>
+      {/* Skeleton animation keyframes */}
+      <style>
+        {`
+          @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+          }
+        `}
+      </style>
+      
       {/* Header */}
       <div style={{ 
         display: 'flex', 
@@ -87,6 +107,11 @@ const Users = () => {
             Manage all registered users and their permissions
           </p>
         </div>
+        <RefreshButton
+          onClick={manualRefresh}
+          isRefreshing={isRefreshing}
+          title="Refresh users"
+        />
       </div>
 
       {/* Search and Filters */}
@@ -151,8 +176,44 @@ const Users = () => {
         overflow: 'hidden'
       }}>
         {loading ? (
-          <div style={{ padding: '3rem', textAlign: 'center' }}>
-            <div className="spinner" style={{ margin: '0 auto' }}></div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ 
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+                }}>
+                  <th style={tableHeaderStyle}>Name</th>
+                  <th style={tableHeaderStyle}>Email</th>
+                  <th style={tableHeaderStyle}>Role</th>
+                  <th style={tableHeaderStyle}>Status</th>
+                  <th style={tableHeaderStyle}>Joined</th>
+                  <th style={tableHeaderStyle}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...Array(5)].map((_, i) => (
+                  <tr key={i} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                    <td style={tableCellStyle}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <div style={{ ...skeletonStyle, width: '40px', height: '40px', borderRadius: '50%' }} />
+                        <div style={{ ...skeletonStyle, width: '120px', height: '18px' }} />
+                      </div>
+                    </td>
+                    <td style={tableCellStyle}><div style={{ ...skeletonStyle, width: '180px', height: '18px' }} /></td>
+                    <td style={tableCellStyle}><div style={{ ...skeletonStyle, width: '60px', height: '24px', borderRadius: '20px' }} /></td>
+                    <td style={tableCellStyle}><div style={{ ...skeletonStyle, width: '70px', height: '24px', borderRadius: '20px' }} /></td>
+                    <td style={tableCellStyle}><div style={{ ...skeletonStyle, width: '90px', height: '18px' }} /></td>
+                    <td style={tableCellStyle}>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <div style={{ ...skeletonStyle, width: '32px', height: '32px', borderRadius: '6px' }} />
+                        <div style={{ ...skeletonStyle, width: '32px', height: '32px', borderRadius: '6px' }} />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : users.length === 0 ? (
           <div style={{ padding: '3rem', textAlign: 'center' }}>
@@ -229,11 +290,11 @@ const Users = () => {
                           borderRadius: '20px',
                           fontSize: '0.75rem',
                           fontWeight: '600',
-                          background: user.verified ? 
+                          background: user.isEmailVerified ? 
                             'rgba(16, 185, 129, 0.1)' : 'rgba(251, 191, 36, 0.1)',
-                          color: user.verified ? '#10b981' : '#fbbf24'
+                          color: user.isEmailVerified ? '#10b981' : '#fbbf24'
                         }}>
-                          {user.verified ? 'Verified' : 'Pending'}
+                          {user.isEmailVerified ? 'Verified' : 'Pending'}
                         </span>
                       </td>
                       <td style={tableCellStyle}>

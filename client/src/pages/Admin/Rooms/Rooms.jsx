@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useCallback } from 'react'
 import { api } from '@/services'
 import { toast } from 'sonner'
-import { RoomCard, RoomModal, SearchBar, Pagination } from './components'
+import { usePolling } from '@/hooks'
+import { RefreshButton } from '@/components/ui'
+import { RoomCard, RoomCardSkeleton, RoomModal, SearchBar, Pagination } from './components'
 
 const Rooms = () => {
   const [rooms, setRooms] = useState([])
@@ -13,12 +15,8 @@ const Rooms = () => {
   const [showModal, setShowModal] = useState(false)
   const [modalType, setModalType] = useState('view')
 
-  useEffect(() => {
-    fetchRooms()
-  }, [currentPage, searchQuery])
-
-  const fetchRooms = async () => {
-    setLoading(true)
+  const fetchRooms = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const response = await api.get('/admin/rooms', {
         params: { page: currentPage, limit: 10, search: searchQuery }
@@ -26,22 +24,26 @@ const Rooms = () => {
       setRooms(response.data?.data?.rooms || [])
       setTotalPages(response.data?.data?.totalPages || 1)
     } catch (error) {
-      toast.error('Failed to fetch rooms')
-      console.error(error)
+      if (!silent) toast.error('Failed to fetch rooms')
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
-  }
+  }, [currentPage, searchQuery])
+
+  // Auto-polling with visibility awareness
+  const { isRefreshing, manualRefresh } = usePolling(fetchRooms, {
+    pollInterval: 10000,
+    debounceTime: 3000
+  })
 
   const handleDelete = async (roomId) => {
     try {
       await api.delete(`/admin/rooms/${roomId}`)
       toast.success('Room deleted successfully')
-      fetchRooms()
+      manualRefresh()
       closeModal()
     } catch (error) {
       toast.error('Failed to delete room')
-      console.error(error)
     }
   }
 
@@ -80,6 +82,11 @@ const Rooms = () => {
             Monitor and manage all collaboration rooms
           </p>
         </div>
+        <RefreshButton
+          onClick={manualRefresh}
+          isRefreshing={isRefreshing}
+          title="Refresh rooms"
+        />
       </div>
 
       {/* Search */}
@@ -89,8 +96,15 @@ const Rooms = () => {
 
       {/* Content */}
       {loading ? (
-        <div style={{ padding: '3rem', textAlign: 'center' }}>
-          <div className="spinner" style={{ margin: '0 auto' }}></div>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+          gap: '1.5rem',
+          marginBottom: '2rem'
+        }}>
+          {[...Array(6)].map((_, i) => (
+            <RoomCardSkeleton key={i} />
+          ))}
         </div>
       ) : rooms.length === 0 ? (
         <div style={{

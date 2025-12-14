@@ -85,26 +85,15 @@ const resetPassword = async (userId, token, newPassword) => {
     throw new Error('Invalid reset link');
   }
 
-  // Validate password complexity
-  if (newPassword.length < 12) {
-    throw new Error('Password must be at least 12 characters');
-  }
-  if (!/[A-Z]/.test(newPassword)) {
-    throw new Error('Password must contain an uppercase letter');
-  }
-  if (!/[a-z]/.test(newPassword)) {
-    throw new Error('Password must contain a lowercase letter');
-  }
-  if (!/[0-9]/.test(newPassword)) {
-    throw new Error('Password must contain a number');
+  // Validate password - must match User model requirements (6 chars minimum)
+  if (newPassword.length < 6) {
+    throw new Error('Password must be at least 6 characters');
   }
 
   // Update password and clear reset token
   user.password = newPassword; // Will be hashed by pre-save hook
   user.resetPasswordToken = undefined;
   user.resetPasswordTokenExpiresAt = undefined;
-  user.failedLoginAttempts = 0; // Reset failed attempts
-  user.loginOtpRequired = false;
   
   await user.save();
 

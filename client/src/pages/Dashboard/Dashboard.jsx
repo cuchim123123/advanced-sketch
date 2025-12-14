@@ -4,7 +4,8 @@ import { useAuthStore, useRoomStore } from '@/store'
 import { useToast } from '@/components/Toast'
 import { useConfirm } from '@/components/ConfirmModal'
 import RoomSettingsModal from '@/components/RoomSettingsModal'
-import { Globe, Lock, Plus, LogIn, RefreshCw } from 'lucide-react'
+import { RefreshButton } from '@/components/ui'
+import { Globe, Lock, Plus, LogIn } from 'lucide-react'
 import {
   DashboardHeader,
   GuestBanner,
@@ -156,15 +157,12 @@ export default function Dashboard() {
           </button>
           
           {/* Refresh Button */}
-          <button
+          <RefreshButton
             onClick={manualRefresh}
-            disabled={isRefreshing}
-            className="ml-auto glass-button px-3 py-2.5 flex items-center gap-2 disabled:opacity-50"
+            isRefreshing={isRefreshing}
+            className="ml-auto"
             title="Refresh rooms"
-          >
-            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline text-sm">Refresh</span>
-          </button>
+          />
         </div>
 
         {/* My Rooms */}

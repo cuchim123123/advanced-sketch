@@ -4,6 +4,7 @@ const { User } = require('../models');
 const { protect } = require('../middleware/auth.middleware');
 const { authLimiter, strictAuthLimiter } = require('../middleware/rateLimiter.middleware');
 const passwordController = require('../controllers/password.controller');
+const otpController = require('../controllers/otp.controller');
 
 const router = express.Router();
 
@@ -54,7 +55,8 @@ router.post('/register', authLimiter, async (req, res) => {
           id: user._id,
           username: user.username,
           email: user.email,
-          avatar: user.avatar
+          avatar: user.avatar,
+          role: user.role
         },
         token
       }
@@ -74,18 +76,26 @@ router.post('/register', authLimiter, async (req, res) => {
  */
 router.post('/login', authLimiter, async (req, res) => {
   try {
-    const { email, password } = req.body;
+    // Support both 'email' and 'emailOrPhoneOrUsername' field names for backward compatibility
+    const { email, emailOrPhoneOrUsername, password } = req.body;
+    const identifier = emailOrPhoneOrUsername || email;
 
     // Validate input
-    if (!email || !password) {
+    if (!identifier || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide email and password'
+        message: 'Please provide email/username and password'
       });
     }
 
-    // Find user with password
-    const user = await User.findOne({ email }).select('+password');
+    // Find user by email, username, or phone
+    const user = await User.findOne({
+      $or: [
+        { email: identifier.toLowerCase() },
+        { username: identifier },
+        { phone: identifier.replace(/[\s\-\(\)]/g, '') }
+      ]
+    }).select('+password');
 
     if (!user) {
       return res.status(401).json({
@@ -114,7 +124,8 @@ router.post('/login', authLimiter, async (req, res) => {
           id: user._id,
           username: user.username,
           email: user.email,
-          avatar: user.avatar
+          avatar: user.avatar,
+          role: user.role
         },
         token
       }
@@ -141,7 +152,8 @@ router.get('/me', protect, async (req, res) => {
         username: req.user.username,
         email: req.user.email,
         avatar: req.user.avatar,
-        phone: req.user.phone
+        phone: req.user.phone,
+        role: req.user.role
       }
     }
   });
@@ -266,6 +278,10 @@ router.patch('/password', protect, async (req, res) => {
     });
   }
 });
+
+// OTP routes (for email verification)
+router.post('/send-otp', strictAuthLimiter, otpController.sendOTPHandler);
+router.post('/verify-otp', strictAuthLimiter, otpController.verifyOTPHandler);
 
 // Password reset routes (with strict rate limiting)
 router.post('/forgot-password', strictAuthLimiter, passwordController.forgotPassword);

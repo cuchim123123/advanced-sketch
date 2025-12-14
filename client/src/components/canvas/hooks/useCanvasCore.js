@@ -1,6 +1,36 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useCallback } from 'react'
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../constants'
 import { drawStroke, drawSelectionHighlight } from '../strokeRenderer'
+
+/**
+ * Preload all images in strokes to ensure correct layer order when rendering
+ */
+async function preloadImages(strokes, imageCache) {
+  const imageStrokes = strokes.filter(s => s.tool === 'image' && s.imageData)
+  
+  const loadPromises = imageStrokes.map(stroke => {
+    return new Promise((resolve) => {
+      // Already cached
+      if (imageCache.get(stroke.id)?.complete) {
+        resolve()
+        return
+      }
+      
+      const img = new Image()
+      img.onload = () => {
+        imageCache.set(stroke.id, img)
+        resolve()
+      }
+      img.onerror = () => {
+        console.warn('Failed to load image:', stroke.id)
+        resolve() // Resolve anyway to not block rendering
+      }
+      img.src = stroke.imageData
+    })
+  })
+  
+  await Promise.all(loadPromises)
+}
 
 /**
  * Core canvas setup, refs, and redraw logic
@@ -19,8 +49,8 @@ export function useCanvasCore({ strokes, previewStrokes, selectedStroke, tool, t
     strokesRef.current = [...strokes, ...Object.values(previewStrokes)]
   }, [strokes, previewStrokes])
 
-  // Redraw helper
-  const redrawWithStrokes = (strokesArray) => {
+  // Redraw helper (sync version for immediate use)
+  const redrawWithStrokes = useCallback((strokesArray) => {
     const ctx = contextRef.current
     if (!ctx) return
 
@@ -34,7 +64,13 @@ export function useCanvasCore({ strokes, previewStrokes, selectedStroke, tool, t
         drawStroke(stroke, ctx, imageCache.current)
       }
     })
-  }
+  }, [])
+
+  // Preload images then redraw (for initial load)
+  const preloadAndRedraw = useCallback(async (strokesArray) => {
+    await preloadImages(strokesArray, imageCache.current)
+    redrawWithStrokes(strokesArray)
+  }, [redrawWithStrokes])
 
   // Initialize canvas
   useEffect(() => {
@@ -58,7 +94,10 @@ export function useCanvasCore({ strokes, previewStrokes, selectedStroke, tool, t
       ctx.lineJoin = 'round'
       contextRef.current = ctx
 
-      redrawWithStrokes(strokesRef.current)
+      // Preload images before first render to maintain correct layer order
+      preloadImages(strokesRef.current, imageCache.current).then(() => {
+        redrawWithStrokes(strokesRef.current)
+      })
     }
     
     setupCanvas()

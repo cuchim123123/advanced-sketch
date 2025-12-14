@@ -70,6 +70,7 @@ const strokeSchema = new mongoose.Schema({
 
 /**
  * Sketch History Schema - Version snapshots for a room
+ * Note: strokes is stored as raw array (Mixed type) to preserve exact order
  */
 const sketchHistorySchema = new mongoose.Schema({
   room: {
@@ -82,7 +83,11 @@ const sketchHistorySchema = new mongoose.Schema({
     type: Number,
     required: true
   },
-  strokes: [strokeSchema],
+  // Use Mixed type to preserve array order exactly as saved
+  strokes: {
+    type: mongoose.Schema.Types.Mixed,
+    default: []
+  },
   // Snapshot for quick loading (compressed canvas state)
   snapshot: {
     type: String, // Base64 encoded image
@@ -96,7 +101,8 @@ const sketchHistorySchema = new mongoose.Schema({
     default: Date.now
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  minimize: false // Prevent empty objects from being removed
 });
 
 // Compound index for room + version

@@ -72,7 +72,11 @@ function scheduleAutoSave(roomCode) {
  * Perform the actual save to database
  */
 async function performAutoSave(roomCode) {
-  if (!isRoomDirty(roomCode)) return;
+  if (!isRoomDirty(roomCode)) {
+    console.log(`[AUTO-SAVE] Room ${roomCode} not dirty, skipping`);
+    return;
+  }
+  console.log(`[AUTO-SAVE] Starting save for room ${roomCode}...`);
   
   // Clear dirty timestamp
   dirtyTimestamps.delete(roomCode);
@@ -90,6 +94,9 @@ async function performAutoSave(roomCode) {
     // Filter out non-drawing tools (hand, select)
     const VALID_TOOLS = ['pen', 'eraser', 'line', 'rectangle', 'circle', 'text', 'image', 'arrow', 'diamond', 'triangle'];
     const strokes = (roomState.strokes || []).filter(s => VALID_TOOLS.includes(s.tool));
+    
+    // Debug: log stroke order before save
+    console.log('[SAVE] Stroke order to DB:', strokes.map(s => ({ id: s.id?.slice(-4), tool: s.tool })));
     
     // Upsert: update existing or create new
     // Use $set and strict: false to preserve all stroke fields (rotation, etc.)

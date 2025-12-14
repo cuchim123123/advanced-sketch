@@ -1,5 +1,7 @@
 import React, { useState } from 'react'
-import { Eye, EyeOff, Lock } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Eye, EyeOff } from 'lucide-react'
 
 export const PasswordInput = ({ 
   id, 
@@ -19,13 +21,12 @@ export const PasswordInput = ({
   return (
     <div className='space-y-2'>
       {label && (
-        <label htmlFor={id} className="block text-sm font-semibold text-slate-700">
+        <Label htmlFor={id} className="text-sm font-semibold text-white [text-shadow:_0_1px_2px_rgb(0_0_0_/_50%)]">
           {label}
-        </label>
+        </Label>
       )}
       <div className="relative">
-        <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
-        <input
+        <Input
           id={id}
           name={name}
           type={showPassword ? "text" : "password"}
@@ -34,7 +35,7 @@ export const PasswordInput = ({
           onChange={onChange}
           onBlur={onBlur}
           maxLength={32}
-          className={`w-full pl-10 pr-12 py-3 bg-white border border-slate-200 rounded-lg text-slate-700 placeholder-slate-400 focus:ring-2 focus:ring-sky-400/50 focus:border-sky-400 outline-none transition ${
+          className={`pr-10 bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:bg-white/20 ${
             touched && error ? 'border-red-400' : ''
           } ${className}`}
           required={required}
@@ -42,16 +43,11 @@ export const PasswordInput = ({
         <button
           type="button"
           onClick={() => setShowPassword(!showPassword)}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white"
         >
           {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
         </button>
       </div>
-      {touched && error && (
-        <p className="text-red-500 text-xs mt-1">{error}</p>
-      )}
     </div>
   )
 }
-
-export default PasswordInput

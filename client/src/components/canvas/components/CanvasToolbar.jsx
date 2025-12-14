@@ -16,6 +16,7 @@ const CanvasToolbar = memo(function CanvasToolbar({
   fontSize,
   setFontSize,
   zoom,
+  selectedStroke,
   onUndo,
   onRedo,
   onClear,
@@ -23,6 +24,8 @@ const CanvasToolbar = memo(function CanvasToolbar({
   onZoomIn,
   onZoomOut,
   onResetZoom,
+  onBringToFront,
+  onSendToBack,
   setSelectedStroke
 }) {
   const toolButtonClass = (isActive) => `p-2.5 rounded-lg transition-all duration-200 ${
@@ -120,6 +123,29 @@ const CanvasToolbar = memo(function CanvasToolbar({
       )}
 
       <Divider />
+
+      {/* Layer Ordering - Show only when stroke selected */}
+      {selectedStroke && (
+        <>
+          <div className="flex gap-1.5">
+            <button
+              onClick={onBringToFront}
+              className="glass-button px-3 py-2 text-sm"
+              title="Bring to Front (Ctrl+])"
+            >
+              ⏫
+            </button>
+            <button
+              onClick={onSendToBack}
+              className="glass-button px-3 py-2 text-sm"
+              title="Send to Back (Ctrl+[)"
+            >
+              ⏬
+            </button>
+          </div>
+          <Divider />
+        </>
+      )}
 
       {/* Actions */}
       <div className="flex gap-1.5">

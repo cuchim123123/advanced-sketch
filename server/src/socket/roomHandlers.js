@@ -82,14 +82,12 @@ async function handleRoomJoin(socket, io, { roomCode }) {
           
           logger.socket(`Loading room ${roomCode}, history found:`, history ? `${history.strokes?.length || 0} strokes, version ${history.version}` : 'none');
           
-          // Debug: log rotated strokes
-          if (history?.strokes) {
-            const rotatedStrokes = history.strokes.filter(s => s.rotation);
-            logger.debug(`Rotated strokes in DB:`, rotatedStrokes.length, rotatedStrokes.map(s => ({ id: s.id, rotation: s.rotation })));
-          }
+          // Debug: log stroke order from DB
+          const strokes = history?.strokes || [];
+          console.log('[LOAD] Stroke order from DB:', strokes.map(s => ({ id: s.id?.slice(-4), tool: s.tool })));
           
           const initialState = {
-            strokes: history?.strokes || [],
+            strokes: strokes,
             version: history?.version || 0
           };
           setRoomState(roomCode, initialState);
@@ -308,6 +306,7 @@ async function handleDisconnect(socket, io) {
     }
 
     // Force save any pending changes
+    console.log(`[DISCONNECT] Forcing save for room ${socket.roomCode}`);
     await forceSave(socket.roomCode);
 
     // Check if room is empty
@@ -335,6 +334,7 @@ async function handleDisconnect(socket, io) {
 
         setTimeout(() => {
           if (getRoomState(socket.roomCode)) {
+            console.log(`[CLEANUP] Deleting room state for ${socket.roomCode} after 60s inactivity`);
             deleteRoomState(socket.roomCode);
           }
         }, 60000);

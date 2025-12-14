@@ -209,13 +209,15 @@ function handleDrawStroke(socket, io, { stroke, isPreview }) {
   if (existingStroke) {
     if (!existingStroke.sequence || sequenceNumber > existingStroke.sequence) {
       roomState.strokesMap.set(stroke.id, fullStroke);
+      // Update in array at same position
+      const idx = roomState.strokes.findIndex(s => s.id === stroke.id);
+      if (idx >= 0) roomState.strokes[idx] = fullStroke;
     }
   } else {
     roomState.strokesMap.set(stroke.id, fullStroke);
+    // Add to end of array
+    roomState.strokes.push(fullStroke);
   }
-
-  // Sync strokes array with Map
-  roomState.strokes = Array.from(roomState.strokesMap.values());
 
   // Schedule auto-save (debounced)
   scheduleAutoSave(socket.roomCode);
@@ -244,12 +246,12 @@ function handleDrawErase(socket, io, { strokeId }) {
   const roomState = getRoomState(socket.roomCode);
   if (!roomState) return;
 
+  // Remove from map
   if (roomState.strokesMap) {
     roomState.strokesMap.delete(strokeId);
-    roomState.strokes = Array.from(roomState.strokesMap.values());
-  } else {
-    roomState.strokes = roomState.strokes.filter(s => s.id !== strokeId);
   }
+  // Remove from array (preserving order)
+  roomState.strokes = (roomState.strokes || []).filter(s => s.id !== strokeId);
 
   // Schedule auto-save
   scheduleAutoSave(socket.roomCode);
@@ -301,7 +303,12 @@ function handleDrawUpdate(socket, { stroke, isPreview }) {
         sequence: sequenceNumber
       };
       roomState.strokesMap.set(stroke.id, updatedStroke);
-      roomState.strokes = Array.from(roomState.strokesMap.values());
+      
+      // Update in-place in array to preserve order
+      const existingIndex = roomState.strokes.findIndex(s => s.id === stroke.id);
+      if (existingIndex >= 0) {
+        roomState.strokes[existingIndex] = updatedStroke;
+      }
       
       // Debug: confirm rotation saved
       if (updatedStroke.rotation !== undefined) {
@@ -434,6 +441,51 @@ function handleCursorMove(socket, { x, y, tool }) {
   });
 }
 
+/**
+ * Handle draw:reorder event
+ */
+function handleDrawReorder(socket, io, { strokeIds }) {
+  if (!socket.roomCode) return;
+
+  const roomState = getRoomState(socket.roomCode);
+  if (!roomState) return;
+
+  if (!strokeIds || !Array.isArray(strokeIds)) {
+    console.warn(`[draw:reorder] Invalid strokeIds from ${socket.user.username}`);
+    return;
+  }
+
+  console.log(`[draw:reorder] Reordering ${strokeIds.length} strokes in room ${socket.roomCode}`);
+  console.log(`[draw:reorder] Before:`, roomState.strokes?.map(s => ({ id: s.id?.slice(-4), tool: s.tool })));
+
+  // Reorder strokes based on strokeIds array
+  if (roomState.strokesMap) {
+    const reorderedStrokes = strokeIds
+      .map(id => roomState.strokesMap.get(id))
+      .filter(Boolean);
+    
+    roomState.strokes = reorderedStrokes;
+    
+    // Also rebuild strokesMap to maintain order
+    roomState.strokesMap = new Map(reorderedStrokes.map(s => [s.id, s]));
+  } else if (roomState.strokes) {
+    const strokeMap = new Map(roomState.strokes.map(s => [s.id, s]));
+    roomState.strokes = strokeIds
+      .map(id => strokeMap.get(id))
+      .filter(Boolean);
+  }
+
+  console.log(`[draw:reorder] After:`, roomState.strokes?.map(s => ({ id: s.id?.slice(-4), tool: s.tool })));
+
+  // Broadcast reorder to all clients in room (including sender for confirmation)
+  io.to(socket.roomCode).emit('draw:reorder', { strokeIds });
+
+  // Mark room dirty for auto-save
+  const { markRoomDirty, scheduleAutoSave } = require('./autoSave');
+  markRoomDirty(socket.roomCode);
+  scheduleAutoSave(socket.roomCode);
+}
+
 module.exports = {
   handleDrawStroke,
   handleDrawComplete,
@@ -442,5 +494,6 @@ module.exports = {
   handleDrawClear,
   handleDrawUndo,
   handleDrawRedo,
+  handleDrawReorder,
   handleCursorMove
 };

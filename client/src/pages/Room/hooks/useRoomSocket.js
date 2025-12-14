@@ -60,20 +60,25 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
 
     // Connection events
     sock.on('connect', () => {
+      console.log('[SOCKET] Connected')
       setConnected(true)
       sock.emit('room:join', { roomCode: code })
     })
 
-    sock.on('disconnect', () => {
+    sock.on('disconnect', (reason) => {
+      console.warn('[SOCKET] Disconnected:', reason)
       setConnected(false)
       setRoomReady(false)
+    })
+    
+    sock.on('connect_error', (error) => {
+      console.error('[SOCKET] Connection error:', error.message)
     })
 
     // Room state sync
     sock.on('room:state', ({ strokes: roomStrokes, participants: roomParticipants }) => {
-      // Debug: log rotated strokes
-      const rotatedStrokes = (roomStrokes || []).filter(s => s.rotation)
-      console.log('[room:state] Received strokes:', roomStrokes?.length, 'Rotated:', rotatedStrokes.length, rotatedStrokes.map(s => ({ id: s.id, rotation: s.rotation })))
+      // Debug: log stroke order (tool types)
+      console.log('[room:state] Stroke order:', roomStrokes?.map(s => ({ id: s.id?.slice(-4), tool: s.tool })))
       
       setStrokes(roomStrokes || [])
       setParticipants(roomParticipants || [])
@@ -164,10 +169,7 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
             updated[existingIndex] = fullStroke
             return updated
           } else {
-            if (fullStroke.sequence) {
-              const newStrokes = [...prev, fullStroke]
-              return newStrokes.sort((a, b) => (a.sequence || 0) - (b.sequence || 0))
-            }
+            // Add new stroke to end (preserve layer order, don't sort by sequence)
             return [...prev, fullStroke]
           }
         })
@@ -216,6 +218,16 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
     sock.on('draw:clear', () => {
       setStrokes([])
       setPreviewStrokes({}) // Also clear preview strokes
+    })
+
+    sock.on('draw:reorder', ({ strokeIds }) => {
+      console.log('[draw:reorder] Received strokeIds:', strokeIds?.map(id => id?.slice(-4)))
+      setStrokes(prev => {
+        const strokeMap = new Map(prev.map(s => [s.id, s]))
+        const newStrokes = strokeIds.map(id => strokeMap.get(id)).filter(Boolean)
+        console.log('[draw:reorder] New order:', newStrokes.map(s => ({ id: s.id?.slice(-4), tool: s.tool })))
+        return newStrokes
+      })
     })
 
     // Cursor updates with RAF batching
@@ -281,6 +293,7 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
         sock.off('draw:erase')
         sock.off('draw:update')
         sock.off('draw:clear')
+        sock.off('draw:reorder')
         sock.off('cursor:move')
         sock.off('room:restored')
         sock.off('error')

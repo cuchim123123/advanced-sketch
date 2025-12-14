@@ -7,3 +7,6 @@
 export { useCanvasExport } from './useCanvasExport'
 export { useCanvasZoom } from './useCanvasZoom'
 export { useKeyboardShortcuts } from './useKeyboardShortcuts'
+
+// Utility hooks
+export { usePolling } from './usePolling'

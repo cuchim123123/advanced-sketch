@@ -1,199 +1,209 @@
-import React, { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { useAuthStore } from '@/store'
-import { CheckCircle, XCircle, Loader2, ArrowRight, RefreshCw } from 'lucide-react'
-import { AuthLayout, AuthCard } from '../common'
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { API_BASE_URL } from '@/services/config';
+import { AuthLayout } from '../common/AuthLayout';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { CheckCircle2, XCircle, AlertCircle, ArrowRight } from 'lucide-react';
+import { LoadingSpinner } from '@/components/common';
 
-export default function VerifyEmail() {
-  const [searchParams] = useSearchParams()
-  const navigate = useNavigate()
-  const { setUser } = useAuthStore()
-  const [status, setStatus] = useState('verifying') // 'verifying', 'success', 'error'
-  const [message, setMessage] = useState('')
-  const [countdown, setCountdown] = useState(5)
+const VerifyEmail = () => {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [status, setStatus] = useState('verifying'); // 'verifying', 'success', 'error', 'invalid'
+  const [message, setMessage] = useState('');
+  const [countdown, setCountdown] = useState(5);
 
   useEffect(() => {
     const verifyEmail = async () => {
-      const uid = searchParams.get('uid')
-      const token = searchParams.get('token')
+      const uid = searchParams.get('uid');
+      const token = searchParams.get('token');
 
+      // Check if parameters are present
       if (!uid || !token) {
-        setStatus('error')
-        setMessage('Invalid verification link. Please check your email and try again.')
-        return
+        setStatus('invalid');
+        setMessage('Invalid verification link. Please check your email and try again.');
+        return;
       }
 
       try {
-        const res = await fetch(`/api/auth/verify-email?uid=${uid}&token=${token}`, {
+        const res = await fetch(`${API_BASE_URL}/auth/verify-email?uid=${uid}&token=${token}`, {
           method: 'GET',
-          headers: { 'Content-Type': 'application/json' }
-        })
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
 
-        const data = await res.json()
+        const data = await res.json();
 
         if (res.ok) {
-          setStatus('success')
-          setMessage(data.message || 'Your email has been successfully verified!')
-
-          // Auto login if token is provided
-          if (data.data?.user && data.data?.token) {
-            setUser(data.data.user, data.data.token)
-          }
-
+          setStatus('success');
+          setMessage(data.message || 'Your email has been successfully verified!');
+          
           // Start countdown to redirect
           const timer = setInterval(() => {
             setCountdown(prev => {
               if (prev <= 1) {
-                clearInterval(timer)
-                navigate('/dashboard')
-                return 0
+                clearInterval(timer);
+                navigate('/login');
+                return 0;
               }
-              return prev - 1
-            })
-          }, 1000)
+              return prev - 1;
+            });
+          }, 1000);
 
-          return () => clearInterval(timer)
+          return () => clearInterval(timer);
         } else {
-          // Check if email is already verified - treat as success
-          if (data.message?.toLowerCase().includes('already verified')) {
-            setStatus('success')
-            setMessage('Your email is already verified! You can login now.')
-            
-            // Redirect to login after countdown
-            const timer = setInterval(() => {
-              setCountdown(prev => {
-                if (prev <= 1) {
-                  clearInterval(timer)
-                  navigate('/login')
-                  return 0
-                }
-                return prev - 1
-              })
-            }, 1000)
-            
-            return () => clearInterval(timer)
-          }
-          
-          setStatus('error')
-          setMessage(data.message || 'Verification failed. The link may have expired.')
+          setStatus('error');
+          setMessage(data.message || 'Verification failed. The link may have expired.');
         }
       } catch (error) {
-        console.error('Verification error:', error)
-        setStatus('error')
-        setMessage('An error occurred during verification. Please try again later.')
+        console.error('Verification error:', error);
+        setStatus('error');
+        setMessage('An error occurred during verification. Please try again later.');
       }
-    }
+    };
 
-    verifyEmail()
-  }, [searchParams, navigate, setUser])
+    verifyEmail();
+  }, [searchParams, navigate]);
 
   const renderContent = () => {
     switch (status) {
       case 'verifying':
         return (
-          <AuthCard.Content>
-            <div className="text-center space-y-6">
+          <Card className="w-full max-w-[480px] mx-auto shadow-2xl border border-slate-200 bg-white/80 backdrop-blur-xl animate-in fade-in duration-500">
+            <CardHeader className="space-y-4 pb-6 text-center">
               <div className="flex justify-center">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-sky-500 rounded-full blur-xl opacity-40 animate-pulse"></div>
-                  <div className="relative p-6 bg-gradient-to-br from-sky-500 to-emerald-500 rounded-full shadow-lg">
-                    <Loader2 className="w-12 h-12 text-white animate-spin" />
-                  </div>
+                <div className="p-6 bg-sky-100 rounded-full">
+                  <LoadingSpinner size="lg" variant="default" />
                 </div>
               </div>
-              <div>
-                <h2 className="text-2xl font-bold text-slate-800 mb-3">Verifying Your Email</h2>
-                <p className="text-slate-600">Please wait while we verify your email address...</p>
-              </div>
-            </div>
-          </AuthCard.Content>
-        )
+              <CardTitle className="text-2xl font-bold text-slate-800">
+                Verifying Your Email
+              </CardTitle>
+              <CardDescription className="text-slate-600 text-base">
+                Please wait while we verify your email address...
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        );
 
       case 'success':
         return (
-          <>
-            <AuthCard.Content>
-              <div className="text-center space-y-6">
-                <div className="flex justify-center">
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-green-500 rounded-full blur-xl opacity-40 animate-pulse"></div>
-                    <div className="relative p-6 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full shadow-lg">
-                      <CheckCircle className="w-12 h-12 text-white" />
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-slate-800 mb-3">Email Verified!</h2>
-                  <p className="text-slate-600">{message}</p>
-                </div>
-                <div className="bg-green-50 border border-green-300 rounded-xl p-4">
-                  <p className="text-green-700 text-sm">
-                    You will be redirected to the dashboard in <span className="font-bold text-green-800">{countdown}</span> seconds...
-                  </p>
+          <Card className="w-full max-w-[480px] mx-auto shadow-2xl border border-slate-200 bg-white/80 backdrop-blur-xl animate-in fade-in duration-500">
+            <CardHeader className="space-y-4 pb-6 text-center">
+              <div className="flex justify-center">
+                <div className="p-4 bg-emerald-100 rounded-full">
+                  <CheckCircle2 className="w-12 h-12 text-emerald-600" />
                 </div>
               </div>
-            </AuthCard.Content>
-            <AuthCard.Footer>
-              <button
-                onClick={() => navigate('/dashboard')}
-                className="w-full bg-gradient-to-r from-sky-500 to-emerald-500 text-white font-semibold py-3 rounded-xl hover:from-sky-600 hover:to-emerald-600 shadow-lg transition-all flex items-center justify-center gap-2"
+              <CardTitle className="text-2xl font-bold text-slate-800">
+                Email Verified!
+              </CardTitle>
+              <CardDescription className="text-slate-600 text-base">
+                {message}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-sky-50 border border-sky-200 rounded-lg p-4 text-center">
+                <p className="text-sm text-sky-800">
+                  Redirecting to login in <span className="font-bold text-lg">{countdown}</span> seconds...
+                </p>
+              </div>
+              <Button
+                onClick={() => navigate('/login')}
+                className="w-full h-12 bg-gradient-to-r from-sky-500 to-emerald-500 hover:from-sky-600 hover:to-emerald-600 text-white font-semibold shadow-lg"
+                size="lg"
               >
-                Go to Dashboard Now
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </AuthCard.Footer>
-          </>
-        )
+                <span className="flex items-center gap-2">
+                  Sign In Now
+                  <ArrowRight className="w-4 h-4" />
+                </span>
+              </Button>
+            </CardContent>
+          </Card>
+        );
 
       case 'error':
         return (
-          <>
-            <AuthCard.Content>
-              <div className="text-center space-y-6">
-                <div className="flex justify-center">
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-red-500 rounded-full blur-xl opacity-40 animate-pulse"></div>
-                    <div className="relative p-6 bg-gradient-to-br from-red-500 to-rose-500 rounded-full shadow-lg">
-                      <XCircle className="w-12 h-12 text-white" />
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-slate-800 mb-3">Verification Failed</h2>
-                  <p className="text-slate-600">{message}</p>
+          <Card className="w-full max-w-[480px] mx-auto shadow-2xl border border-slate-200 bg-white/80 backdrop-blur-xl animate-in fade-in duration-500">
+            <CardHeader className="space-y-4 pb-6 text-center">
+              <div className="flex justify-center">
+                <div className="p-4 bg-red-100 rounded-full">
+                  <XCircle className="w-12 h-12 text-red-600" />
                 </div>
               </div>
-            </AuthCard.Content>
-            <AuthCard.Footer>
-              <div className="space-y-3">
-                <button
-                  onClick={() => navigate('/signup')}
-                  className="w-full bg-gradient-to-r from-sky-500 to-emerald-500 text-white font-semibold py-3 rounded-xl hover:from-sky-600 hover:to-emerald-600 shadow-lg transition-all flex items-center justify-center gap-2"
+              <CardTitle className="text-2xl font-bold text-slate-800">
+                Verification Failed
+              </CardTitle>
+              <CardDescription className="text-slate-600 text-base">
+                {message}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-800">
+                <p>The verification link may have expired or already been used. Please request a new verification email.</p>
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => navigate('/register')}
+                  variant="outline"
+                  className="flex-1 h-11 border-slate-300 hover:bg-slate-50 text-slate-800"
                 >
-                  <RefreshCw className="w-4 h-4" />
-                  Try Again
-                </button>
-                <button
+                  Register Again
+                </Button>
+                <Button
                   onClick={() => navigate('/login')}
-                  className="w-full glass-button text-slate-600 hover:text-slate-800 font-semibold py-3 rounded-xl transition-all"
+                  className="flex-1 h-11 bg-gradient-to-r from-sky-500 to-emerald-500 hover:from-sky-600 hover:to-emerald-600 text-white font-semibold shadow-lg"
                 >
-                  Go to Login
-                </button>
+                  Sign In
+                </Button>
               </div>
-            </AuthCard.Footer>
-          </>
-        )
+            </CardContent>
+          </Card>
+        );
+
+      case 'invalid':
+        return (
+          <Card className="w-full max-w-[480px] mx-auto shadow-2xl border border-slate-200 bg-white/80 backdrop-blur-xl animate-in fade-in duration-500">
+            <CardHeader className="space-y-4 pb-6 text-center">
+              <div className="flex justify-center">
+                <div className="p-4 bg-orange-100 rounded-full">
+                  <AlertCircle className="w-12 h-12 text-orange-600" />
+                </div>
+              </div>
+              <CardTitle className="text-2xl font-bold text-slate-800">
+                Invalid Link
+              </CardTitle>
+              <CardDescription className="text-slate-600 text-base">
+                {message}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 text-sm text-orange-800">
+                <p>Please check your email for the correct verification link, or request a new one.</p>
+              </div>
+              <Button
+                onClick={() => navigate('/login')}
+                className="w-full h-12 bg-gradient-to-r from-sky-500 to-emerald-500 hover:from-sky-600 hover:to-emerald-600 text-white font-semibold shadow-lg"
+                size="lg"
+              >
+                Go to Login
+              </Button>
+            </CardContent>
+          </Card>
+        );
 
       default:
-        return null
+        return null;
     }
-  }
+  };
 
   return (
     <AuthLayout>
-      <AuthCard.Card>
-        {renderContent()}
-      </AuthCard.Card>
+      {renderContent()}
     </AuthLayout>
-  )
-}
+  );
+};
+
+export default VerifyEmail;

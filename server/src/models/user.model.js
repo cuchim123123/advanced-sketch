@@ -54,20 +54,6 @@ const userSchema = new mongoose.Schema({
   // Password reset fields (used by password.service.js)
   resetPasswordToken: String,
   resetPasswordTokenExpiresAt: Date,
-  // Security fields
-  loginAttempts: {
-    type: Number,
-    default: 0
-  },
-  failedLoginAttempts: {
-    type: Number,
-    default: 0
-  },
-  loginOtpRequired: {
-    type: Boolean,
-    default: false
-  },
-  lockUntil: Date,
   createdAt: {
     type: Date,
     default: Date.now

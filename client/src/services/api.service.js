@@ -27,9 +27,15 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    // Check if this is a login/register request - don't redirect on auth errors for these
+    const isAuthRequest = error.config?.url?.includes('/auth/login') || 
+                          error.config?.url?.includes('/auth/register') ||
+                          error.config?.url?.includes('/auth/forgot-password') ||
+                          error.config?.url?.includes('/auth/reset-password')
+    
+    if (error.response?.status === 401 && !isAuthRequest) {
       const { isGuest, logout } = useAuthStore.getState()
-      // Only logout and redirect if NOT a guest
+      // Only logout and redirect if NOT a guest and NOT an auth request
       // Guests are expected to get 401 on protected routes
       if (!isGuest) {
         logout()

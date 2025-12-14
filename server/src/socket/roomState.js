@@ -35,6 +35,10 @@ function getRoomState(roomCode) {
  * Set room state
  */
 function setRoomState(roomCode, state) {
+  // Initialize strokesMap from strokes array to maintain order
+  if (state.strokes && !state.strokesMap) {
+    state.strokesMap = new Map(state.strokes.map(s => [s.id, s]));
+  }
   roomStates.set(roomCode, state);
   // Clear initializing flag when state is set
   initializingRooms.delete(roomCode);

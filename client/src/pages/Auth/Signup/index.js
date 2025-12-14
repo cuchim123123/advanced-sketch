@@ -1,7 +1,1 @@
 export { default } from './Signup'
-export { SignupForm } from './SignupForm'
-export { SignupStepIndicator } from './SignupStepIndicator'
-export { Step1BasicInfo } from './Step1BasicInfo'
-export { Step2ContactInfo } from './Step2ContactInfo'
-export { Step3Password } from './Step3Password'
-export { VerificationNotice } from './VerificationNotice'

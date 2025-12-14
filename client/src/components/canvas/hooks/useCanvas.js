@@ -55,6 +55,9 @@ export function useCanvas({
   // Canvas ready state - block all drawing until canvas is initialized
   const [canvasReady, setCanvasReady] = useState(false)
   const canvasReadyRef = useRef(false)
+  
+  // Dynamic cursor for hover states
+  const [hoverCursor, setHoverCursor] = useState(null)
 
   // ========== REFS ==========
   const refs = {
@@ -78,11 +81,13 @@ export function useCanvas({
     pendingPoint: useRef(null),
     pendingDrawEvent: useRef(null),
     pendingTransformStroke: useRef(null),
+    pendingDragStroke: useRef(null),
     lastDrawPoint: useRef(null),
     lastEmitTime: useRef(0),
     lastSentPointIndex: useRef(0),
     lastCursorEmit: useRef(0),
-    lastTransformEmit: useRef(0)
+    lastTransformEmit: useRef(0),
+    lastDragEmit: useRef(0)
   }
 
   // Keep refs in sync
@@ -97,7 +102,20 @@ export function useCanvas({
   })
 
   // ========== COMPUTED ==========
-  const cursor = useMemo(() => generateCursor(tool, strokeWidth, zoom.zoom), [tool, strokeWidth, zoom.zoom])
+  const cursor = useMemo(() => {
+    // Priority cursors during active operations
+    if (transformMode === 'rotate') return 'grab'
+    if (transformMode?.includes('resize')) {
+      if (transformMode === 'resize-nw' || transformMode === 'resize-se') return 'nwse-resize'
+      if (transformMode === 'resize-ne' || transformMode === 'resize-sw') return 'nesw-resize'
+    }
+    if (isDragging) return 'grabbing'
+    if (hoverCursor) return hoverCursor
+    if (zoom.isPanning) return 'grabbing'
+    
+    // Default tool cursor
+    return generateCursor(tool, strokeWidth, zoom.zoom)
+  }, [tool, strokeWidth, zoom.zoom, transformMode, isDragging, hoverCursor, zoom.isPanning])
 
   // ========== HELPERS ==========
   const getCoordinates = useCallback((e) => {
@@ -191,17 +209,35 @@ export function useCanvas({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Run only once on mount - zoom.setPan is stable from useState
 
+  // ========== LISTEN FOR IMAGE LOAD TO REDRAW ==========
+  useEffect(() => {
+    const handleImageLoaded = () => {
+      // Redraw canvas when an image finishes loading to maintain correct layer order
+      const allStrokes = [...refs.strokes.current]
+      redrawWithStrokes(allStrokes)
+    }
+    
+    window.addEventListener('canvas:imageLoaded', handleImageLoaded)
+    return () => window.removeEventListener('canvas:imageLoaded', handleImageLoaded)
+  }, [redrawWithStrokes])
+
   // ========== REDRAW ON CHANGE ==========
   useEffect(() => {
     const ctx = refs.context.current
     if (!ctx) return
-    if (transformMode || isDragging) return
+    
+    // Skip redraw ONLY if we're transforming AND no other strokes have preview updates
+    // This prevents interrupting user's own transform while still showing others' updates
+    if ((transformMode || isDragging) && selectedStroke) {
+      const hasOtherPreviews = strokes.some(s => s._isPreview && s.id !== selectedStroke.id)
+      if (!hasOtherPreviews) return // Skip only if no other users updating
+    }
 
     const allStrokes = [...strokes, ...Object.values(previewStrokes)]
     redrawWithStrokes(allStrokes)
     refs.shapePreviewSnapshot.current = null
     
-    if (selectedStroke && tool === TOOLS.SELECT) {
+    if (selectedStroke && tool === TOOLS.SELECT && !transformMode && !isDragging) {
       const currentStrokeData = strokes.find(s => s.id === selectedStroke.id)
       if (currentStrokeData) {
         drawSelectionHighlight(currentStrokeData, ctx, refs.imageCache.current)
@@ -402,16 +438,23 @@ export function useCanvas({
     const canvas = refs.canvas.current
     if (!ctx || !canvas) return // Canvas not ready yet
     
+    // Restore canvas to snapshot state
     if (!refs.shapePreviewSnapshot.current) {
       refs.shapePreviewSnapshot.current = ctx.getImageData(0, 0, canvas.width, canvas.height)
     } else {
       ctx.putImageData(refs.shapePreviewSnapshot.current, 0, 0)
     }
     
+    // IMPORTANT: Re-apply scale after putImageData (it resets transform)
+    ctx.setTransform(2, 0, 0, 2, 0, 0)
+    
     ctx.beginPath()
     ctx.strokeStyle = color
     ctx.lineWidth = strokeWidth
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
 
+    // Use stored startPoint (should be immutable during drawing)
     const sx = refs.startPoint.current.x
     const sy = refs.startPoint.current.y
 
@@ -427,7 +470,13 @@ export function useCanvas({
         if (radius > 0) { ctx.arc(sx, sy, radius, 0, 2 * Math.PI); ctx.stroke() }
         break
       case TOOLS.TRIANGLE:
-        ctx.moveTo((sx + x) / 2, sy); ctx.lineTo(x, y); ctx.lineTo(sx, y); ctx.closePath(); ctx.stroke()
+        // Triangle: startPoint (sx,sy) is TOP vertex, fixed
+        // Bottom expands to y, width expands symmetrically around sx
+        const halfWidth = Math.abs(x - sx)
+        ctx.moveTo(sx, sy)                    // Top (FIXED)
+        ctx.lineTo(sx + halfWidth, y)         // Bottom right
+        ctx.lineTo(sx - halfWidth, y)         // Bottom left
+        ctx.closePath(); ctx.stroke()
         break
       case TOOLS.ARROW:
         ctx.moveTo(sx, sy); ctx.lineTo(x, y); ctx.stroke()
@@ -439,8 +488,15 @@ export function useCanvas({
         ctx.lineTo(x - headLen * Math.cos(angle + Math.PI / 6), y - headLen * Math.sin(angle + Math.PI / 6)); ctx.stroke()
         break
       case TOOLS.DIAMOND:
-        const cx = (sx + x) / 2, cy = (sy + y) / 2
-        ctx.moveTo(cx, sy); ctx.lineTo(x, cy); ctx.lineTo(cx, y); ctx.lineTo(sx, cy); ctx.closePath(); ctx.stroke()
+        // Diamond: startPoint (sx,sy) is TOP vertex, fixed
+        // Expands symmetrically - width based on x distance, height based on y distance
+        const dHalfWidth = Math.abs(x - sx)
+        const dHeight = Math.abs(y - sy)
+        ctx.moveTo(sx, sy)                         // Top (FIXED)
+        ctx.lineTo(sx + dHalfWidth, sy + dHeight/2) // Right
+        ctx.lineTo(sx, y)                          // Bottom
+        ctx.lineTo(sx - dHalfWidth, sy + dHeight/2) // Left
+        ctx.closePath(); ctx.stroke()
         break
     }
   }, [tool, color, strokeWidth])
@@ -458,8 +514,40 @@ export function useCanvas({
     const finalStroke = refs.currentStroke.current
     if (finalStroke) {
       const shapeTools = [TOOLS.LINE, TOOLS.RECTANGLE, TOOLS.CIRCLE, TOOLS.TRIANGLE, TOOLS.ARROW, TOOLS.DIAMOND]
-      if (shapeTools.includes(tool) && refs.pendingPoint.current) {
-        finalStroke.endPoint = { x: refs.pendingPoint.current.x, y: refs.pendingPoint.current.y }
+      
+      if (shapeTools.includes(tool)) {
+        // For shapes, need valid endPoint
+        if (refs.pendingPoint.current) {
+          finalStroke.endPoint = { x: refs.pendingPoint.current.x, y: refs.pendingPoint.current.y }
+        }
+        
+        // Validate shape has both points and they're different (actual drag happened)
+        if (!finalStroke.startPoint || !finalStroke.endPoint) {
+          // Invalid shape - cleanup and return
+          refs.currentStroke.current = null
+          refs.startPoint.current = null
+          refs.pendingPoint.current = null
+          refs.pendingDrawEvent.current = null
+          refs.lastDrawPoint.current = null
+          refs.shapePreviewSnapshot.current = null
+          refs.lastSentPointIndex.current = 0
+          return
+        }
+        
+        // Check if shape has actual size (not just a click)
+        const dx = Math.abs(finalStroke.endPoint.x - finalStroke.startPoint.x)
+        const dy = Math.abs(finalStroke.endPoint.y - finalStroke.startPoint.y)
+        if (dx < 5 && dy < 5) {
+          // Too small - just a click, not a drag
+          refs.currentStroke.current = null
+          refs.startPoint.current = null
+          refs.pendingPoint.current = null
+          refs.pendingDrawEvent.current = null
+          refs.lastDrawPoint.current = null
+          refs.shapePreviewSnapshot.current = null
+          refs.lastSentPointIndex.current = 0
+          return
+        }
       }
 
       if (onStrokeAdd) onStrokeAdd(finalStroke)
@@ -500,26 +588,59 @@ export function useCanvas({
       const dy = y - transformStart.current.y
       
       let newX = bounds.x, newY = bounds.y, newWidth = bounds.width, newHeight = bounds.height
+      let anchorX = bounds.x, anchorY = bounds.y // Fixed anchor point
       
-      if (transformMode.includes('w')) { newX = bounds.x + dx; newWidth = bounds.width - dx }
-      if (transformMode.includes('e')) { newWidth = bounds.width + dx }
-      if (transformMode.includes('n')) { newY = bounds.y + dy; newHeight = bounds.height - dy }
-      if (transformMode.includes('s')) { newHeight = bounds.height + dy }
+      // Resize logic with proper anchor points
+      if (transformMode === 'resize-nw') {
+        newX = bounds.x + dx; newY = bounds.y + dy
+        newWidth = bounds.width - dx; newHeight = bounds.height - dy
+        anchorX = bounds.x + bounds.width; anchorY = bounds.y + bounds.height
+      } else if (transformMode === 'resize-ne') {
+        newY = bounds.y + dy
+        newWidth = bounds.width + dx; newHeight = bounds.height - dy
+        anchorX = bounds.x; anchorY = bounds.y + bounds.height
+      } else if (transformMode === 'resize-sw') {
+        newX = bounds.x + dx
+        newWidth = bounds.width - dx; newHeight = bounds.height + dy
+        anchorX = bounds.x + bounds.width; anchorY = bounds.y
+      } else if (transformMode === 'resize-se') {
+        newWidth = bounds.width + dx; newHeight = bounds.height + dy
+        anchorX = bounds.x; anchorY = bounds.y
+      }
       
-      if (newWidth < 10) newWidth = 10
-      if (newHeight < 10) newHeight = 10
+      // Apply minimum size constraints while keeping anchor fixed
+      if (newWidth < 10) {
+        newWidth = 10
+        if (transformMode.includes('w')) newX = anchorX - 10
+      }
+      if (newHeight < 10) {
+        newHeight = 10
+        if (transformMode.includes('n')) newY = anchorY - 10
+      }
       
       if (updatedStroke.tool === TOOLS.IMAGE) {
         updatedStroke.startPoint = { x: newX, y: newY }
         updatedStroke.width = newWidth
         updatedStroke.height = newHeight
       } else if (updatedStroke.tool === TOOLS.TEXT) {
-        const scaleY = newHeight / bounds.height
+        const scaleY = bounds.height > 0 ? newHeight / bounds.height : 1
         updatedStroke.fontSize = Math.max(8, Math.round((originalStroke.fontSize || 16) * scaleY))
         updatedStroke.startPoint = { x: newX, y: newY + newHeight }
       } else if (updatedStroke.startPoint && updatedStroke.endPoint) {
-        updatedStroke.startPoint = { x: newX, y: newY }
-        updatedStroke.endPoint = { x: newX + newWidth, y: newY + newHeight }
+        // Keep anchor point fixed for shapes
+        if (transformMode === 'resize-nw') {
+          updatedStroke.startPoint = { x: anchorX - newWidth, y: anchorY - newHeight }
+          updatedStroke.endPoint = { x: anchorX, y: anchorY }
+        } else if (transformMode === 'resize-ne') {
+          updatedStroke.startPoint = { x: anchorX, y: anchorY - newHeight }
+          updatedStroke.endPoint = { x: anchorX + newWidth, y: anchorY }
+        } else if (transformMode === 'resize-sw') {
+          updatedStroke.startPoint = { x: anchorX - newWidth, y: anchorY }
+          updatedStroke.endPoint = { x: anchorX, y: anchorY + newHeight }
+        } else if (transformMode === 'resize-se') {
+          updatedStroke.startPoint = { x: anchorX, y: anchorY }
+          updatedStroke.endPoint = { x: anchorX + newWidth, y: anchorY + newHeight }
+        }
       }
     }
     
@@ -529,12 +650,13 @@ export function useCanvas({
     redrawWithStrokes(updatedStrokes)
     drawSelectionHighlight(updatedStroke, refs.context.current, refs.imageCache.current)
     
+    // Emit preview to other users (throttled)
     const now = Date.now()
-    if (socket?.connected && now - refs.lastTransformEmit.current > 66) {
+    if (socket?.connected && now - refs.lastTransformEmit.current > 50) {
       socket.emit('draw:update', { stroke: updatedStroke, isPreview: true })
       refs.lastTransformEmit.current = now
     }
-  }, [transformMode, socket, redrawWithStrokes])
+  }, [transformMode, redrawWithStrokes, socket])
 
   const handleDragMove = useCallback((x, y) => {
     const originalStroke = originalStrokeRef.current
@@ -559,7 +681,7 @@ export function useCanvas({
     drawSelectionHighlight(updatedStroke, refs.context.current, refs.imageCache.current)
     
     const now = Date.now()
-    if (socket?.connected && now - refs.lastTransformEmit.current > 66) {
+    if (socket?.connected && now - refs.lastTransformEmit.current > 50) {
       socket.emit('draw:update', { stroke: updatedStroke, isPreview: true })
       refs.lastTransformEmit.current = now
     }
@@ -570,7 +692,30 @@ export function useCanvas({
     // Must wait for canvas to be ready
     if (!canvasReadyRef.current) return
     
-    // Check both state and ref for consistency
+    // Priority 1: Transform/resize/rotate - check FIRST before drawing
+    if (transformMode && selectedStroke && transformStart.current) {
+      const { x, y } = getCoordinates(e)
+      handleTransformMove(x, y)
+      return
+    }
+    
+    // Priority 2: Dragging selected stroke
+    if (isDragging && selectedStroke && originalStrokeRef.current) {
+      const { x, y } = getCoordinates(e)
+      handleDragMove(x, y)
+      return
+    }
+    
+    // Priority 3: Panning
+    if (zoom.isPanning && zoom.lastPanPoint.current) {
+      const dx = e.clientX - zoom.lastPanPoint.current.x
+      const dy = e.clientY - zoom.lastPanPoint.current.y
+      zoom.setPan(prev => ({ x: prev.x + dx, y: prev.y + dy }))
+      zoom.lastPanPoint.current = { x: e.clientX, y: e.clientY }
+      return
+    }
+    
+    // Priority 4: Drawing
     if (isDrawing && isDrawingRef.current) {
       refs.pendingDrawEvent.current = e
       if (!refs.drawRaf.current) {
@@ -591,33 +736,56 @@ export function useCanvas({
       return
     }
     
-    if (zoom.isPanning && zoom.lastPanPoint.current) {
-      const dx = e.clientX - zoom.lastPanPoint.current.x
-      const dy = e.clientY - zoom.lastPanPoint.current.y
-      zoom.setPan(prev => ({ x: prev.x + dx, y: prev.y + dy }))
-      zoom.lastPanPoint.current = { x: e.clientX, y: e.clientY }
-      return
+    // Priority 5: Hover cursor detection for SELECT tool
+    if (tool === TOOLS.SELECT && selectedStroke && !isDrawing) {
+      const { x, y } = getCoordinates(e)
+      const handleType = getTransformHandle(x, y, selectedStroke)
+      if (handleType === 'rotate') {
+        setHoverCursor('grab')
+      } else if (handleType?.includes('resize')) {
+        if (handleType === 'resize-nw' || handleType === 'resize-se') {
+          setHoverCursor('nwse-resize')
+        } else if (handleType === 'resize-ne' || handleType === 'resize-sw') {
+          setHoverCursor('nesw-resize')
+        }
+      } else if (findStrokeAtPoint(x, y)) {
+        setHoverCursor('move')
+      } else {
+        setHoverCursor(null)
+      }
+    } else if (hoverCursor) {
+      setHoverCursor(null)
     }
     
+    // Priority 5: Hover cursor detection for SELECT tool
+    if (tool === TOOLS.SELECT && selectedStroke && !isDrawing && !isDragging && !transformMode) {
+      const { x, y } = getCoordinates(e)
+      const handleType = getTransformHandle(x, y, selectedStroke)
+      if (handleType === 'rotate') {
+        setHoverCursor('grab')
+      } else if (handleType?.includes('resize')) {
+        if (handleType === 'resize-nw' || handleType === 'resize-se') {
+          setHoverCursor('nwse-resize')
+        } else if (handleType === 'resize-ne' || handleType === 'resize-sw') {
+          setHoverCursor('nesw-resize')
+        }
+      } else if (findStrokeAtPoint(x, y)) {
+        setHoverCursor('move')
+      } else {
+        setHoverCursor(null)
+      }
+    } else if (hoverCursor) {
+      setHoverCursor(null)
+    }
+    
+    // Priority 6: Cursor tracking
     const now = Date.now()
     if (socket?.connected && !zoom.isPanning && now - refs.lastCursorEmit.current > 33) {
       const { x, y } = getCoordinates(e)
       socket.emit('cursor:move', { x, y, tool })
       refs.lastCursorEmit.current = now
     }
-    
-    if (transformMode && selectedStroke && transformStart.current) {
-      const { x, y } = getCoordinates(e)
-      handleTransformMove(x, y)
-      return
-    }
-    
-    if (isDragging && selectedStroke && originalStrokeRef.current) {
-      const { x, y } = getCoordinates(e)
-      handleDragMove(x, y)
-      return
-    }
-  }, [isDrawing, zoom.isPanning, transformMode, isDragging, selectedStroke, tool, socket, draw, getCoordinates, handleTransformMove, handleDragMove])
+  }, [isDrawing, zoom.isPanning, transformMode, isDragging, selectedStroke, tool, socket, draw, getCoordinates, handleTransformMove, handleDragMove, hoverCursor, getTransformHandle, findStrokeAtPoint])
 
   const handleMouseUp = useCallback(() => {
     if (refs.transformRaf.current) {
@@ -687,6 +855,36 @@ export function useCanvas({
 
   const handleUndo = useCallback(() => { if (socket?.connected) socket.emit('draw:undo') }, [socket])
   const handleRedo = useCallback(() => { if (socket?.connected) socket.emit('draw:redo') }, [socket])
+  
+  // ========== LAYER ORDERING ==========
+  const bringToFront = useCallback(() => {
+    if (!selectedStroke) return
+    const currentIndex = strokes.findIndex(s => s.id === selectedStroke.id)
+    if (currentIndex === -1 || currentIndex === strokes.length - 1) return
+    
+    const newStrokes = [...strokes]
+    const [stroke] = newStrokes.splice(currentIndex, 1)
+    newStrokes.push(stroke)
+    
+    if (socket?.connected) {
+      socket.emit('draw:reorder', { strokeIds: newStrokes.map(s => s.id) })
+    }
+  }, [selectedStroke, strokes, socket])
+
+  const sendToBack = useCallback(() => {
+    if (!selectedStroke) return
+    const currentIndex = strokes.findIndex(s => s.id === selectedStroke.id)
+    if (currentIndex === -1 || currentIndex === 0) return
+    
+    const newStrokes = [...strokes]
+    const [stroke] = newStrokes.splice(currentIndex, 1)
+    newStrokes.unshift(stroke)
+    
+    if (socket?.connected) {
+      socket.emit('draw:reorder', { strokeIds: newStrokes.map(s => s.id) })
+    }
+  }, [selectedStroke, strokes, socket])
+  
   const handleResetZoom = useCallback(() => {
     zoom.handleResetZoom(refs.container, CANVAS_WIDTH, CANVAS_HEIGHT)
   }, [zoom.handleResetZoom])
@@ -817,6 +1015,8 @@ export function useCanvas({
     handleClear,
     handleUndo,
     handleRedo,
+    bringToFront,
+    sendToBack,
     handleExport,
     handleResetZoom,
     

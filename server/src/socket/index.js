@@ -21,6 +21,7 @@ const {
   handleDrawClear,
   handleDrawUndo,
   handleDrawRedo,
+  handleDrawReorder,
   handleCursorMove
 } = require('./drawingHandlers');
 
@@ -92,6 +93,7 @@ module.exports = (io) => {
     socket.on('draw:clear', () => handleDrawClear(socket, io));
     socket.on('draw:undo', () => handleDrawUndo(socket, io));
     socket.on('draw:redo', () => handleDrawRedo(socket, io));
+    socket.on('draw:reorder', (data) => handleDrawReorder(socket, io, data));
     
     // Cursor events
     socket.on('cursor:move', (data) => handleCursorMove(socket, data));

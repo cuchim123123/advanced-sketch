@@ -52,7 +52,7 @@ export default function RoomCard({ room, onView, onDelete }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <UsersIcon size={16} color="rgba(255, 255, 255, 0.6)" />
           <span style={{ fontSize: '0.875rem', color: 'rgba(255, 255, 255, 0.6)' }}>
-            {room.participants?.length || 0} members
+            {room.activeParticipants || 0} online
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>

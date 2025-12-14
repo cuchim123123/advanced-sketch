@@ -67,6 +67,8 @@ export default function Canvas({
     handleClear,
     handleUndo,
     handleRedo,
+    bringToFront,
+    sendToBack,
     handleExport,
     handleResetZoom,
     handleTextSubmit,
@@ -83,9 +85,12 @@ export default function Canvas({
         strokeWidth={strokeWidth} setStrokeWidth={setStrokeWidth}
         fontSize={fontSize} setFontSize={setFontSize}
         zoom={zoom}
+        selectedStroke={selectedStroke}
         onUndo={handleUndo} onRedo={handleRedo}
         onClear={handleClear} onExport={handleExport}
         onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} onResetZoom={handleResetZoom}
+        onBringToFront={bringToFront}
+        onSendToBack={sendToBack}
         setSelectedStroke={setSelectedStroke}
       />
 

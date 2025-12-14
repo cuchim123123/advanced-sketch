@@ -5,6 +5,20 @@ import { TOOLS, CANVAS_WIDTH, CANVAS_HEIGHT } from './constants'
  */
 export function drawStroke(stroke, ctx, imageCache) {
   if (!stroke || !stroke.tool) return
+  
+  // Guard: shapes require startPoint and endPoint
+  const shapeTools = [TOOLS.LINE, TOOLS.RECTANGLE, TOOLS.CIRCLE, TOOLS.TRIANGLE, TOOLS.ARROW, TOOLS.DIAMOND]
+  if (shapeTools.includes(stroke.tool)) {
+    if (!stroke.startPoint?.x || !stroke.endPoint?.x) {
+      console.warn('[drawStroke] Invalid shape stroke, missing points:', stroke.id, stroke.tool)
+      return
+    }
+  }
+  
+  // Guard: pen/eraser require points array
+  if ((stroke.tool === TOOLS.PEN || stroke.tool === TOOLS.ERASER) && (!stroke.points || stroke.points.length === 0)) {
+    return
+  }
 
   ctx.save()
 
@@ -52,9 +66,11 @@ export function drawStroke(stroke, ctx, imageCache) {
     const sy = stroke.startPoint.y
     const ex = stroke.endPoint.x
     const ey = stroke.endPoint.y
-    ctx.moveTo((sx + ex) / 2, sy)
-    ctx.lineTo(ex, ey)
-    ctx.lineTo(sx, ey)
+    // Triangle: startPoint is TOP vertex (FIXED), expands down and symmetrically
+    const halfWidth = Math.abs(ex - sx)
+    ctx.moveTo(sx, sy)                    // Top (FIXED)
+    ctx.lineTo(sx + halfWidth, ey)        // Bottom right
+    ctx.lineTo(sx - halfWidth, ey)        // Bottom left
     ctx.closePath()
   } else if (stroke.tool === TOOLS.ARROW) {
     const sx = stroke.startPoint.x
@@ -76,12 +92,13 @@ export function drawStroke(stroke, ctx, imageCache) {
     const sy = stroke.startPoint.y
     const ex = stroke.endPoint.x
     const ey = stroke.endPoint.y
-    const cx = (sx + ex) / 2
-    const cy = (sy + ey) / 2
-    ctx.moveTo(cx, sy)
-    ctx.lineTo(ex, cy)
-    ctx.lineTo(cx, ey)
-    ctx.lineTo(sx, cy)
+    // Diamond: startPoint is TOP vertex (FIXED), expands down and symmetrically
+    const halfWidth = Math.abs(ex - sx)
+    const height = Math.abs(ey - sy)
+    ctx.moveTo(sx, sy)                         // Top (FIXED)
+    ctx.lineTo(sx + halfWidth, sy + height/2)  // Right
+    ctx.lineTo(sx, ey)                         // Bottom
+    ctx.lineTo(sx - halfWidth, sy + height/2)  // Left
     ctx.closePath()
   } else if (stroke.tool === TOOLS.TEXT) {
     ctx.font = `${stroke.fontSize || 16}px Arial, sans-serif`
@@ -103,34 +120,24 @@ export function drawStroke(stroke, ctx, imageCache) {
       ctx.restore()
       return
     } else if (imageCache) {
-      // Image not cached yet - need to load async
-      // Store rotation info to apply when image loads
-      const rotation = stroke.rotation || 0
-      const startX = stroke.startPoint.x
-      const startY = stroke.startPoint.y
-      const imgWidth = stroke.width
-      const imgHeight = stroke.height
-      
-      const img = new Image()
-      img.onload = () => {
-        imageCache.set(stroke.id, img)
-        
-        const w = imgWidth || img.width
-        const h = imgHeight || img.height
-        
-        ctx.save()
-        // Apply rotation for async-loaded image
-        if (rotation !== 0) {
-          const centerX = startX + w / 2
-          const centerY = startY + h / 2
-          ctx.translate(centerX, centerY)
-          ctx.rotate(rotation * Math.PI / 180)
-          ctx.translate(-centerX, -centerY)
+      // Image not cached yet - load it but DON'T draw immediately
+      // This prevents layer order issues (image drawing over other strokes)
+      // The image will be drawn on next redraw after it's cached
+      if (!imageCache.has(stroke.id)) {
+        const img = new Image()
+        img.onload = () => {
+          imageCache.set(stroke.id, img)
+          // Dispatch custom event to trigger canvas redraw
+          window.dispatchEvent(new CustomEvent('canvas:imageLoaded', { detail: { strokeId: stroke.id } }))
         }
-        ctx.drawImage(img, startX, startY, w, h)
-        ctx.restore()
+        img.onerror = () => {
+          console.warn('Failed to load image:', stroke.id)
+        }
+        // Mark as loading to prevent multiple load attempts
+        imageCache.set(stroke.id, img) // img.complete will be false until loaded
+        img.src = stroke.imageData
       }
-      img.src = stroke.imageData
+      // Don't draw anything - wait for image to load and trigger redraw
     }
     ctx.restore()
     return

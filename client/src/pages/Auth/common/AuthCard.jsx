@@ -1,38 +1,37 @@
 import React from 'react'
+import { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 
 export const AuthCard = ({ children, className = "" }) => {
   return (
-    <div className={`w-full max-w-[500px] mx-auto bg-white/80 backdrop-blur-xl rounded-2xl border border-slate-200 shadow-2xl animate-in fade-in duration-500 ${className}`}>
+    <Card className={`w-full max-w-[500px] mx-auto shadow-2xl border border-slate-200 bg-white/80 backdrop-blur-xl animate-in fade-in duration-500 ${className}`}>
       {children}
-    </div>
+    </Card>
   )
 }
 
 export const AuthHeader = ({ title, subtitle }) => {
   return (
-    <div className="space-y-2 p-6 pb-4 sm:pb-6 text-center">
-      <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">
+    <CardHeader className="space-y-2 pb-4 sm:pb-6">
+      <CardTitle className="text-2xl sm:text-3xl text-center font-bold text-slate-800">
         {title}
-      </h1>
+      </CardTitle>
       {subtitle && (
-        <p className="text-sm sm:text-base text-slate-600">
+        <CardDescription className="text-center text-sm sm:text-base text-slate-600">
           {subtitle}
-        </p>
+        </CardDescription>
       )}
-    </div>
+    </CardHeader>
   )
 }
 
 export const AuthContent = ({ children }) => {
-  return <div className="px-6 pb-6">{children}</div>
+  return <CardContent>{children}</CardContent>
 }
 
 export const AuthFooter = ({ children }) => {
   return (
-    <div className="flex flex-col gap-2 p-6 pt-6 border-t border-slate-200">
+    <CardFooter className="flex flex-col gap-2 pt-6 border-t border-slate-200">
       {children}
-    </div>
+    </CardFooter>
   )
 }
-
-export default AuthCard
