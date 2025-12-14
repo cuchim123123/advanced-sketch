@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from 'react'
-import { TOOLS } from '../canvas/constants'
+import { TOOLS } from '@/components/canvas/constants'
 
 /**
  * Hook for handling keyboard shortcuts in the canvas

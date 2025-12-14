@@ -1,17 +1,10 @@
 import React, { useState, useCallback } from 'react'
-import { Search, Filter, Edit, Trash2, Eye, Plus, X } from 'lucide-react'
+import { Search, Trash2, Eye } from 'lucide-react'
 import { api } from '@/services'
 import { toast } from 'sonner'
 import { usePolling } from '@/hooks'
 import { RefreshButton } from '@/components/ui'
-
-// Skeleton loading style
-const skeletonStyle = {
-  background: 'linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%)',
-  backgroundSize: '200% 100%',
-  animation: 'shimmer 1.5s infinite',
-  borderRadius: '4px'
-}
+import { Modal } from '../components'
 
 const Users = () => {
   const [users, setUsers] = useState([])
@@ -21,7 +14,7 @@ const Users = () => {
   const [totalPages, setTotalPages] = useState(1)
   const [selectedUser, setSelectedUser] = useState(null)
   const [showModal, setShowModal] = useState(false)
-  const [modalType, setModalType] = useState('view') // 'view', 'edit', 'delete'
+  const [modalType, setModalType] = useState('view')
 
   const fetchUsers = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
@@ -42,7 +35,6 @@ const Users = () => {
     }
   }, [currentPage, searchQuery])
 
-  // Auto-polling with visibility awareness
   const { isRefreshing, manualRefresh } = usePolling(fetchUsers, {
     pollInterval: 10000,
     debounceTime: 3000
@@ -72,40 +64,11 @@ const Users = () => {
 
   return (
     <div>
-      {/* Skeleton animation keyframes */}
-      <style>
-        {`
-          @keyframes shimmer {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
-          }
-        `}
-      </style>
-      
       {/* Header */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        marginBottom: '2rem',
-        flexWrap: 'wrap',
-        gap: '1rem'
-      }}>
+      <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
         <div>
-          <h1 style={{ 
-            fontSize: '2rem', 
-            fontWeight: '700', 
-            color: 'white',
-            marginBottom: '0.5rem'
-          }}>
-            User Management
-          </h1>
-          <p style={{ 
-            fontSize: '1rem', 
-            color: 'rgba(255, 255, 255, 0.6)' 
-          }}>
-            Manage all registered users and their permissions
-          </p>
+          <h1 className="text-2xl font-bold text-white mb-2">User Management</h1>
+          <p className="text-base text-white/60">Manage all registered users and their permissions</p>
         </div>
         <RefreshButton
           onClick={manualRefresh}
@@ -114,28 +77,10 @@ const Users = () => {
         />
       </div>
 
-      {/* Search and Filters */}
-      <div style={{ 
-        display: 'flex', 
-        gap: '1rem', 
-        marginBottom: '1.5rem',
-        flexWrap: 'wrap'
-      }}>
-        <div style={{ 
-          flex: '1', 
-          minWidth: '250px',
-          position: 'relative'
-        }}>
-          <Search 
-            size={18} 
-            style={{ 
-              position: 'absolute', 
-              left: '1rem', 
-              top: '50%', 
-              transform: 'translateY(-50%)',
-              color: 'rgba(255, 255, 255, 0.4)'
-            }} 
-          />
+      {/* Search */}
+      <div className="flex gap-4 mb-6 flex-wrap">
+        <div className="flex-1 min-w-[250px] relative">
+          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40" />
           <input
             type="text"
             placeholder="Search users by name or email..."
@@ -144,70 +89,43 @@ const Users = () => {
               setSearchQuery(e.target.value)
               setCurrentPage(1)
             }}
-            style={{
-              width: '100%',
-              padding: '0.875rem 1rem 0.875rem 3rem',
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '10px',
-              color: 'white',
-              fontSize: '0.875rem',
-              outline: 'none',
-              transition: 'all 0.2s'
-            }}
-            onFocus={(e) => {
-              e.target.style.background = 'rgba(255, 255, 255, 0.08)'
-              e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)'
-            }}
-            onBlur={(e) => {
-              e.target.style.background = 'rgba(255, 255, 255, 0.05)'
-              e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)'
-            }}
+            className="w-full py-3.5 pl-12 pr-4 bg-white/5 border border-white/10 rounded-xl text-white text-sm outline-none transition-all focus:bg-white/[0.08] focus:border-white/20"
           />
         </div>
       </div>
 
       {/* Users Table */}
-      <div style={{
-        background: 'rgba(255, 255, 255, 0.05)',
-        backdropFilter: 'blur(10px)',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
-        borderRadius: '16px',
-        overflow: 'hidden'
-      }}>
+      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
         {loading ? (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
               <thead>
-                <tr style={{ 
-                  background: 'rgba(255, 255, 255, 0.03)',
-                  borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
-                }}>
-                  <th style={tableHeaderStyle}>Name</th>
-                  <th style={tableHeaderStyle}>Email</th>
-                  <th style={tableHeaderStyle}>Role</th>
-                  <th style={tableHeaderStyle}>Status</th>
-                  <th style={tableHeaderStyle}>Joined</th>
-                  <th style={tableHeaderStyle}>Actions</th>
+                <tr className="bg-white/[0.03] border-b border-white/10">
+                  <th className="p-4 text-left text-xs font-semibold text-white/60 uppercase tracking-wider">Name</th>
+                  <th className="p-4 text-left text-xs font-semibold text-white/60 uppercase tracking-wider">Email</th>
+                  <th className="p-4 text-left text-xs font-semibold text-white/60 uppercase tracking-wider">Role</th>
+                  <th className="p-4 text-left text-xs font-semibold text-white/60 uppercase tracking-wider">Status</th>
+                  <th className="p-4 text-left text-xs font-semibold text-white/60 uppercase tracking-wider">Joined</th>
+                  <th className="p-4 text-left text-xs font-semibold text-white/60 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {[...Array(5)].map((_, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                    <td style={tableCellStyle}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <div style={{ ...skeletonStyle, width: '40px', height: '40px', borderRadius: '50%' }} />
-                        <div style={{ ...skeletonStyle, width: '120px', height: '18px' }} />
+                  <tr key={i} className="border-b border-white/5">
+                    <td className="p-4 text-white/80 text-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full animate-shimmer" />
+                        <div className="w-[120px] h-[18px] rounded animate-shimmer" />
                       </div>
                     </td>
-                    <td style={tableCellStyle}><div style={{ ...skeletonStyle, width: '180px', height: '18px' }} /></td>
-                    <td style={tableCellStyle}><div style={{ ...skeletonStyle, width: '60px', height: '24px', borderRadius: '20px' }} /></td>
-                    <td style={tableCellStyle}><div style={{ ...skeletonStyle, width: '70px', height: '24px', borderRadius: '20px' }} /></td>
-                    <td style={tableCellStyle}><div style={{ ...skeletonStyle, width: '90px', height: '18px' }} /></td>
-                    <td style={tableCellStyle}>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <div style={{ ...skeletonStyle, width: '32px', height: '32px', borderRadius: '6px' }} />
-                        <div style={{ ...skeletonStyle, width: '32px', height: '32px', borderRadius: '6px' }} />
+                    <td className="p-4"><div className="w-[180px] h-[18px] rounded animate-shimmer" /></td>
+                    <td className="p-4"><div className="w-[60px] h-6 rounded-full animate-shimmer" /></td>
+                    <td className="p-4"><div className="w-[70px] h-6 rounded-full animate-shimmer" /></td>
+                    <td className="p-4"><div className="w-[90px] h-[18px] rounded animate-shimmer" /></td>
+                    <td className="p-4">
+                      <div className="flex gap-2">
+                        <div className="w-8 h-8 rounded-md animate-shimmer" />
+                        <div className="w-8 h-8 rounded-md animate-shimmer" />
                       </div>
                     </td>
                   </tr>
@@ -216,105 +134,74 @@ const Users = () => {
             </table>
           </div>
         ) : users.length === 0 ? (
-          <div style={{ padding: '3rem', textAlign: 'center' }}>
-            <p style={{ color: 'rgba(255, 255, 255, 0.6)' }}>No users found</p>
+          <div className="p-12 text-center">
+            <p className="text-white/60">No users found</p>
           </div>
         ) : (
           <>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
                 <thead>
-                  <tr style={{ 
-                    background: 'rgba(255, 255, 255, 0.03)',
-                    borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
-                  }}>
-                    <th style={tableHeaderStyle}>Name</th>
-                    <th style={tableHeaderStyle}>Email</th>
-                    <th style={tableHeaderStyle}>Role</th>
-                    <th style={tableHeaderStyle}>Status</th>
-                    <th style={tableHeaderStyle}>Joined</th>
-                    <th style={tableHeaderStyle}>Actions</th>
+                  <tr className="bg-white/[0.03] border-b border-white/10">
+                    <th className="p-4 text-left text-xs font-semibold text-white/60 uppercase tracking-wider">Name</th>
+                    <th className="p-4 text-left text-xs font-semibold text-white/60 uppercase tracking-wider">Email</th>
+                    <th className="p-4 text-left text-xs font-semibold text-white/60 uppercase tracking-wider">Role</th>
+                    <th className="p-4 text-left text-xs font-semibold text-white/60 uppercase tracking-wider">Status</th>
+                    <th className="p-4 text-left text-xs font-semibold text-white/60 uppercase tracking-wider">Joined</th>
+                    <th className="p-4 text-left text-xs font-semibold text-white/60 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {users.map((user) => (
                     <tr 
                       key={user._id}
-                      style={{ 
-                        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                        transition: 'background 0.2s'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)'
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'transparent'
-                      }}
+                      className="border-b border-white/5 transition-colors hover:bg-white/[0.03]"
                     >
-                      <td style={tableCellStyle}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                          <div style={{
-                            width: '40px',
-                            height: '40px',
-                            borderRadius: '50%',
-                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: 'white',
-                            fontWeight: '600',
-                            fontSize: '0.875rem'
-                          }}>
+                      <td className="p-4 text-white/80 text-sm">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
                             {user.username?.charAt(0).toUpperCase() || 'U'}
                           </div>
-                          <span style={{ fontWeight: '500' }}>{user.username || 'Unknown'}</span>
+                          <span className="font-medium">{user.username || 'Unknown'}</span>
                         </div>
                       </td>
-                      <td style={tableCellStyle}>{user.email || 'N/A'}</td>
-                      <td style={tableCellStyle}>
-                        <span style={{
-                          padding: '0.25rem 0.75rem',
-                          borderRadius: '20px',
-                          fontSize: '0.75rem',
-                          fontWeight: '600',
-                          background: user.role === 'admin' ? 
-                            'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)',
-                          color: user.role === 'admin' ? '#ef4444' : '#3b82f6'
-                        }}>
+                      <td className="p-4 text-white/80 text-sm">{user.email || 'N/A'}</td>
+                      <td className="p-4 text-sm">
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          user.role === 'admin' 
+                            ? 'bg-red-500/10 text-red-500' 
+                            : 'bg-blue-500/10 text-blue-500'
+                        }`}>
                           {user.role || 'user'}
                         </span>
                       </td>
-                      <td style={tableCellStyle}>
-                        <span style={{
-                          padding: '0.25rem 0.75rem',
-                          borderRadius: '20px',
-                          fontSize: '0.75rem',
-                          fontWeight: '600',
-                          background: user.isEmailVerified ? 
-                            'rgba(16, 185, 129, 0.1)' : 'rgba(251, 191, 36, 0.1)',
-                          color: user.isEmailVerified ? '#10b981' : '#fbbf24'
-                        }}>
+                      <td className="p-4 text-sm">
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          user.isEmailVerified 
+                            ? 'bg-emerald-500/10 text-emerald-500' 
+                            : 'bg-amber-400/10 text-amber-400'
+                        }`}>
                           {user.isEmailVerified ? 'Verified' : 'Pending'}
                         </span>
                       </td>
-                      <td style={tableCellStyle}>
+                      <td className="p-4 text-white/80 text-sm">
                         {new Date(user.createdAt).toLocaleDateString()}
                       </td>
-                      <td style={tableCellStyle}>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <td className="p-4 text-sm">
+                        <div className="flex gap-2">
                           <button
                             onClick={() => openModal('view', user)}
-                            style={actionButtonStyle}
+                            className="p-2 bg-white/5 border border-white/10 rounded-lg cursor-pointer transition-all flex items-center justify-center text-white/80 hover:bg-white/10"
                             title="View Details"
                           >
                             <Eye size={16} />
                           </button>
                           <button
                             onClick={() => openModal('delete', user)}
-                            style={{ ...actionButtonStyle, background: 'rgba(239, 68, 68, 0.1)' }}
+                            className="p-2 bg-red-500/10 border border-white/10 rounded-lg cursor-pointer transition-all flex items-center justify-center hover:bg-red-500/20"
                             title="Delete User"
                           >
-                            <Trash2 size={16} color="#ef4444" />
+                            <Trash2 size={16} className="text-red-500" />
                           </button>
                         </div>
                       </td>
@@ -325,35 +212,25 @@ const Users = () => {
             </div>
 
             {/* Pagination */}
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'center', 
-              alignItems: 'center',
-              gap: '0.5rem',
-              padding: '1.5rem'
-            }}>
+            <div className="flex justify-center items-center gap-2 p-6">
               <button
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                style={{
-                  ...paginationButtonStyle,
-                  opacity: currentPage === 1 ? 0.5 : 1,
-                  cursor: currentPage === 1 ? 'not-allowed' : 'pointer'
-                }}
+                className={`px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm cursor-pointer transition-all hover:bg-white/10 ${
+                  currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
               >
                 Previous
               </button>
-              <span style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.875rem' }}>
+              <span className="text-white/60 text-sm">
                 Page {currentPage} of {totalPages}
               </span>
               <button
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
-                style={{
-                  ...paginationButtonStyle,
-                  opacity: currentPage === totalPages ? 0.5 : 1,
-                  cursor: currentPage === totalPages ? 'not-allowed' : 'pointer'
-                }}
+                className={`px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm cursor-pointer transition-all hover:bg-white/10 ${
+                  currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
               >
                 Next
               </button>
@@ -363,172 +240,53 @@ const Users = () => {
       </div>
 
       {/* Modal */}
-      {showModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.7)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '1rem'
-        }}>
-          <div style={{
-            background: 'rgba(30, 30, 40, 0.95)',
-            backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            borderRadius: '16px',
-            padding: '2rem',
-            maxWidth: '500px',
-            width: '100%',
-            maxHeight: '90vh',
-            overflow: 'auto'
-          }}>
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center',
-              marginBottom: '1.5rem'
-            }}>
-              <h2 style={{ color: 'white', fontSize: '1.5rem', fontWeight: '600' }}>
-                {modalType === 'view' ? 'User Details' : 
-                 modalType === 'edit' ? 'Edit User' : 'Delete User'}
-              </h2>
-              <button onClick={closeModal} style={closeButtonStyle}>
-                <X size={20} />
+      <Modal 
+        isOpen={showModal} 
+        onClose={closeModal} 
+        title={modalType === 'view' ? 'User Details' : modalType === 'edit' ? 'Edit User' : 'Delete User'}
+      >
+        {modalType === 'view' && selectedUser && (
+          <div className="flex flex-col gap-4">
+            <DetailRow label="Username" value={selectedUser.username} />
+            <DetailRow label="Email" value={selectedUser.email} />
+            <DetailRow label="Role" value={selectedUser.role} />
+            <DetailRow label="Status" value={selectedUser.verified ? 'Verified' : 'Pending'} />
+            <DetailRow label="Joined" value={new Date(selectedUser.createdAt).toLocaleString()} />
+          </div>
+        )}
+
+        {modalType === 'delete' && selectedUser && (
+          <div>
+            <p className="text-white/70 mb-6">
+              Are you sure you want to delete user <strong>{selectedUser.username}</strong>? 
+              This action cannot be undone.
+            </p>
+            <div className="flex gap-4 justify-end">
+              <button 
+                onClick={closeModal} 
+                className="px-6 py-3 bg-white/5 border border-white/10 rounded-lg text-white text-sm font-semibold cursor-pointer transition-all hover:bg-white/10"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => handleDelete(selectedUser._id)}
+                className="px-6 py-3 bg-red-500 border-none rounded-lg text-white text-sm font-semibold cursor-pointer transition-all hover:bg-red-600"
+              >
+                Delete User
               </button>
             </div>
-
-            {modalType === 'view' && selectedUser && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <DetailRow label="Username" value={selectedUser.username} />
-                <DetailRow label="Email" value={selectedUser.email} />
-                <DetailRow label="Role" value={selectedUser.role} />
-                <DetailRow label="Status" value={selectedUser.verified ? 'Verified' : 'Pending'} />
-                <DetailRow label="Joined" value={new Date(selectedUser.createdAt).toLocaleString()} />
-              </div>
-            )}
-
-            {modalType === 'delete' && selectedUser && (
-              <div>
-                <p style={{ color: 'rgba(255, 255, 255, 0.7)', marginBottom: '1.5rem' }}>
-                  Are you sure you want to delete user <strong>{selectedUser.username}</strong>? 
-                  This action cannot be undone.
-                </p>
-                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                  <button onClick={closeModal} style={cancelButtonStyle}>
-                    Cancel
-                  </button>
-                  <button 
-                    onClick={() => handleDelete(selectedUser._id)}
-                    style={deleteButtonStyle}
-                  >
-                    Delete User
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   )
 }
 
-// Helper component
 const DetailRow = ({ label, value }) => (
   <div>
-    <p style={{ 
-      fontSize: '0.75rem', 
-      color: 'rgba(255, 255, 255, 0.5)',
-      marginBottom: '0.25rem',
-      textTransform: 'uppercase',
-      letterSpacing: '0.05em'
-    }}>
-      {label}
-    </p>
-    <p style={{ color: 'white', fontSize: '1rem' }}>{value}</p>
+    <p className="text-xs text-white/50 mb-1 uppercase tracking-wider">{label}</p>
+    <p className="text-white text-base">{value}</p>
   </div>
 )
-
-// Styles
-const tableHeaderStyle = {
-  padding: '1rem',
-  textAlign: 'left',
-  fontSize: '0.75rem',
-  fontWeight: '600',
-  color: 'rgba(255, 255, 255, 0.6)',
-  textTransform: 'uppercase',
-  letterSpacing: '0.05em'
-}
-
-const tableCellStyle = {
-  padding: '1rem',
-  color: 'rgba(255, 255, 255, 0.8)',
-  fontSize: '0.875rem'
-}
-
-const actionButtonStyle = {
-  padding: '0.5rem',
-  background: 'rgba(255, 255, 255, 0.05)',
-  border: '1px solid rgba(255, 255, 255, 0.1)',
-  borderRadius: '8px',
-  cursor: 'pointer',
-  transition: 'all 0.2s',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  color: 'rgba(255, 255, 255, 0.8)'
-}
-
-const paginationButtonStyle = {
-  padding: '0.5rem 1rem',
-  background: 'rgba(255, 255, 255, 0.05)',
-  border: '1px solid rgba(255, 255, 255, 0.1)',
-  borderRadius: '8px',
-  color: 'white',
-  fontSize: '0.875rem',
-  cursor: 'pointer',
-  transition: 'all 0.2s'
-}
-
-const closeButtonStyle = {
-  background: 'transparent',
-  border: 'none',
-  color: 'rgba(255, 255, 255, 0.6)',
-  cursor: 'pointer',
-  padding: '0.5rem',
-  borderRadius: '8px',
-  transition: 'all 0.2s'
-}
-
-const cancelButtonStyle = {
-  padding: '0.75rem 1.5rem',
-  background: 'rgba(255, 255, 255, 0.05)',
-  border: '1px solid rgba(255, 255, 255, 0.1)',
-  borderRadius: '8px',
-  color: 'white',
-  fontSize: '0.875rem',
-  fontWeight: '600',
-  cursor: 'pointer',
-  transition: 'all 0.2s'
-}
-
-const deleteButtonStyle = {
-  padding: '0.75rem 1.5rem',
-  background: '#ef4444',
-  border: 'none',
-  borderRadius: '8px',
-  color: 'white',
-  fontSize: '0.875rem',
-  fontWeight: '600',
-  cursor: 'pointer',
-  transition: 'all 0.2s'
-}
 
 export default Users
