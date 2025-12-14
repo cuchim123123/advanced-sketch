@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useRoomStore } from '@/store'
 import { useToast } from '@/components/Toast'
@@ -30,24 +30,12 @@ export default function Dashboard() {
   const navigate = useNavigate()
 
   const { isGuest } = useAuthStore()
-  const { rooms, publicRooms, fetchRooms, fetchPublicRooms, createRoom, joinRoom, deleteRoom, updateRoom, loading, error } = useRoomStore()
+  const { rooms, publicRooms, createRoom, joinRoom, deleteRoom, updateRoom, loading, error } = useRoomStore()
 
-  // Use dashboard socket for realtime participant count updates
+  // Smart polling + socket updates for dashboard
+  // - Only polls when tab is visible
+  // - Socket updates participant count in realtime
   useDashboardSocket()
-
-  useEffect(() => {
-    if (!isGuest) fetchRooms()
-    fetchPublicRooms()
-    
-    // Auto-refresh room list every 5 seconds for participant count updates
-    const refreshInterval = setInterval(() => {
-      if (!isGuest) fetchRooms()
-      fetchPublicRooms()
-    }, 5000)
-    
-    return () => clearInterval(refreshInterval)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isGuest])
 
   const handleCreateRoom = async (e) => {
     e.preventDefault()
