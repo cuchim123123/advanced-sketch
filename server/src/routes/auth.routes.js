@@ -2,6 +2,8 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
 const { protect } = require('../middleware/auth.middleware');
+const { authLimiter, strictAuthLimiter } = require('../middleware/rateLimiter.middleware');
+const passwordController = require('../controllers/password.controller');
 
 const router = express.Router();
 
@@ -17,7 +19,7 @@ const generateToken = (id) => {
  * @desc    Register a new user
  * @access  Public
  */
-router.post('/register', async (req, res) => {
+router.post('/register', authLimiter, async (req, res) => {
   try {
     const { username, email, password } = req.body;
 
@@ -70,7 +72,7 @@ router.post('/register', async (req, res) => {
  * @desc    Login user
  * @access  Public
  */
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -264,5 +266,9 @@ router.patch('/password', protect, async (req, res) => {
     });
   }
 });
+
+// Password reset routes (with strict rate limiting)
+router.post('/forgot-password', strictAuthLimiter, passwordController.forgotPassword);
+router.post('/reset-password', strictAuthLimiter, passwordController.resetPassword);
 
 module.exports = router;

@@ -52,6 +52,10 @@ export function useCanvas({
     showShortcuts, setShowShortcuts
   } = state
 
+  // Canvas ready state - block all drawing until canvas is initialized
+  const [canvasReady, setCanvasReady] = useState(false)
+  const canvasReadyRef = useRef(false)
+
   // ========== REFS ==========
   const refs = {
     canvas: useRef(null),
@@ -131,10 +135,16 @@ export function useCanvas({
     const container = refs.container.current
     if (!canvas || !container) return
     
+    let initialized = false
+    
     const setupCanvas = () => {
+      if (initialized) return // Already set up
+      
       const w = container.offsetWidth
       const h = container.offsetHeight
-      if (w === 0 || h === 0) return
+      if (w === 0 || h === 0) return // Wait for layout
+      
+      initialized = true
       
       canvas.width = CANVAS_WIDTH * 2
       canvas.height = CANVAS_HEIGHT * 2
@@ -148,27 +158,38 @@ export function useCanvas({
       refs.context.current = ctx
       redrawWithStrokes(refs.strokes.current)
       
+      // Mark canvas as ready - now drawing can proceed
+      setCanvasReady(true)
+      canvasReadyRef.current = true
+      
       const centerX = (w - CANVAS_WIDTH) / 2
       const centerY = (h - CANVAS_HEIGHT) / 2
       zoom.setPan({ x: centerX, y: centerY })
     }
     
+    // Try immediately
     setupCanvas()
+    
+    // Also observe for resize in case container wasn't ready
+    const resizeObserver = new ResizeObserver(() => {
+      if (!initialized) {
+        setupCanvas()
+      }
+      refs.containerRect.current = container.getBoundingClientRect()
+    })
+    resizeObserver.observe(container)
+    
     refs.containerRect.current = container.getBoundingClientRect()
     
     const handleScroll = () => { refs.containerRect.current = container.getBoundingClientRect() }
     window.addEventListener('scroll', handleScroll, { passive: true })
     
-    const resizeObserver = new ResizeObserver(() => {
-      refs.containerRect.current = container.getBoundingClientRect()
-    })
-    resizeObserver.observe(container)
-    
     return () => {
       resizeObserver.disconnect()
       window.removeEventListener('scroll', handleScroll)
     }
-  }, [zoom.setPan, redrawWithStrokes])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Run only once on mount - zoom.setPan is stable from useState
 
   // ========== REDRAW ON CHANGE ==========
   useEffect(() => {
@@ -198,14 +219,18 @@ export function useCanvas({
 
   // ========== DRAWING ==========
   const startDrawing = useCallback((e) => {
-    if (disabled) return
+    try {
+      if (disabled) return
+      // Guard: canvas must be fully initialized before any drawing
+      if (!canvasReadyRef.current) return
+      if (!refs.context.current || !refs.canvas.current) return
 
-    const { x, y } = getCoordinates(e)
-    
-    // Hand tool - only for panning, no stroke creation
-    if (tool === TOOLS.HAND) return
-    
-    // Select tool
+      const { x, y } = getCoordinates(e)
+      
+      // Hand tool - only for panning, no stroke creation
+      if (tool === TOOLS.HAND) return
+      
+      // Select tool
     if (tool === TOOLS.SELECT) {
       if (selectedStroke) {
         const handleType = getTransformHandle(x, y, selectedStroke)
@@ -272,54 +297,71 @@ export function useCanvas({
     }
 
     if (tool === TOOLS.PEN || tool === TOOLS.ERASER) {
-      refs.context.current.lineCap = 'round'
-      refs.context.current.lineJoin = 'round'
+      if (refs.context.current) {
+        refs.context.current.lineCap = 'round'
+        refs.context.current.lineJoin = 'round'
+      }
+    }
+    } catch (err) {
+      console.warn('startDrawing error (ignored):', err.message)
     }
   }, [disabled, tool, color, strokeWidth, selectedStroke, getCoordinates, getTransformHandle, findStrokeAtPoint, setSelectedStroke, setIsDragging, setTransformMode, setTextInput, setIsDrawing])
 
   const draw = useCallback((e) => {
-    if (!isDrawingRef.current || !refs.currentStroke.current) return
+    try {
+      // Must check canvas ready FIRST before any other operation
+      if (!canvasReadyRef.current) return
+      if (!isDrawingRef.current || !refs.currentStroke.current) return
+      if (!refs.context.current) return // Canvas not initialized
 
-    const { x, y } = getCoordinates(e)
-    refs.pendingPoint.current = { x, y }
+      const { x, y } = getCoordinates(e)
+      refs.pendingPoint.current = { x, y }
 
-    if (tool === TOOLS.PEN || tool === TOOLS.ERASER) {
-      const ctx = refs.context.current
-      const prev = refs.lastDrawPoint.current || refs.currentStroke.current.startPoint
-      
-      ctx.beginPath()
-      ctx.strokeStyle = tool === TOOLS.ERASER ? '#ffffff' : color
-      ctx.lineWidth = strokeWidth
-      ctx.moveTo(prev.x, prev.y)
-      ctx.lineTo(x, y)
-      ctx.stroke()
-      
-      refs.lastDrawPoint.current = { x, y }
-      
-      // Limit points to prevent memory issues when drawing fast
-      const MAX_CLIENT_POINTS = 5000
-      if (refs.currentStroke.current.points.length < MAX_CLIENT_POINTS) {
-        refs.currentStroke.current.points.push({ x, y })
-      } else if (refs.currentStroke.current.points.length % 10 === 0) {
-        // Sample every 10th point after limit
-        refs.currentStroke.current.points.push({ x, y })
-      }
+      if (tool === TOOLS.PEN || tool === TOOLS.ERASER) {
+        const ctx = refs.context.current
+        
+        const prev = refs.lastDrawPoint.current || refs.currentStroke.current?.startPoint
+        if (!prev) return
+        
+        ctx.beginPath()
+        ctx.strokeStyle = tool === TOOLS.ERASER ? '#ffffff' : color
+        ctx.lineWidth = strokeWidth
+        ctx.moveTo(prev.x, prev.y)
+        ctx.lineTo(x, y)
+        ctx.stroke()
+        
+        refs.lastDrawPoint.current = { x, y }
+        
+        // Limit points and throttle adds
+        const currentPoints = refs.currentStroke.current?.points
+        if (!currentPoints) return
+        
+        // Only add point if distance from last point is significant (avoid too many close points)
+        const lastPoint = currentPoints[currentPoints.length - 1]
+        const dist = Math.hypot(x - lastPoint.x, y - lastPoint.y)
+        
+        if (dist > 0.5 && currentPoints.length < 5000) {
+          currentPoints.push({ x, y })
+        }
 
       const now = Date.now()
       // Increase throttle from 50ms to 100ms for preview strokes
       if (socket?.connected && now - refs.lastEmitTime.current > 100) {
         // Only send delta points (new points since last emit) instead of all points
+        const stroke = refs.currentStroke.current
+        if (!stroke?.points) return // Stroke was cleared during drawing
+        
         const lastSentIdx = refs.lastSentPointIndex.current || 0
-        const newPoints = refs.currentStroke.current.points.slice(lastSentIdx)
-        refs.lastSentPointIndex.current = refs.currentStroke.current.points.length
+        const newPoints = stroke.points.slice(lastSentIdx)
+        refs.lastSentPointIndex.current = stroke.points.length
         
         socket.emit('draw:stroke', { 
           stroke: {
-            id: refs.currentStroke.current.id,
-            tool: refs.currentStroke.current.tool,
-            color: refs.currentStroke.current.color,
-            strokeWidth: refs.currentStroke.current.strokeWidth,
-            startPoint: refs.currentStroke.current.startPoint,
+            id: stroke.id,
+            tool: stroke.tool,
+            color: stroke.color,
+            strokeWidth: stroke.strokeWidth,
+            startPoint: stroke.startPoint,
             points: newPoints, // Only new points
             pointsOffset: lastSentIdx, // Where these points start
           },
@@ -327,20 +369,27 @@ export function useCanvas({
         })
         refs.lastEmitTime.current = now
       }
-    } else {
-      if (!refs.raf.current) {
-        refs.raf.current = requestAnimationFrame(() => {
-          refs.raf.current = null
-          if (!refs.pendingPoint.current || !isDrawingRef.current || !refs.currentStroke.current) return
-          drawShapePreview(refs.pendingPoint.current)
-          const now = Date.now()
-          if (socket?.connected && now - refs.lastEmitTime.current > 50) {
-            refs.currentStroke.current.endPoint = { x: refs.pendingPoint.current.x, y: refs.pendingPoint.current.y }
-            socket.emit('draw:stroke', { stroke: refs.currentStroke.current, isPreview: true })
-            refs.lastEmitTime.current = now
-          }
-        })
+      } else {
+        if (!refs.raf.current) {
+          refs.raf.current = requestAnimationFrame(() => {
+            refs.raf.current = null
+            const currentStroke = refs.currentStroke.current
+            const pendingPt = refs.pendingPoint.current
+            if (!pendingPt || !isDrawingRef.current || !currentStroke) return
+            
+            drawShapePreview(pendingPt)
+            const now = Date.now()
+            if (socket?.connected && now - refs.lastEmitTime.current > 50 && currentStroke) {
+              currentStroke.endPoint = { x: pendingPt.x, y: pendingPt.y }
+              socket.emit('draw:stroke', { stroke: { ...currentStroke }, isPreview: true })
+              refs.lastEmitTime.current = now
+            }
+          })
+        }
       }
+    } catch (err) {
+      // Silently ignore drawing errors during initialization race
+      console.warn('Draw error (ignored):', err.message)
     }
   }, [tool, color, strokeWidth, socket, getCoordinates])
 
@@ -351,6 +400,7 @@ export function useCanvas({
     
     const ctx = refs.context.current
     const canvas = refs.canvas.current
+    if (!ctx || !canvas) return // Canvas not ready yet
     
     if (!refs.shapePreviewSnapshot.current) {
       refs.shapePreviewSnapshot.current = ctx.getImageData(0, 0, canvas.width, canvas.height)
@@ -396,35 +446,40 @@ export function useCanvas({
   }, [tool, color, strokeWidth])
 
   const stopDrawing = useCallback(() => {
-    if (!isDrawing && !isDrawingRef.current) return
+    // FIRST: Set flags to false immediately to stop any pending operations
     setIsDrawing(false)
     isDrawingRef.current = false
-
-    if (refs.currentStroke.current) {
+    
+    // SECOND: Cancel any pending animation frames
+    if (refs.raf.current) { cancelAnimationFrame(refs.raf.current); refs.raf.current = null }
+    if (refs.drawRaf.current) { cancelAnimationFrame(refs.drawRaf.current); refs.drawRaf.current = null }
+    
+    // THIRD: Process final stroke if exists
+    const finalStroke = refs.currentStroke.current
+    if (finalStroke) {
       const shapeTools = [TOOLS.LINE, TOOLS.RECTANGLE, TOOLS.CIRCLE, TOOLS.TRIANGLE, TOOLS.ARROW, TOOLS.DIAMOND]
       if (shapeTools.includes(tool) && refs.pendingPoint.current) {
-        refs.currentStroke.current.endPoint = { x: refs.pendingPoint.current.x, y: refs.pendingPoint.current.y }
+        finalStroke.endPoint = { x: refs.pendingPoint.current.x, y: refs.pendingPoint.current.y }
       }
 
-      if (onStrokeAdd) onStrokeAdd(refs.currentStroke.current)
+      if (onStrokeAdd) onStrokeAdd(finalStroke)
 
       if (socket?.connected) {
-        const optimized = optimizeStrokeForTransmit(refs.currentStroke.current, { simplifyEpsilon: 1.0, useDelta: true })
+        const optimized = optimizeStrokeForTransmit(finalStroke, { simplifyEpsilon: 1.0, useDelta: true })
         socket.emit('draw:stroke', { stroke: optimized, isPreview: false })
-        socket.emit('draw:complete', { strokeId: refs.currentStroke.current.id })
+        socket.emit('draw:complete', { strokeId: finalStroke.id })
       }
     }
 
-    // Cleanup
+    // LAST: Cleanup refs
     refs.currentStroke.current = null
     refs.startPoint.current = null
     refs.pendingPoint.current = null
     refs.pendingDrawEvent.current = null
     refs.lastDrawPoint.current = null
     refs.shapePreviewSnapshot.current = null
-    if (refs.raf.current) { cancelAnimationFrame(refs.raf.current); refs.raf.current = null }
-    if (refs.drawRaf.current) { cancelAnimationFrame(refs.drawRaf.current); refs.drawRaf.current = null }
-  }, [isDrawing, tool, socket, onStrokeAdd, setIsDrawing])
+    refs.lastSentPointIndex.current = 0
+  }, [tool, socket, onStrokeAdd, setIsDrawing])
 
   // ========== TRANSFORM ==========
   const handleTransformMove = useCallback((x, y) => {
@@ -512,12 +567,17 @@ export function useCanvas({
 
   // ========== MOUSE HANDLERS ==========
   const handleMouseMove = useCallback((e) => {
-    if (isDrawing) {
+    // Must wait for canvas to be ready
+    if (!canvasReadyRef.current) return
+    
+    // Check both state and ref for consistency
+    if (isDrawing && isDrawingRef.current) {
       refs.pendingDrawEvent.current = e
       if (!refs.drawRaf.current) {
         refs.drawRaf.current = requestAnimationFrame(() => {
           refs.drawRaf.current = null
-          if (refs.pendingDrawEvent.current && isDrawingRef.current) {
+          // Double check we're still drawing when RAF executes
+          if (refs.pendingDrawEvent.current && isDrawingRef.current && refs.currentStroke.current) {
             draw(refs.pendingDrawEvent.current)
             const now = Date.now()
             if (socket?.connected && now - refs.lastCursorEmit.current > 33) {
@@ -732,6 +792,7 @@ export function useCanvas({
     // State
     state,
     zoom,
+    canvasReady,
     
     // Refs
     refs,

@@ -55,6 +55,7 @@ export default function Canvas({
     },
     refs,
     cursor,
+    canvasReady,
     canvasToScreen,
     startDrawing,
     handleMouseMove,
@@ -95,16 +96,18 @@ export default function Canvas({
           isPanning ? 'cursor-grabbing' : 
           (spacePressed || tool === TOOLS.HAND) ? 'cursor-grab' : ''
         }`}
+        style={{ pointerEvents: canvasReady ? 'auto' : 'none' }}
         onMouseDown={(e) => {
+          if (!canvasReady) return
           if (e.button === 1 || shouldPan()) { e.preventDefault(); startPan(e) }
           else startDrawing(e)
         }}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeave}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        onMouseMove={(e) => { if (canvasReady) handleMouseMove(e) }}
+        onMouseUp={(e) => { if (canvasReady) handleMouseUp(e) }}
+        onMouseLeave={(e) => { if (canvasReady) handleMouseLeave(e) }}
+        onTouchStart={(e) => { if (canvasReady) handleTouchStart(e) }}
+        onTouchMove={(e) => { if (canvasReady) handleTouchMove(e) }}
+        onTouchEnd={(e) => { if (canvasReady) handleTouchEnd(e) }}
       >
         {/* Canvas Background */}
         <div 

@@ -9,6 +9,11 @@ import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../constants'
  * @returns {{x: number, y: number}} Canvas coordinates
  */
 export function getCanvasCoordinates(e, containerRect, zoom, pan) {
+  // Guard against null containerRect
+  if (!containerRect) {
+    return { x: 0, y: 0 }
+  }
+  
   // Handle both mouse and touch events
   const clientX = e.clientX ?? e.touches?.[0]?.clientX ?? e.changedTouches?.[0]?.clientX ?? 0
   const clientY = e.clientY ?? e.touches?.[0]?.clientY ?? e.changedTouches?.[0]?.clientY ?? 0

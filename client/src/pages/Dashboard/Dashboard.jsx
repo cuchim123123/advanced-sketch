@@ -4,7 +4,7 @@ import { useAuthStore, useRoomStore } from '@/store'
 import { useToast } from '@/components/Toast'
 import { useConfirm } from '@/components/ConfirmModal'
 import RoomSettingsModal from '@/components/RoomSettingsModal'
-import { Globe, Lock, Plus, LogIn } from 'lucide-react'
+import { Globe, Lock, Plus, LogIn, RefreshCw } from 'lucide-react'
 import {
   DashboardHeader,
   GuestBanner,
@@ -35,7 +35,7 @@ export default function Dashboard() {
   // Smart polling + socket updates for dashboard
   // - Only polls when tab is visible
   // - Socket updates participant count in realtime
-  useDashboardSocket()
+  const { isRefreshing, manualRefresh } = useDashboardSocket()
 
   const handleCreateRoom = async (e) => {
     e.preventDefault()
@@ -129,7 +129,7 @@ export default function Dashboard() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-4 mb-6">
+        <div className="flex gap-4 mb-6 items-center">
           {!isGuest && (
             <button
               onClick={() => setActiveTab('my')}
@@ -153,6 +153,17 @@ export default function Dashboard() {
           >
             <Globe className="w-4 h-4" />
             Public Rooms
+          </button>
+          
+          {/* Refresh Button */}
+          <button
+            onClick={manualRefresh}
+            disabled={isRefreshing}
+            className="ml-auto glass-button px-3 py-2.5 flex items-center gap-2 disabled:opacity-50"
+            title="Refresh rooms"
+          >
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline text-sm">Refresh</span>
           </button>
         </div>
 

@@ -30,6 +30,7 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
   const [cursors, setCursors] = useState({})
   const [connected, setConnected] = useState(false)
   const [roomReady, setRoomReady] = useState(false)
+  const [wasConnected, setWasConnected] = useState(false) // Track if user ever joined successfully
   
   // Ref to track roomReady for retry logic (avoids stale closure)
   const roomReadyRef = useRef(false)
@@ -77,6 +78,7 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
       setStrokes(roomStrokes || [])
       setParticipants(roomParticipants || [])
       setRoomReady(true)
+      setWasConnected(true) // Mark that user successfully joined
     })
 
     // If socket is already connected (e.g., after hot reload), emit join immediately
@@ -282,6 +284,7 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
         sock.off('cursor:move')
         sock.off('room:restored')
         sock.off('error')
+        sock.off('save:error')
         sock.off('user:kicked')
       }
       disconnectSocket()
@@ -325,6 +328,7 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
     cursors,
     connected,
     roomReady,
+    wasConnected,
     retryConnection
   }
 }

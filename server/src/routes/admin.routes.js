@@ -1,7 +1,8 @@
 const express = require('express')
 const router = express.Router()
 const { protect } = require('../middleware/auth.middleware')
-const { User, Room } = require('../models')
+const { User, Room, SketchHistory, SessionParticipant, OTP } = require('../models')
+const { deleteRoomState, cleanupRoomGuests } = require('../socket/roomState')
 
 // Admin middleware - check if user is admin
 const adminMiddleware = (req, res, next) => {
@@ -102,14 +103,24 @@ router.delete('/users/:userId', protect, adminMiddleware, async (req, res) => {
       })
     }
 
-    // Delete user's rooms
+    // Delete user's rooms and related data
+    const userRooms = await Room.find({ owner: userId })
+    for (const room of userRooms) {
+      deleteRoomState(room.code)
+      cleanupRoomGuests(room.code)
+      await SketchHistory.deleteMany({ room: room._id })
+      await SessionParticipant.deleteMany({ room: room._id })
+    }
     await Room.deleteMany({ owner: userId })
 
-    // Remove user from all rooms
+    // Remove user from all rooms they participated in
     await Room.updateMany(
       { participants: userId },
       { $pull: { participants: userId } }
     )
+    
+    // Clean up OTPs
+    await OTP.deleteMany({ email: user.email })
 
     res.json({
       success: true,
@@ -128,9 +139,10 @@ router.delete('/users/:userId', protect, adminMiddleware, async (req, res) => {
 router.get('/rooms/stats', protect, adminMiddleware, async (req, res) => {
   try {
     const totalRooms = await Room.countDocuments()
-    const activeRooms = await Room.countDocuments({ 
-      participants: { $exists: true, $not: { $size: 0 } } 
-    })
+    
+    // Count rooms with active participants using SessionParticipant
+    const roomsWithParticipants = await SessionParticipant.distinct('room', { isActive: true })
+    const activeRooms = roomsWithParticipants.length
 
     res.json({
       success: true,
@@ -193,7 +205,7 @@ router.delete('/rooms/:roomId', protect, adminMiddleware, async (req, res) => {
   try {
     const { roomId } = req.params
 
-    const room = await Room.findByIdAndDelete(roomId)
+    const room = await Room.findById(roomId)
 
     if (!room) {
       return res.status(404).json({
@@ -201,6 +213,17 @@ router.delete('/rooms/:roomId', protect, adminMiddleware, async (req, res) => {
         message: 'Room not found'
       })
     }
+
+    // Clean up in-memory state
+    deleteRoomState(room.code)
+    cleanupRoomGuests(room.code)
+    
+    // Clean up related database records
+    await Promise.all([
+      SketchHistory.deleteMany({ room: room._id }),
+      SessionParticipant.deleteMany({ room: room._id }),
+      Room.findByIdAndDelete(roomId)
+    ])
 
     res.json({
       success: true,

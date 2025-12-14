@@ -2,6 +2,7 @@
  * Room-related socket event handlers
  */
 const { Room, SessionParticipant, SketchHistory, User } = require('../models');
+const logger = require('../libs/logger.lib');
 const { 
   getRoomState, 
   setRoomState, 
@@ -67,9 +68,9 @@ async function handleRoomJoin(socket, io, { roomCode }) {
     if (!hasRoomState(roomCode)) {
       // Check if another user is already initializing this room
       if (isRoomInitializing(roomCode)) {
-        console.log(`[room:join] Room ${roomCode} is being initialized, waiting...`);
+        logger.socket(`Room ${roomCode} is being initialized, waiting...`);
         await waitForRoomReady(roomCode);
-        console.log(`[room:join] Room ${roomCode} ready after wait`);
+        logger.socket(`Room ${roomCode} ready after wait`);
       } else {
         // Mark as initializing to prevent race conditions
         markRoomInitializing(roomCode);
@@ -79,12 +80,12 @@ async function handleRoomJoin(socket, io, { roomCode }) {
             .sort({ version: -1 })
             .lean(); // Use lean() to get plain objects with all fields
           
-          console.log(`[room:join] Loading room ${roomCode}, history found:`, history ? `${history.strokes?.length || 0} strokes, version ${history.version}` : 'none');
+          logger.socket(`Loading room ${roomCode}, history found:`, history ? `${history.strokes?.length || 0} strokes, version ${history.version}` : 'none');
           
           // Debug: log rotated strokes
           if (history?.strokes) {
             const rotatedStrokes = history.strokes.filter(s => s.rotation);
-            console.log(`[room:join] Rotated strokes in DB:`, rotatedStrokes.length, rotatedStrokes.map(s => ({ id: s.id, rotation: s.rotation })));
+            logger.debug(`Rotated strokes in DB:`, rotatedStrokes.length, rotatedStrokes.map(s => ({ id: s.id, rotation: s.rotation })));
           }
           
           const initialState = {
@@ -92,14 +93,14 @@ async function handleRoomJoin(socket, io, { roomCode }) {
             version: history?.version || 0
           };
           setRoomState(roomCode, initialState);
-          console.log(`[room:join] Set state for ${roomCode}:`, initialState.strokes.length, 'strokes, version', initialState.version);
+          logger.socket(`Set state for ${roomCode}:`, initialState.strokes.length, 'strokes, version', initialState.version);
         } finally {
           completeRoomInit(roomCode);
         }
       }
     } else {
       const existingState = getRoomState(roomCode);
-      console.log(`[room:join] Room ${roomCode} already in memory:`, existingState?.strokes?.length || 0, 'strokes, version', existingState?.version);
+      logger.socket(`Room ${roomCode} already in memory:`, existingState?.strokes?.length || 0, 'strokes, version', existingState?.version);
     }
 
     // Get all active participants
@@ -155,7 +156,7 @@ async function handleRoomJoin(socket, io, { roomCode }) {
     await room.save();
 
   } catch (error) {
-    console.error('Room join error:', error);
+    logger.error('Room join error:', error);
     socket.emit('error', { message: 'Failed to join room' });
   }
 }
@@ -196,7 +197,7 @@ async function handleRoomRestore(socket, io, { version }) {
       });
     }
   } catch (error) {
-    console.error('Restore error:', error);
+    logger.error('Restore error:', error);
     socket.emit('error', { message: 'Failed to restore snapshot' });
   }
 }
@@ -239,7 +240,7 @@ async function handleUserKick(socket, io, { targetUserId }) {
       return;
     }
 
-    console.log('Kicking user:', targetUserId, 'socketId:', targetParticipant.socketId);
+    logger.socket('Kicking user:', targetUserId, 'socketId:', targetParticipant.socketId);
 
     const targetSocketId = targetParticipant.socketId;
     const targetSocket = io.sockets.sockets.get(targetSocketId);
@@ -263,7 +264,7 @@ async function handleUserKick(socket, io, { targetUserId }) {
     });
 
   } catch (error) {
-    console.error('Kick error:', error);
+    logger.error('Kick error:', error);
     socket.emit('error', { message: 'Failed to kick user' });
   }
 }
@@ -273,7 +274,7 @@ async function handleUserKick(socket, io, { targetUserId }) {
  */
 async function handleDisconnect(socket, io) {
   const userType = socket.isGuest ? 'Guest' : 'User';
-  console.log(`${userType} disconnected: ${socket.user.username}`);
+  logger.socket(`${userType} disconnected: ${socket.user.username}`);
 
   if (socket.roomCode) {
     if (socket.isGuest) {

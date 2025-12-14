@@ -14,6 +14,7 @@ export function useDashboardSocket() {
   const { updateRoomParticipantCount, fetchRooms, fetchPublicRooms } = useRoomStore()
   const { isGuest } = useAuthStore()
   const [isTabVisible, setIsTabVisible] = useState(!document.hidden)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const pollIntervalRef = useRef(null)
   const lastFetchRef = useRef(0)
 
@@ -24,15 +25,15 @@ export function useDashboardSocket() {
     updateRoomParticipantCount(roomCode, participantCount)
   }, [updateRoomParticipantCount])
 
-  // Fetch rooms with debounce
-  const fetchRoomsDebounced = useCallback(() => {
+  // Fetch rooms with debounce (silent mode for background refresh)
+  const fetchRoomsDebounced = useCallback((silent = true) => {
     const now = Date.now()
     // Debounce: minimum 3 seconds between fetches
     if (now - lastFetchRef.current < 3000) return
     lastFetchRef.current = now
     
-    if (!isGuest) fetchRooms()
-    fetchPublicRooms()
+    if (!isGuest) fetchRooms({ silent })
+    fetchPublicRooms({ silent })
   }, [isGuest, fetchRooms, fetchPublicRooms])
 
   // Handle visibility change
@@ -41,9 +42,9 @@ export function useDashboardSocket() {
       const visible = !document.hidden
       setIsTabVisible(visible)
       
-      // Fetch immediately when tab becomes visible (if it was hidden for a while)
+      // Fetch immediately when tab becomes visible (silent refresh)
       if (visible) {
-        fetchRoomsDebounced()
+        fetchRoomsDebounced(true)
       }
     }
 
@@ -61,12 +62,12 @@ export function useDashboardSocket() {
 
     // Only poll when tab is visible
     if (isTabVisible) {
-      // Initial fetch
-      fetchRoomsDebounced()
+      // Initial fetch (show loading only on first load)
+      fetchRoomsDebounced(false)
       
-      // Set up polling
+      // Set up polling (always silent for background refresh)
       pollIntervalRef.current = setInterval(() => {
-        fetchRoomsDebounced()
+        fetchRoomsDebounced(true)
       }, POLL_INTERVAL)
     }
 
@@ -89,5 +90,19 @@ export function useDashboardSocket() {
     }
   }, [handleRoomUpdate])
 
-  return { isTabVisible }
+  // Manual refresh function (always shows brief loading indicator)
+  const manualRefresh = useCallback(async () => {
+    setIsRefreshing(true)
+    lastFetchRef.current = 0 // Reset debounce
+    
+    try {
+      const promises = [fetchPublicRooms({ silent: true })]
+      if (!isGuest) promises.push(fetchRooms({ silent: true }))
+      await Promise.all(promises)
+    } finally {
+      setIsRefreshing(false)
+    }
+  }, [isGuest, fetchRooms, fetchPublicRooms])
+
+  return { isTabVisible, isRefreshing, manualRefresh }
 }

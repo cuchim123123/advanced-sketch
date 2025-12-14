@@ -10,6 +10,7 @@
 
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
+const logger = require('../libs/logger.lib');
 
 // Import handlers
 const {
@@ -77,7 +78,7 @@ module.exports = (io) => {
 
   io.on('connection', (socket) => {
     const userType = socket.isGuest ? 'Guest' : 'User';
-    console.log(`${userType} connected: ${socket.user.username} (${socket.id})`);
+    logger.socket(`${userType} connected: ${socket.user.username} (${socket.id})`);
 
     // Room events
     socket.on('room:join', (data) => handleRoomJoin(socket, io, data));

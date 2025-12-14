@@ -3,6 +3,7 @@
  * Debounced save to prevent excessive DB writes
  */
 const { Room, SketchHistory } = require('../models');
+const logger = require('../libs/logger.lib');
 const { 
   getRoomState, 
   markRoomDirty, 
@@ -104,20 +105,20 @@ async function performAutoSave(roomCode) {
     );
     
     markRoomClean(roomCode);
-    console.log(`[auto-save] Room ${roomCode}: ${strokes.length} strokes saved`);
+    logger.autoSave(`Room ${roomCode}: ${strokes.length} strokes saved`);
     
     // Debug: log first stroke with rotation if exists
     const rotatedStroke = strokes.find(s => s.rotation);
     if (rotatedStroke) {
-      console.log(`[auto-save] Sample rotated stroke:`, { id: rotatedStroke.id, rotation: rotatedStroke.rotation, tool: rotatedStroke.tool });
+      logger.debug('Sample rotated stroke:', { id: rotatedStroke.id, rotation: rotatedStroke.rotation, tool: rotatedStroke.tool });
     }
     
   } catch (error) {
-    console.error(`[auto-save] Error saving room ${roomCode}:`, error.message);
+    logger.error(`Error saving room ${roomCode}:`, error.message);
     
     // Emit save error to all clients in the room
     if (ioInstance) {
-      ioInstance.to(`room:${roomCode}`).emit('save:error', {
+      ioInstance.to(roomCode).emit('save:error', {
         message: 'Auto-save failed. Your recent changes may not be saved.',
         roomCode,
         timestamp: new Date().toISOString()

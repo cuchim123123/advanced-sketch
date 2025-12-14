@@ -35,6 +35,7 @@ export default function Room() {
     cursors,
     connected,
     roomReady,
+    wasConnected,
     retryConnection
   } = useRoomSocket({ code, loaderRoom, toast })
 
@@ -98,8 +99,8 @@ export default function Room() {
       <div className="flex-1 flex overflow-hidden relative">
         {/* Canvas */}
         <div className="flex-1 min-w-0 relative">
-          {/* Disconnected overlay */}
-          {!connected && roomReady && (
+          {/* Disconnected overlay - show when user was connected but now disconnected */}
+          {!connected && wasConnected && (
             <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center">
               <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm mx-4 text-center">
                 <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -145,18 +146,21 @@ export default function Room() {
               </div>
             </div>
           )}
-          <Canvas
-            socket={socket}
-            roomCode={code}
-            strokes={strokes}
-            previewStrokes={previewStrokes}
-            onStrokeAdd={(stroke) => setStrokes(prev => [...prev, stroke])}
-            onStrokeUpdate={(stroke) => setStrokes(prev => prev.map(s => s.id === stroke.id ? stroke : s))}
-            onClear={handleClear}
-            cursors={cursors}
-            showCursorNames={showParticipants}
-            disabled={false}
-          />
+          {/* Only render Canvas when room is ready - prevents race conditions */}
+          {roomReady && (
+            <Canvas
+              socket={socket}
+              roomCode={code}
+              strokes={strokes}
+              previewStrokes={previewStrokes}
+              onStrokeAdd={(stroke) => setStrokes(prev => [...prev, stroke])}
+              onStrokeUpdate={(stroke) => setStrokes(prev => prev.map(s => s.id === stroke.id ? stroke : s))}
+              onClear={handleClear}
+              cursors={cursors}
+              showCursorNames={showParticipants}
+              disabled={false}
+            />
+          )}
         </div>
 
         {/* Participants Sidebar */}

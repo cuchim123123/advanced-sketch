@@ -108,11 +108,8 @@ function HydratedApp() {
           element: <Suspense fallback={<PageLoader />}><PublicRoute><Login /></PublicRoute></Suspense>
         },
         {
+          // Support both /register and /signup for user convenience
           path: '/register',
-          element: <Suspense fallback={<PageLoader />}><PublicRoute><Signup /></PublicRoute></Suspense>
-        },
-        {
-          path: '/signup',
           element: <Suspense fallback={<PageLoader />}><PublicRoute><Signup /></PublicRoute></Suspense>
         },
         {

@@ -9,23 +9,77 @@ export const useRoomStore = create((set, get) => ({
   loading: false,
   error: null,
 
-  fetchRooms: async () => {
-    set({ loading: true })
+  fetchRooms: async (options = {}) => {
+    const { silent = false } = options
+    const currentRooms = get().rooms
+    
+    // Only show loading spinner on first fetch (no existing data)
+    if (!silent && currentRooms.length === 0) {
+      set({ loading: true })
+    }
+    
     try {
       const { data } = await api.get('/rooms')
-      set({ rooms: data.data.rooms, loading: false })
+      const newRooms = data.data.rooms || []
+      
+      // Smart merge: preserve local state while updating from server
+      set((state) => {
+        // If we have existing rooms, do a smart merge
+        if (state.rooms.length > 0) {
+          const mergedRooms = newRooms.map(newRoom => {
+            const existing = state.rooms.find(r => r.code === newRoom.code)
+            // Keep participant count if server hasn't updated it (avoids flicker)
+            if (existing && newRoom.participantCount === existing.participantCount) {
+              return { ...existing, ...newRoom }
+            }
+            return newRoom
+          })
+          return { rooms: mergedRooms, loading: false, error: null }
+        }
+        return { rooms: newRooms, loading: false, error: null }
+      })
     } catch (error) {
-      set({ error: error.response?.data?.message, loading: false })
+      // On error, keep existing data
+      set((state) => ({ 
+        error: error.response?.data?.message, 
+        loading: false,
+        rooms: state.rooms // Keep existing rooms
+      }))
     }
   },
 
-  fetchPublicRooms: async () => {
-    set({ loading: true })
+  fetchPublicRooms: async (options = {}) => {
+    const { silent = false } = options
+    const currentPublicRooms = get().publicRooms
+    
+    // Only show loading on first fetch
+    if (!silent && currentPublicRooms.length === 0) {
+      set({ loading: true })
+    }
+    
     try {
       const { data } = await api.get('/rooms/public')
-      set({ publicRooms: data.data.rooms || [], loading: false })
+      const newRooms = data.data.rooms || []
+      
+      set((state) => {
+        if (state.publicRooms.length > 0) {
+          const mergedRooms = newRooms.map(newRoom => {
+            const existing = state.publicRooms.find(r => r.code === newRoom.code)
+            if (existing && newRoom.participantCount === existing.participantCount) {
+              return { ...existing, ...newRoom }
+            }
+            return newRoom
+          })
+          return { publicRooms: mergedRooms, loading: false, error: null }
+        }
+        return { publicRooms: newRooms, loading: false, error: null }
+      })
     } catch (error) {
-      set({ error: error.response?.data?.message, loading: false, publicRooms: [] })
+      set((state) => ({ 
+        error: error.response?.data?.message, 
+        loading: false,
+        publicRooms: state.publicRooms
+      }))
     }
   },
 
