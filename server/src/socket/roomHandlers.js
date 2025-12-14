@@ -144,6 +144,12 @@ async function handleRoomJoin(socket, io, { roomCode }) {
       isGuest: socket.isGuest
     });
 
+    // Broadcast to dashboard listeners about participant count change
+    io.emit('dashboard:roomUpdate', {
+      roomCode,
+      participantCount: allParticipants.length
+    });
+
     // Update room activity
     room.lastActiveAt = new Date();
     await room.save();
@@ -289,11 +295,21 @@ async function handleDisconnect(socket) {
       isGuest: socket.isGuest
     });
 
+    // Calculate new participant count and broadcast to dashboard
+    const room = await Room.findOne({ code: socket.roomCode });
+    if (room) {
+      const dbCount = await SessionParticipant.countDocuments({ room: room._id, isActive: true });
+      const guestCount = getRoomGuests(socket.roomCode).filter(g => g.isActive).length;
+      io.emit('dashboard:roomUpdate', {
+        roomCode: socket.roomCode,
+        participantCount: dbCount + guestCount
+      });
+    }
+
     // Force save any pending changes
     await forceSave(socket.roomCode);
 
     // Check if room is empty
-    const room = await Room.findOne({ code: socket.roomCode });
     if (room) {
       const activeDbCount = await SessionParticipant.countDocuments({
         room: room._id,

@@ -13,6 +13,7 @@ import {
   CreateRoomModal,
   JoinRoomModal
 } from './components'
+import { useDashboardSocket } from './hooks'
 
 export default function Dashboard() {
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -30,6 +31,9 @@ export default function Dashboard() {
 
   const { isGuest } = useAuthStore()
   const { rooms, publicRooms, fetchRooms, fetchPublicRooms, createRoom, joinRoom, deleteRoom, updateRoom, loading, error } = useRoomStore()
+
+  // Use dashboard socket for realtime participant count updates
+  useDashboardSocket()
 
   useEffect(() => {
     if (!isGuest) fetchRooms()

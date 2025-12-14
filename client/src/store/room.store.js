@@ -122,5 +122,17 @@ export const useRoomStore = create((set, get) => ({
     }))
   },
 
+  // Update participant count for a room (used by dashboard socket)
+  updateRoomParticipantCount: (roomCode, participantCount) => {
+    set((state) => ({
+      rooms: state.rooms.map((r) => 
+        r.code === roomCode ? { ...r, participantCount } : r
+      ),
+      publicRooms: state.publicRooms.map((r) => 
+        r.code === roomCode ? { ...r, participantCount } : r
+      )
+    }))
+  },
+
   clearRoom: () => set({ currentRoom: null, participants: [] })
 }))
