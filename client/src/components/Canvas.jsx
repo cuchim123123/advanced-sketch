@@ -17,6 +17,7 @@ import {
   drawSelectionHighlight
 } from './canvas/strokeRenderer'
 import { useCanvasExport } from '../hooks/useCanvasExport'
+import { useCanvasState } from './canvas/hooks/useCanvasState'
 import CanvasToolbar from './canvas/components/CanvasToolbar'
 import CursorOverlay from './canvas/components/CursorOverlay'
 import KeyboardShortcutsModal from './canvas/components/KeyboardShortcutsModal'
@@ -33,42 +34,42 @@ export default function Canvas({
   showCursorNames = true,
   disabled = false  // Disable drawing when room is loading
 }) {
+  // Use canvas state hook
+  const {
+    tool, setTool,
+    color, setColor,
+    strokeWidth, setStrokeWidth,
+    fontSize, setFontSize,
+    isDrawing, setIsDrawing,
+    isDrawingRef,
+    selectedStroke, setSelectedStroke,
+    isDragging, setIsDragging,
+    dragOffset,
+    transformMode, setTransformMode,
+    transformStart,
+    originalStrokeRef,
+    textInput, setTextInput,
+    showShortcuts, setShowShortcuts
+  } = useCanvasState()
+
+  // Canvas refs
   const canvasRef = useRef(null)
   const containerRef = useRef(null)
   const contextRef = useRef(null)
-  const strokesRef = useRef(strokes) // Keep ref to current strokes for resize handler
-  const [isDrawing, setIsDrawing] = useState(false)
-  const [tool, setTool] = useState(TOOLS.PEN)
-  const [color, setColor] = useState('#000000')
-  const [strokeWidth, setStrokeWidth] = useState(3)
-  const [fontSize, setFontSize] = useState(16)
+  const strokesRef = useRef(strokes)
   const currentStroke = useRef(null)
   const startPoint = useRef(null)
   
-  // Text input state
-  const [textInput, setTextInput] = useState({ show: false, x: 0, y: 0, value: '' })
+  // Text input ref
   const textInputRef = useRef(null)
   
   // Image upload ref
   const imageInputRef = useRef(null)
   const pendingImagePosition = useRef(null)
-  const imageCache = useRef(new Map()) // Cache loaded images by stroke ID
+  const imageCache = useRef(new Map())
   
-  // Selection state for moving text/images
-  const [selectedStroke, setSelectedStroke] = useState(null)
-  const [isDragging, setIsDragging] = useState(false)
-  const dragOffset = useRef({ x: 0, y: 0 })
-  
-  // Cache container rect to avoid getBoundingClientRect every mousemove
+  // Cache container rect
   const containerRectCache = useRef(null)
-  
-  // Transform state (resize/rotate)
-  const [transformMode, setTransformMode] = useState(null) // 'resize-nw', 'resize-ne', 'resize-sw', 'resize-se', 'rotate'
-  const transformStart = useRef({ x: 0, y: 0, width: 0, height: 0, rotation: 0 })
-  const originalStrokeRef = useRef(null) // Store original stroke for transform/drag preview
-  
-  // Keyboard shortcuts modal
-  const [showShortcuts, setShowShortcuts] = useState(false)
   
   // Zoom and pan state
   const [zoom, setZoom] = useState(1)
@@ -78,7 +79,7 @@ export default function Canvas({
   const lastPanPoint = useRef(null)
   const lastPinchDistance = useRef(null)
   
-  // Snapshot of canvas state for shape preview (must be declared before effects use it)
+  // Shape preview snapshot
   const shapePreviewSnapshot = useRef(null)
   
   // Generate dynamic cursor based on tool and stroke width
@@ -491,9 +492,6 @@ export default function Canvas({
   const lastEmitTime = useRef(0)
   const lastSentPointIndex = useRef(0) // Track which points already sent
   const EMIT_THROTTLE = 50 // Emit every 50ms max
-  
-  // Ref to track drawing state for use in RAF callbacks (avoids stale closure)
-  const isDrawingRef = useRef(false)
   
   // Last point for incremental drawing
   const lastDrawPoint = useRef(null)
