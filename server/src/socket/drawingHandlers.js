@@ -1,7 +1,7 @@
 /**
  * Drawing-related socket event handlers
  */
-const { processIncomingStroke } = require('../libs/strokeOptimization');
+const { processIncomingStroke } = require('../libs/stroke-optimization.lib');
 const { getRoomState } = require('./roomState');
 const { scheduleAutoSave } = require('./autoSave');
 
