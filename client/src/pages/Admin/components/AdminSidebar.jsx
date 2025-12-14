@@ -41,77 +41,36 @@ const AdminSidebar = ({ onNavigate }) => {
   return (
     <div className="admin-sidebar-shell">
       {/* Header */}
-      <div style={{ padding: '1.5rem 1.5rem 1rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-          <div style={{
-            width: '48px',
-            height: '48px',
-            borderRadius: '12px',
-            background: 'linear-gradient(135deg, #a855f7 0%, #ec4899 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
-            <Sparkles size={24} color="white" />
+      <div className="px-6 pt-6 pb-4">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+            <Sparkles size={24} className="text-white" />
           </div>
           <div>
-            <h1 style={{ 
-              fontSize: '1.25rem', 
-              fontWeight: '700', 
-              color: 'white',
-              margin: 0 
-            }}>Admin Panel</h1>
-            <p style={{ 
-              fontSize: '0.875rem', 
-              color: 'rgba(255, 255, 255, 0.6)',
-              margin: 0 
-            }}>Advanced Sketch</p>
+            <h1 className="text-xl font-bold text-white m-0">Admin Panel</h1>
+            <p className="text-sm text-white/60 m-0">Advanced Sketch</p>
           </div>
         </div>
 
         {/* Search Bar */}
-        <div style={{ position: 'relative' }}>
+        <div className="relative">
           <Search 
             size={18} 
-            style={{ 
-              position: 'absolute', 
-              left: '12px', 
-              top: '50%', 
-              transform: 'translateY(-50%)',
-              color: 'rgba(255, 255, 255, 0.4)'
-            }} 
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" 
           />
           <input
             type="text"
             placeholder="Search navigation..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '0.625rem 0.75rem 0.625rem 2.5rem',
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '10px',
-              fontSize: '0.875rem',
-              color: 'white',
-              outline: 'none',
-              transition: 'all 0.2s'
-            }}
-            onFocus={(e) => {
-              e.target.style.background = 'rgba(255, 255, 255, 0.1)'
-              e.target.style.borderColor = '#a855f7'
-            }}
-            onBlur={(e) => {
-              e.target.style.background = 'rgba(255, 255, 255, 0.05)'
-              e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)'
-            }}
+            className="w-full py-2.5 px-3 pl-10 bg-white/5 border border-white/10 rounded-[10px] text-sm text-white outline-none transition-all duration-200 focus:bg-white/10 focus:border-purple-500"
           />
         </div>
       </div>
 
       {/* Navigation */}
-      <nav style={{ padding: '0 1rem 1rem' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+      <nav className="px-4 pb-4">
+        <div className="flex flex-col gap-1.5">
           {filteredTabs.map((tab) => {
             const Icon = tab.icon
             const active = isActive(tab.route)
@@ -119,34 +78,13 @@ const AdminSidebar = ({ onNavigate }) => {
               <button
                 key={tab.route}
                 onClick={() => handleTabClick(tab.route)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.75rem',
-                  padding: '0.875rem 1rem',
-                  background: active ? 'linear-gradient(135deg, #a855f7 0%, #ec4899 100%)' : 'transparent',
-                  color: active ? 'white' : 'rgba(255, 255, 255, 0.7)',
-                  border: 'none',
-                  borderRadius: '10px',
-                  fontSize: '0.9375rem',
-                  fontWeight: active ? '600' : '500',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  textAlign: 'left',
-                  width: '100%'
-                }}
-                onMouseEnter={(e) => {
-                  if (!active) {
-                    e.target.style.background = 'rgba(255, 255, 255, 0.05)'
-                    e.target.style.color = 'white'
+                className={`
+                  flex items-center gap-3 py-3.5 px-4 border-none rounded-[10px] text-[0.9375rem] cursor-pointer transition-all duration-200 text-left w-full
+                  ${active 
+                    ? 'bg-gradient-to-br from-purple-500 to-pink-500 text-white font-semibold' 
+                    : 'bg-transparent text-white/70 font-medium hover:bg-white/5 hover:text-white'
                   }
-                }}
-                onMouseLeave={(e) => {
-                  if (!active) {
-                    e.target.style.background = 'transparent'
-                    e.target.style.color = 'rgba(255, 255, 255, 0.7)'
-                  }
-                }}
+                `}
               >
                 <Icon size={20} />
                 <span>{tab.title}</span>
@@ -157,111 +95,34 @@ const AdminSidebar = ({ onNavigate }) => {
       </nav>
 
       {/* Account Section */}
-      <div style={{ 
-        padding: '1rem 1.5rem', 
-        borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-        marginTop: 'auto'
-      }}>
-        <div style={{ position: 'relative' }}>
+      <div className="px-6 py-4 border-t border-white/10 mt-auto">
+        <div className="relative">
           <button
             onClick={() => setShowAccountMenu(!showAccountMenu)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
-              width: '100%',
-              padding: '0.75rem',
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '10px',
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'
-            }}
+            className="flex items-center gap-3 w-full p-3 bg-white/5 border border-white/10 rounded-[10px] cursor-pointer transition-all duration-200 hover:bg-white/10"
           >
-            <div style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '10px',
-              background: 'linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-              fontWeight: '600',
-              fontSize: '0.875rem'
-            }}>
+            <div className="w-9 h-9 rounded-[10px] bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-white font-semibold text-sm">
               {user?.username?.charAt(0).toUpperCase() || 'A'}
             </div>
-            <div style={{ flex: 1, textAlign: 'left' }}>
-              <div style={{ 
-                fontSize: '0.875rem', 
-                fontWeight: '600', 
-                color: 'white',
-                marginBottom: '2px'
-              }}>
+            <div className="flex-1 text-left">
+              <div className="text-sm font-semibold text-white mb-0.5">
                 {user?.username || 'Admin'}
               </div>
-              <div style={{ 
-                fontSize: '0.75rem', 
-                color: 'rgba(255, 255, 255, 0.5)' 
-              }}>
+              <div className="text-xs text-white/50">
                 Administrator
               </div>
             </div>
             <ChevronDown 
               size={16} 
-              style={{ 
-                color: 'rgba(255, 255, 255, 0.5)',
-                transform: showAccountMenu ? 'rotate(180deg)' : 'rotate(0deg)',
-                transition: 'transform 0.2s'
-              }} 
+              className={`text-white/50 transition-transform duration-200 ${showAccountMenu ? 'rotate-180' : 'rotate-0'}`}
             />
           </button>
 
           {showAccountMenu && (
-            <div style={{
-              position: 'absolute',
-              bottom: '100%',
-              left: 0,
-              right: 0,
-              marginBottom: '0.5rem',
-              background: 'rgba(30, 41, 59, 0.95)',
-              backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '10px',
-              boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.3)',
-              overflow: 'hidden',
-              zIndex: 50
-            }}>
+            <div className="absolute bottom-full left-0 right-0 mb-2 bg-slate-800/95 backdrop-blur-xl border border-white/10 rounded-[10px] shadow-[0_-4px_20px_rgba(0,0,0,0.3)] overflow-hidden z-50">
               <button
                 onClick={handleLogout}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.75rem',
-                  width: '100%',
-                  padding: '0.875rem 1rem',
-                  background: 'transparent',
-                  color: '#f87171',
-                  border: 'none',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  textAlign: 'left'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = 'rgba(248, 113, 113, 0.1)'
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = 'transparent'
-                }}
+                className="flex items-center gap-3 w-full py-3.5 px-4 bg-transparent text-red-400 border-none text-sm font-medium cursor-pointer transition-all duration-200 text-left hover:bg-red-400/10"
               >
                 <LogOut size={18} />
                 <span>Logout</span>
