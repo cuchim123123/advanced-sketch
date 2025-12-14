@@ -31,7 +31,12 @@ const {
   handleChatSend
 } = require('./roomHandlers');
 
+const { initAutoSave } = require('./autoSave');
+
 module.exports = (io) => {
+  // Initialize auto-save with io instance for error notifications
+  initAutoSave(io);
+  
   // Authentication middleware
   io.use(async (socket, next) => {
     try {

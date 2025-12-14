@@ -343,16 +343,44 @@ async function handleDisconnect(socket, io) {
 }
 
 /**
+ * Sanitize user input to prevent XSS attacks
+ * Escapes HTML special characters
+ */
+function sanitizeInput(str) {
+  if (!str || typeof str !== 'string') return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+    .trim();
+}
+
+// Max chat message length
+const MAX_CHAT_MESSAGE_LENGTH = 1000;
+
+/**
  * Handle chat:send event
  */
 function handleChatSend(socket, io, { message }) {
   if (!socket.roomCode || !message?.trim()) return;
 
+  // Validate message length
+  const trimmedMessage = message.trim();
+  if (trimmedMessage.length > MAX_CHAT_MESSAGE_LENGTH) {
+    socket.emit('error', { message: `Message too long (max ${MAX_CHAT_MESSAGE_LENGTH} characters)` });
+    return;
+  }
+
+  // Sanitize message to prevent XSS
+  const sanitizedMessage = sanitizeInput(trimmedMessage);
+
   const chatMessage = {
-    message: message.trim(),
+    message: sanitizedMessage,
     user: {
       id: socket.user._id || socket.user.id,
-      username: socket.user.username
+      username: sanitizeInput(socket.user.username) // Also sanitize username
     },
     timestamp: new Date().toISOString()
   };

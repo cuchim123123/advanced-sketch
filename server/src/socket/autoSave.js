@@ -21,6 +21,17 @@ const MAX_SAVE_DELAY = 30000;
 // Track when room first became dirty
 const dirtyTimestamps = new Map();
 
+// Store io instance for emitting errors
+let ioInstance = null;
+
+/**
+ * Initialize auto-save with io instance
+ * @param {Object} io - Socket.io server instance
+ */
+function initAutoSave(io) {
+  ioInstance = io;
+}
+
 /**
  * Schedule auto-save for a room (debounced with max delay)
  * Call this after any stroke change
@@ -103,6 +114,15 @@ async function performAutoSave(roomCode) {
     
   } catch (error) {
     console.error(`[auto-save] Error saving room ${roomCode}:`, error.message);
+    
+    // Emit save error to all clients in the room
+    if (ioInstance) {
+      ioInstance.to(`room:${roomCode}`).emit('save:error', {
+        message: 'Auto-save failed. Your recent changes may not be saved.',
+        roomCode,
+        timestamp: new Date().toISOString()
+      });
+    }
   }
 }
 
@@ -115,6 +135,7 @@ async function forceSave(roomCode) {
 }
 
 module.exports = {
+  initAutoSave,
   scheduleAutoSave,
   forceSave,
   markRoomDirty,

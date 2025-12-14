@@ -95,6 +95,11 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
         sock.emit('room:join', { roomCode: code })
       } else {
         clearInterval(retryInterval)
+        // If still not ready after all retries, show error
+        if (!roomReadyRef.current && retryCount >= maxRetries) {
+          console.error(`[useRoomSocket] Failed to join room after ${maxRetries} attempts`)
+          toastRef.current.error('Failed to join room. Please refresh the page or try again later.')
+        }
       }
     }, 5000)
 
@@ -245,6 +250,11 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
     sock.on('error', ({ message }) => {
       console.error('Socket error:', message)
       toastRef.current.error(message)
+    })
+
+    sock.on('save:error', ({ message }) => {
+      console.warn('[Auto-save] Save failed:', message)
+      toastRef.current.warning(message || 'Auto-save failed. Your changes may not be saved.')
     })
 
     sock.on('user:kicked', () => {

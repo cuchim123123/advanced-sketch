@@ -1,5 +1,6 @@
 import { io } from 'socket.io-client'
 import { useAuthStore } from '../store/auth.store'
+import { offlineQueue } from './offlineQueue.service'
 
 let socket = null
 let reconnectTimer = null
@@ -57,9 +58,13 @@ export const connectSocket = () => {
 
   socket.on('connect', () => {
     console.log('Socket connected:', socket.id)
+    offlineQueue.setOnline(true)
+    // Replay any queued events
+    offlineQueue.replay(socket)
   })
 
   socket.on('connect_error', (error) => {
+    offlineQueue.setOnline(false)
     // Silently handle common proxy errors
     if (error.message?.includes('ECONNABORTED') || 
         error.message?.includes('timeout') ||
@@ -72,6 +77,7 @@ export const connectSocket = () => {
 
   socket.on('disconnect', (reason) => {
     console.log('Socket disconnected:', reason)
+    offlineQueue.setOnline(false)
     
     // If server disconnected us, try to reconnect after a short delay
     if (reason === 'io server disconnect') {

@@ -24,7 +24,6 @@ export default defineConfig({
         ws: true,
         changeOrigin: true,
         configure: (proxy) => {
-          // Suppress ALL proxy errors silently
           proxy.on('error', () => {})
           proxy.on('proxyReq', (proxyReq, req, res) => {
             req.on('error', () => {})
