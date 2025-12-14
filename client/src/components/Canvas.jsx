@@ -65,6 +65,7 @@ export default function Canvas({
   // Transform state (resize/rotate)
   const [transformMode, setTransformMode] = useState(null) // 'resize-nw', 'resize-ne', 'resize-sw', 'resize-se', 'rotate'
   const transformStart = useRef({ x: 0, y: 0, width: 0, height: 0, rotation: 0 })
+  const originalStrokeRef = useRef(null) // Store original stroke for transform/drag preview
   
   // Keyboard shortcuts modal
   const [showShortcuts, setShowShortcuts] = useState(false)
@@ -260,6 +261,9 @@ export default function Canvas({
     const ctx = contextRef.current
     if (!ctx) return
 
+    // Skip redraw if we're actively transforming/dragging - handleMouseMove handles that
+    if (transformMode || isDragging) return
+
     // Combine final strokes + preview strokes
     const allStrokes = [...strokes, ...Object.values(previewStrokes)]
     redrawWithStrokes(allStrokes)
@@ -274,7 +278,7 @@ export default function Canvas({
         drawSelectionHighlight(currentStrokeData, ctx, imageCache.current)
       }
     }
-  }, [strokes, previewStrokes, selectedStroke, tool])
+  }, [strokes, previewStrokes, selectedStroke, tool, transformMode, isDragging])
 
   // Check if point is on a transform handle
   const getTransformHandleAtPoint = (x, y, stroke) => {
@@ -335,6 +339,11 @@ export default function Canvas({
     return { x, y }
   }
   
+  // Check if coordinates are within canvas bounds
+  const isWithinCanvas = (x, y) => {
+    return x >= 0 && x <= CANVAS_WIDTH && y >= 0 && y <= CANVAS_HEIGHT
+  }
+  
   // Convert canvas coordinates to screen coordinates (for cursors)
   const canvasToScreen = (x, y) => {
     return {
@@ -390,10 +399,12 @@ export default function Canvas({
           const bounds = getStrokeBounds(selectedStroke, contextRef.current, imageCache.current)
           const centerX = bounds.x + bounds.width / 2
           const centerY = bounds.y + bounds.height / 2
+          // Store original stroke for preview
+          originalStrokeRef.current = JSON.parse(JSON.stringify(selectedStroke))
           transformStart.current = {
             x, y,
             bounds: { ...bounds },
-            originalStroke: { ...selectedStroke },
+            originalStroke: originalStrokeRef.current,
             rotation: selectedStroke.rotation || 0,
             // Store initial angle for rotation calculation
             startAngle: Math.atan2(y - centerY, x - centerX)
@@ -413,6 +424,8 @@ export default function Canvas({
           x: x - hitStroke.startPoint.x,
           y: y - hitStroke.startPoint.y
         }
+        // Store original stroke for drag preview
+        originalStrokeRef.current = JSON.parse(JSON.stringify(hitStroke))
       } else {
         setSelectedStroke(null)
       }
@@ -422,6 +435,8 @@ export default function Canvas({
     // Handle text tool - show input instead of drawing
     if (tool === TOOLS.TEXT) {
       const { x, y } = getCoordinates(e)
+      // Only allow text placement within canvas
+      if (!isWithinCanvas(x, y)) return
       // Get click position relative to container for input placement
       const container = containerRef.current
       const rect = container.getBoundingClientRect()
@@ -436,12 +451,18 @@ export default function Canvas({
     // Handle image tool - open file picker
     if (tool === TOOLS.IMAGE) {
       const { x, y } = getCoordinates(e)
+      // Only allow image placement within canvas
+      if (!isWithinCanvas(x, y)) return
       pendingImagePosition.current = { x, y }
       imageInputRef.current?.click()
       return
     }
 
     const { x, y } = getCoordinates(e)
+    
+    // Don't start drawing outside canvas bounds
+    if (!isWithinCanvas(x, y)) return
+    
     setIsDrawing(true)
     isDrawingRef.current = true
     startPoint.current = { x, y }
@@ -759,7 +780,7 @@ export default function Canvas({
     if (transformMode && selectedStroke && transformStart.current) {
       const { x, y } = getCoordinates(e)
       const { bounds, originalStroke } = transformStart.current
-      let updatedStroke = { ...selectedStroke }
+      let updatedStroke = { ...originalStroke } // Always base on original, not current selectedStroke
       
       if (transformMode === 'rotate') {
         // Calculate rotation angle from center using initial angle as reference
@@ -819,31 +840,19 @@ export default function Canvas({
         }
       }
       
-      // Store pending update for RAF (avoid excessive state updates)
+      // Update ref immediately for mouseUp to use
       pendingTransformStroke.current = updatedStroke
       
-      // Schedule single RAF for transform update
-      if (!transformRafId.current) {
-        transformRafId.current = requestAnimationFrame(() => {
-          transformRafId.current = null
-          if (!pendingTransformStroke.current) return
-          
-          const stroke = pendingTransformStroke.current
-          setSelectedStroke(stroke)
-          
-          // Redraw with updated stroke
-          const updatedStrokes = strokes.map(s => 
-            s.id === selectedStroke.id ? stroke : s
-          )
-          const allStrokes = [...updatedStrokes, ...Object.values(previewStrokes)]
-          redrawWithStrokes(allStrokes)
-          drawSelectionHighlight(stroke, contextRef.current, imageCache.current)
-        })
-      }
+      // Redraw immediately - no RAF needed, browser will batch
+      const updatedStrokes = strokesRef.current.map(s => 
+        s.id === originalStroke.id ? updatedStroke : s
+      )
+      redrawWithStrokes(updatedStrokes)
+      drawSelectionHighlight(updatedStroke, contextRef.current, imageCache.current)
       
-      // Emit preview to others (throttled to ~20fps for transform)
+      // Emit preview to others (throttled to ~15fps for transform)
       const now = Date.now()
-      if (socket && now - lastTransformEmit.current > 50) {
+      if (socket && now - lastTransformEmit.current > 66) {
         socket.emit('draw:update', { stroke: updatedStroke, isPreview: true })
         lastTransformEmit.current = now
       }
@@ -851,56 +860,44 @@ export default function Canvas({
     }
     
     // Handle dragging selected element
-    if (isDragging && selectedStroke) {
+    if (isDragging && selectedStroke && originalStrokeRef.current) {
       const { x, y } = getCoordinates(e)
+      const originalStroke = originalStrokeRef.current
+      
       // Calculate new startPoint position
       const newStartX = x - dragOffset.current.x
       const newStartY = y - dragOffset.current.y
       
-      // Update stroke position locally for preview
-      let updatedStroke = { ...selectedStroke }
+      // Update stroke position - always base on original
+      let updatedStroke = { ...originalStroke }
       
-      if (updatedStroke.startPoint && updatedStroke.endPoint) {
+      if (originalStroke.startPoint && originalStroke.endPoint) {
         // For shapes with startPoint and endPoint, move both points
-        const dx = newStartX - selectedStroke.startPoint.x
-        const dy = newStartY - selectedStroke.startPoint.y
+        const dx = newStartX - originalStroke.startPoint.x
+        const dy = newStartY - originalStroke.startPoint.y
         updatedStroke.startPoint = { x: newStartX, y: newStartY }
         updatedStroke.endPoint = {
-          x: selectedStroke.endPoint.x + dx,
-          y: selectedStroke.endPoint.y + dy
+          x: originalStroke.endPoint.x + dx,
+          y: originalStroke.endPoint.y + dy
         }
       } else {
         // For text, images, and other single-point strokes
         updatedStroke.startPoint = { x: newStartX, y: newStartY }
       }
       
-      // Store pending update for RAF (avoid excessive state updates)
+      // Update ref immediately for mouseUp to use
       pendingTransformStroke.current = updatedStroke
       
-      // Schedule single RAF for drag update
-      if (!transformRafId.current) {
-        transformRafId.current = requestAnimationFrame(() => {
-          transformRafId.current = null
-          if (!pendingTransformStroke.current) return
-          
-          const stroke = pendingTransformStroke.current
-          setSelectedStroke(stroke)
-          
-          // Redraw with updated position
-          const updatedStrokes = strokes.map(s => 
-            s.id === selectedStroke.id ? stroke : s
-          )
-          const allStrokes = [...updatedStrokes, ...Object.values(previewStrokes)]
-          redrawWithStrokes(allStrokes)
-          
-          // Draw selection highlight
-          drawSelectionHighlight(stroke, contextRef.current, imageCache.current)
-        })
-      }
+      // Redraw immediately - no RAF needed
+      const updatedStrokes = strokesRef.current.map(s => 
+        s.id === originalStroke.id ? updatedStroke : s
+      )
+      redrawWithStrokes(updatedStrokes)
+      drawSelectionHighlight(updatedStroke, contextRef.current, imageCache.current)
       
-      // Emit preview to others (throttled to ~20fps)
+      // Emit preview to others (throttled to ~15fps)
       const now = Date.now()
-      if (socket && now - lastTransformEmit.current > 50) {
+      if (socket && now - lastTransformEmit.current > 66) {
         socket.emit('draw:update', { stroke: updatedStroke, isPreview: true })
         lastTransformEmit.current = now
       }
@@ -1251,36 +1248,47 @@ export default function Canvas({
             cancelAnimationFrame(transformRafId.current)
             transformRafId.current = null
           }
-          pendingTransformStroke.current = null
           
           if (isPanning) {
             setIsPanning(false)
           } else if (transformMode && selectedStroke) {
-            // Finish transform - save the new state
+            // Finish transform - use pendingTransformStroke (the actual transformed version)
+            const finalStroke = pendingTransformStroke.current || selectedStroke
             setTransformMode(null)
             transformStart.current = null
+            originalStrokeRef.current = null
+            pendingTransformStroke.current = null
+            
+            // Update selectedStroke state with final position
+            setSelectedStroke(finalStroke)
             
             // Update the stroke in parent state
             if (onStrokeUpdate) {
-              onStrokeUpdate(selectedStroke)
+              onStrokeUpdate(finalStroke)
             }
             
-            // Emit update to server
+            // Emit final update to server (without isPreview)
             if (socket) {
-              socket.emit('draw:update', { stroke: selectedStroke })
+              socket.emit('draw:update', { stroke: finalStroke })
             }
           } else if (isDragging && selectedStroke) {
-            // Finish dragging - save the new position
+            // Finish dragging - use pendingTransformStroke (the actual dragged version)
+            const finalStroke = pendingTransformStroke.current || selectedStroke
             setIsDragging(false)
+            originalStrokeRef.current = null
+            pendingTransformStroke.current = null
+            
+            // Update selectedStroke state with final position
+            setSelectedStroke(finalStroke)
             
             // Update the stroke in parent state
             if (onStrokeUpdate) {
-              onStrokeUpdate(selectedStroke)
+              onStrokeUpdate(finalStroke)
             }
             
-            // Emit update to server
+            // Emit final update to server (without isPreview)
             if (socket) {
-              socket.emit('draw:update', { stroke: selectedStroke })
+              socket.emit('draw:update', { stroke: finalStroke })
             }
           } else {
             stopDrawing(e)

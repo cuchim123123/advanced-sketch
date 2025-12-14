@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 /**
  * Stroke Schema - Individual drawing stroke
  * Using stroke logs approach for better real-time sync and undo/redo support
+ * Note: Using strict: false to allow any additional fields (rotation, etc.)
  */
 const strokeSchema = new mongoose.Schema({
   id: {
@@ -48,6 +49,15 @@ const strokeSchema = new mongoose.Schema({
     x: Number,
     y: Number
   },
+  // For rotation/transform
+  rotation: {
+    type: Number,
+    default: 0
+  },
+  // For images
+  imageData: String,
+  width: Number,
+  height: Number,
   // For text
   text: String,
   fontSize: Number,

@@ -10,6 +10,7 @@ export function drawStroke(stroke, ctx, imageCache) {
 
   // Apply rotation for all strokes that have rotation and startPoint
   if (stroke.rotation && stroke.startPoint) {
+    console.log('[drawStroke] Applying rotation:', stroke.id, stroke.rotation)
     const bounds = getStrokeBounds(stroke, ctx, imageCache)
     if (bounds) {
       const centerX = bounds.x + bounds.width / 2
@@ -99,17 +100,35 @@ export function drawStroke(stroke, ctx, imageCache) {
         stroke.width || cachedImg.width,
         stroke.height || cachedImg.height
       )
+      ctx.restore()
+      return
     } else if (imageCache) {
+      // Image not cached yet - need to load async
+      // Store rotation info to apply when image loads
+      const rotation = stroke.rotation || 0
+      const startX = stroke.startPoint.x
+      const startY = stroke.startPoint.y
+      const imgWidth = stroke.width
+      const imgHeight = stroke.height
+      
       const img = new Image()
       img.onload = () => {
         imageCache.set(stroke.id, img)
-        ctx.drawImage(
-          img,
-          stroke.startPoint.x,
-          stroke.startPoint.y,
-          stroke.width || img.width,
-          stroke.height || img.height
-        )
+        
+        const w = imgWidth || img.width
+        const h = imgHeight || img.height
+        
+        ctx.save()
+        // Apply rotation for async-loaded image
+        if (rotation !== 0) {
+          const centerX = startX + w / 2
+          const centerY = startY + h / 2
+          ctx.translate(centerX, centerY)
+          ctx.rotate(rotation * Math.PI / 180)
+          ctx.translate(-centerX, -centerY)
+        }
+        ctx.drawImage(img, startX, startY, w, h)
+        ctx.restore()
       }
       img.src = stroke.imageData
     }

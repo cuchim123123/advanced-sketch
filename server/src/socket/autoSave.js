@@ -75,17 +75,26 @@ async function performAutoSave(roomCode) {
     }
     
     // Upsert: update existing or create new
+    // Use $set and strict: false to preserve all stroke fields (rotation, etc.)
     await SketchHistory.findOneAndUpdate(
       { room: room._id, version: roomState.version },
       { 
-        strokes: roomState.strokes,
-        updatedAt: new Date()
+        $set: {
+          strokes: roomState.strokes,
+          updatedAt: new Date()
+        }
       },
-      { upsert: true }
+      { upsert: true, strict: false }
     );
     
     markRoomClean(roomCode);
     console.log(`[auto-save] Room ${roomCode}: ${roomState.strokes.length} strokes saved`);
+    
+    // Debug: log first stroke with rotation if exists
+    const rotatedStroke = roomState.strokes.find(s => s.rotation);
+    if (rotatedStroke) {
+      console.log(`[auto-save] Sample rotated stroke:`, { id: rotatedStroke.id, rotation: rotatedStroke.rotation, tool: rotatedStroke.tool });
+    }
     
   } catch (error) {
     console.error(`[auto-save] Error saving room ${roomCode}:`, error.message);
@@ -103,5 +112,6 @@ async function forceSave(roomCode) {
 module.exports = {
   scheduleAutoSave,
   forceSave,
+  markRoomDirty,
   AUTO_SAVE_DELAY
 };

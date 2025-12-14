@@ -123,6 +123,11 @@ function handleDrawUpdate(socket, { stroke, isPreview }) {
   const roomState = getRoomState(socket.roomCode);
   if (!roomState) return;
 
+  // Debug: log incoming stroke
+  if (stroke.rotation !== undefined) {
+    console.log(`[draw:update] Received stroke with rotation:`, { id: stroke.id, rotation: stroke.rotation, isPreview });
+  }
+
   // If this is a preview (during drag/resize), only broadcast without saving to state
   if (isPreview) {
     socket.to(socket.roomCode).emit('draw:update', { stroke, isPreview: true });
@@ -147,9 +152,19 @@ function handleDrawUpdate(socket, { stroke, isPreview }) {
       roomState.strokesMap.set(stroke.id, updatedStroke);
       roomState.strokes = Array.from(roomState.strokesMap.values());
       
+      // Debug: confirm rotation saved
+      if (updatedStroke.rotation !== undefined) {
+        console.log(`[draw:update] Stroke updated in memory:`, { id: updatedStroke.id, rotation: updatedStroke.rotation });
+      }
+      
       socket.to(socket.roomCode).emit('draw:update', { 
         stroke: { ...stroke, sequence: sequenceNumber } 
       });
+      
+      // Mark room dirty for auto-save
+      const { markRoomDirty, scheduleAutoSave } = require('./autoSave');
+      markRoomDirty(socket.roomCode);
+      scheduleAutoSave(socket.roomCode);
     }
   } else {
     const existingIndex = roomState.strokes.findIndex(s => s.id === stroke.id);
@@ -159,7 +174,18 @@ function handleDrawUpdate(socket, { stroke, isPreview }) {
         ...stroke,
         timestamp: new Date()
       };
+      
+      // Debug: confirm rotation saved
+      if (roomState.strokes[existingIndex].rotation !== undefined) {
+        console.log(`[draw:update] Stroke updated in memory (array):`, { id: stroke.id, rotation: roomState.strokes[existingIndex].rotation });
+      }
+      
       socket.to(socket.roomCode).emit('draw:update', { stroke });
+      
+      // Mark room dirty for auto-save
+      const { markRoomDirty, scheduleAutoSave } = require('./autoSave');
+      markRoomDirty(socket.roomCode);
+      scheduleAutoSave(socket.roomCode);
     }
   }
 }

@@ -76,9 +76,16 @@ async function handleRoomJoin(socket, io, { roomCode }) {
         
         try {
           const history = await SketchHistory.findOne({ room: room._id })
-            .sort({ version: -1 });
+            .sort({ version: -1 })
+            .lean(); // Use lean() to get plain objects with all fields
           
           console.log(`[room:join] Loading room ${roomCode}, history found:`, history ? `${history.strokes?.length || 0} strokes, version ${history.version}` : 'none');
+          
+          // Debug: log rotated strokes
+          if (history?.strokes) {
+            const rotatedStrokes = history.strokes.filter(s => s.rotation);
+            console.log(`[room:join] Rotated strokes in DB:`, rotatedStrokes.length, rotatedStrokes.map(s => ({ id: s.id, rotation: s.rotation })));
+          }
           
           const initialState = {
             strokes: history?.strokes || [],
@@ -166,7 +173,7 @@ async function handleRoomRestore(socket, io, { version }) {
     const history = await SketchHistory.findOne({
       room: room._id,
       version: version
-    });
+    }).lean();
 
     if (!history) {
       socket.emit('error', { message: 'Snapshot not found' });

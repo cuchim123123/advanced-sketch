@@ -70,6 +70,10 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
 
     // Room state sync
     sock.on('room:state', ({ strokes: roomStrokes, participants: roomParticipants }) => {
+      // Debug: log rotated strokes
+      const rotatedStrokes = (roomStrokes || []).filter(s => s.rotation)
+      console.log('[room:state] Received strokes:', roomStrokes?.length, 'Rotated:', rotatedStrokes.length, rotatedStrokes.map(s => ({ id: s.id, rotation: s.rotation })))
+      
       setStrokes(roomStrokes || [])
       setParticipants(roomParticipants || [])
       setRoomReady(true)
