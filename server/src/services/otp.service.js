@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const OTP = require('../models/OTP');
+const OTP = require('../models/otp.model');
 const { sendMail } = require('../libs/mailer');
 
 const OTP_TTL_MINUTES = Number(process.env.OTP_TTL_MINUTES) || 15;
