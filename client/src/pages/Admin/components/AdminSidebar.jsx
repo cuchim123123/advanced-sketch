@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { LayoutDashboard, Users, Folder, Settings, LogOut, Sparkles, Search, ChevronDown } from 'lucide-react'
-import { useAuthStore } from '@/store/authStore'
+import { useAuthStore } from '@/store'
 
 const AdminSidebar = ({ onNavigate }) => {
   const [showAccountMenu, setShowAccountMenu] = useState(false)

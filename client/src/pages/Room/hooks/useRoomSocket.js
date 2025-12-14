@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useRoomStore } from '@/store/roomStore'
-import { connectSocket, getSocket, disconnectSocket } from '@/services/socket'
+import { useRoomStore } from '@/store'
+import { connectSocket, getSocket, disconnectSocket } from '@/services'
 import { deoptimizeStroke } from '@/utils/strokeOptimization'
 
 /**
@@ -340,7 +340,7 @@ export function useRoomActions({ socket, code, toast, confirm }) {
   const fetchHistory = useCallback(async () => {
     setHistoryLoading(true)
     try {
-      const { default: api } = await import('@/services/api')
+      const { api } = await import('@/services')
       const { data } = await api.get(`/rooms/${code}/history`)
       setHistoryList(data.data.history || [])
     } catch (error) {

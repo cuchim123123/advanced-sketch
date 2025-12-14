@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { useAuthStore } from '@/store/authStore'
+import { useAuthStore } from '@/store'
 import { useToast } from '@/components/Toast'
 import { User, Lock, ArrowLeft, Check, Sparkles, UserCircle, LogIn } from 'lucide-react'
 

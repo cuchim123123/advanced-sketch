@@ -4,11 +4,11 @@
 // =============================================================================
 
 // API service (axios instance)
-export { default as api } from './api'
+export { default as api } from './api.service'
 
 // Socket service
 export { 
   connectSocket, 
   getSocket, 
   disconnectSocket 
-} from './socket'
+} from './socket.service'

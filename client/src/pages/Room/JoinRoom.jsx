@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useRoomStore } from '@/store/roomStore'
-import { useAuthStore } from '@/store/authStore'
+import { useRoomStore, useAuthStore } from '@/store'
 
 export default function JoinRoom() {
   const { code } = useParams()

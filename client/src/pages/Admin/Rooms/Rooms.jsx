@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import api from '@/services/api'
+import { api } from '@/services'
 import { toast } from 'sonner'
 import { RoomCard, RoomModal, SearchBar, Pagination } from './components'
 

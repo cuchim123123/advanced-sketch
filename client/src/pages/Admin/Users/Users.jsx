@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Search, Filter, Edit, Trash2, Eye, Plus, X } from 'lucide-react'
-import api from '@/services/api'
+import { api } from '@/services'
 import { toast } from 'sonner'
 
 const Users = () => {

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import api from '../services/api'
+import api from '../services/api.service'
 
 export const useRoomStore = create((set, get) => ({
   rooms: [],

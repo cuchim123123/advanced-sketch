@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { Sparkles, UserCircle, LogIn, LogOut } from 'lucide-react'
-import { useAuthStore } from '@/store/authStore'
+import { useAuthStore } from '@/store'
 
 export default function DashboardHeader() {
   const { user, logout, isGuest } = useAuthStore()

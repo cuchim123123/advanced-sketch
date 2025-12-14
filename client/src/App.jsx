@@ -1,11 +1,11 @@
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
-import { useAuthStore } from './store/authStore'
+import { useAuthStore } from './store'
 import { ToastProvider } from './components/Toast'
 import { ConfirmProvider } from './components/ConfirmModal'
 import { ErrorBoundary, RouteErrorBoundary } from './components/ErrorBoundary'
 import { Toaster } from 'sonner'
 import { useEffect, useState, Suspense, lazy, useMemo } from 'react'
-import api from './services/api'
+import { api } from './services'
 
 // Lazy load pages for better performance
 const Login = lazy(() => import('./pages/Auth/Login'))

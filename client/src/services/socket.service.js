@@ -1,5 +1,5 @@
 import { io } from 'socket.io-client'
-import { useAuthStore } from '../store/authStore'
+import { useAuthStore } from '../store/auth.store'
 
 let socket = null
 let reconnectTimer = null

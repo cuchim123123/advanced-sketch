@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuthStore } from '@/store/authStore'
+import { useAuthStore } from '@/store'
 import { UserCircle, Loader2 } from 'lucide-react'
 import { AuthLayout, AuthCard, AuthHeader, AuthContent, AuthFooter } from '../common'
 

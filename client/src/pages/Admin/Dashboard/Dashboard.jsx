@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Users, Folder, Activity, TrendingUp } from 'lucide-react'
-import api from '@/services/api'
+import { api } from '@/services'
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState({

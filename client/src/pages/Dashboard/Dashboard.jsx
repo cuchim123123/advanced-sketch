@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuthStore } from '@/store/authStore'
-import { useRoomStore } from '@/store/roomStore'
+import { useAuthStore, useRoomStore } from '@/store'
 import { useToast } from '@/components/Toast'
 import { useConfirm } from '@/components/ConfirmModal'
 import RoomSettingsModal from '@/components/RoomSettingsModal'

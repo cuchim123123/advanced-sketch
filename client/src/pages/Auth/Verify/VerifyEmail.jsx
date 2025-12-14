@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { useAuthStore } from '@/store/authStore'
+import { useAuthStore } from '@/store'
 import { CheckCircle, XCircle, Loader2, ArrowRight, RefreshCw } from 'lucide-react'
 import { AuthLayout, AuthCard } from '../common'
 
