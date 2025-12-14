@@ -19,6 +19,11 @@ import {
   getTransformHandleAtPoint as getTransformHandleUtil
 } from './canvas/utils/hitDetection'
 import { generateCursor } from './canvas/utils/cursor'
+import {
+  getCanvasCoordinates,
+  canvasToScreenCoordinates,
+  isWithinCanvas as isWithinCanvasUtil
+} from './canvas/utils/coordinates'
 import { useCanvasExport } from '../hooks/useCanvasExport'
 import { useCanvasState } from './canvas/hooks/useCanvasState'
 import { useCanvasZoom } from './canvas/hooks/useCanvasZoom'
@@ -224,30 +229,13 @@ export default function Canvas({
   }
 
   const getCoordinates = (e) => {
-    // Use cached rect (updated on scroll/resize) to avoid layout thrashing
     const rect = containerRectCache.current || containerRef.current?.getBoundingClientRect()
-    // Handle both mouse and touch events, including touchend (uses changedTouches)
-    const clientX = e.clientX ?? e.touches?.[0]?.clientX ?? e.changedTouches?.[0]?.clientX ?? 0
-    const clientY = e.clientY ?? e.touches?.[0]?.clientY ?? e.changedTouches?.[0]?.clientY ?? 0
-    
-    // Convert screen coordinates to canvas coordinates (accounting for zoom and pan)
-    const x = (clientX - rect.left - pan.x) / zoom
-    const y = (clientY - rect.top - pan.y) / zoom
-    return { x, y }
+    return getCanvasCoordinates(e, rect, zoom, pan)
   }
   
-  // Check if coordinates are within canvas bounds
-  const isWithinCanvas = (x, y) => {
-    return x >= 0 && x <= CANVAS_WIDTH && y >= 0 && y <= CANVAS_HEIGHT
-  }
+  const isWithinCanvas = (x, y) => isWithinCanvasUtil(x, y)
   
-  // Convert canvas coordinates to screen coordinates (for cursors)
-  const canvasToScreen = (x, y) => {
-    return {
-      x: x * zoom + pan.x,
-      y: y * zoom + pan.y
-    }
-  }
+  const canvasToScreen = (x, y) => canvasToScreenCoordinates(x, y, zoom, pan)
 
   // Hit detection wrapper
   const findStrokeAtPoint = (x, y) => {
