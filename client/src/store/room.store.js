@@ -29,12 +29,13 @@ export const useRoomStore = create((set, get) => ({
     }
   },
 
-  createRoom: async (name, password, maxParticipants) => {
+  createRoom: async (name, options = {}) => {
+    const { isPublic = false, maxParticipants = 10 } = options
     set({ loading: true, error: null })
     try {
       const { data } = await api.post('/rooms', {
         name,
-        password: password || undefined,
+        isPublic,
         maxParticipants
       })
       const newRoom = data.data.room
