@@ -1,10 +1,15 @@
 import { useState, useRef, useEffect } from 'react'
-import { MIN_ZOOM, MAX_ZOOM } from '../constants'
+import { MIN_ZOOM, MAX_ZOOM, TOOLS } from '../constants'
 
 /**
  * Hook to manage canvas zoom and pan
+ * @param {Object} containerRef - Ref to container element
+ * @param {Object} isDrawingRef - Ref to track drawing state
+ * @param {Object} options - Optional { toolRef, disabledRef } for additional checks
  */
-export function useCanvasZoom(containerRef, isDrawingRef) {
+export function useCanvasZoom(containerRef, isDrawingRef, options = {}) {
+  const { toolRef, disabledRef } = options
+  
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [isPanning, setIsPanning] = useState(false)
@@ -17,10 +22,12 @@ export function useCanvasZoom(containerRef, isDrawingRef) {
   const zoomRef = useRef(zoom)
   const panRef = useRef(pan)
   const isPanningRef = useRef(isPanning)
+  const spacePressedRef = useRef(spacePressed)
   
   useEffect(() => { zoomRef.current = zoom }, [zoom])
   useEffect(() => { panRef.current = pan }, [pan])
   useEffect(() => { isPanningRef.current = isPanning }, [isPanning])
+  useEffect(() => { spacePressedRef.current = spacePressed }, [spacePressed])
 
   // Zoom controls
   const handleZoomIn = () => {
@@ -46,6 +53,7 @@ export function useCanvasZoom(containerRef, isDrawingRef) {
 
   // Start panning
   const startPan = (e) => {
+    if (disabledRef?.current) return
     setIsPanning(true)
     lastPanPoint.current = { x: e.clientX, y: e.clientY }
   }
@@ -62,8 +70,11 @@ export function useCanvasZoom(containerRef, isDrawingRef) {
     return false
   }
   
-  // Check if should pan
-  const shouldPan = () => spacePressed
+  // Check if should pan (space pressed or hand tool)
+  const shouldPan = () => {
+    const isHandTool = toolRef?.current === TOOLS.HAND
+    return spacePressedRef.current || isHandTool
+  }
 
   // Attach native wheel/touch events for zoom
   useEffect(() => {
