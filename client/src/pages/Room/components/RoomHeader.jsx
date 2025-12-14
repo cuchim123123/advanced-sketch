@@ -1,4 +1,4 @@
-import { ArrowLeft, Save, Link2, Settings, Users, Sparkles, History } from 'lucide-react'
+import { ArrowLeft, Link2, Settings, Users, Sparkles, History } from 'lucide-react'
 
 /**
  * Room header component with controls
@@ -11,7 +11,6 @@ export default function RoomHeader({
   isOwner,
   showHistory,
   onLeave,
-  onSave,
   onCopyLink,
   onToggleHistory,
   onOpenSettings,
@@ -40,13 +39,6 @@ export default function RoomHeader({
       </div>
 
       <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-        <button
-          onClick={onSave}
-          className="glass-dark-button px-3 py-1.5 text-xs sm:text-sm text-green-300 hover:text-green-200 flex items-center gap-1.5"
-        >
-          <Save className="w-4 h-4" />
-          <span className="hidden sm:inline">Save</span>
-        </button>
         <button
           onClick={onCopyLink}
           className="glass-dark-button px-3 py-1.5 text-xs sm:text-sm text-purple-300 hover:text-purple-200 flex items-center gap-1.5"

@@ -38,9 +38,8 @@ export default function Room() {
     roomReady
   } = useRoomSocket({ code, loaderRoom, toast })
 
-  // Room actions (save, clear, kick, etc.)
+  // Room actions (clear, kick, etc.)
   const {
-    handleSave,
     handleClear,
     handleKick,
     handleRestore,
@@ -89,7 +88,6 @@ export default function Room() {
         isOwner={room?.isOwner}
         showHistory={showHistory}
         onLeave={() => navigate('/dashboard')}
-        onSave={handleSave}
         onCopyLink={copyInviteLink}
         onToggleHistory={toggleHistory}
         onOpenSettings={() => setShowSettings(true)}
@@ -123,7 +121,6 @@ export default function Room() {
             onStrokeAdd={(stroke) => setStrokes(prev => [...prev, stroke])}
             onStrokeUpdate={(stroke) => setStrokes(prev => prev.map(s => s.id === stroke.id ? stroke : s))}
             onClear={handleClear}
-            onSave={handleSave}
             cursors={cursors}
             showCursorNames={showParticipants}
             disabled={false}

@@ -30,6 +30,10 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
   const [cursors, setCursors] = useState({})
   const [connected, setConnected] = useState(false)
   const [roomReady, setRoomReady] = useState(false)
+  
+  // Ref to track roomReady for retry logic (avoids stale closure)
+  const roomReadyRef = useRef(false)
+  roomReadyRef.current = roomReady
 
   // Set room from loader data immediately
   useEffect(() => {
@@ -61,6 +65,7 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
 
     sock.on('disconnect', () => {
       setConnected(false)
+      setRoomReady(false)
     })
 
     // Room state sync
@@ -69,6 +74,25 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
       setParticipants(roomParticipants || [])
       setRoomReady(true)
     })
+
+    // If socket is already connected (e.g., after hot reload), emit join immediately
+    if (sock.connected) {
+      setConnected(true)
+      sock.emit('room:join', { roomCode: code })
+    }
+
+    // Retry join if room:state not received within 5 seconds
+    let retryCount = 0
+    const maxRetries = 3
+    const retryInterval = setInterval(() => {
+      if (sock.connected && !roomReadyRef.current && retryCount < maxRetries) {
+        retryCount++
+        console.log(`[useRoomSocket] Retrying room:join (attempt ${retryCount}/${maxRetries})`)
+        sock.emit('room:join', { roomCode: code })
+      } else {
+        clearInterval(retryInterval)
+      }
+    }, 5000)
 
     // User events
     sock.on('user:joined', (participant) => {
@@ -141,6 +165,17 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
 
     sock.on('draw:erase', ({ strokeId }) => {
       setStrokes(prev => prev.filter(s => s.id !== strokeId))
+      // Also remove from preview strokes if exists
+      setPreviewStrokes(prev => {
+        const updated = { ...prev }
+        // Find and remove preview with matching strokeId
+        Object.keys(updated).forEach(userId => {
+          if (updated[userId]?.id === strokeId) {
+            delete updated[userId]
+          }
+        })
+        return updated
+      })
     })
 
     sock.on('draw:update', ({ stroke }) => {
@@ -157,6 +192,7 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
 
     sock.on('draw:clear', () => {
       setStrokes([])
+      setPreviewStrokes({}) // Also clear preview strokes
     })
 
     // Cursor updates with RAF batching
@@ -185,10 +221,6 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
     })
 
     // Room events
-    sock.on('room:saved', ({ version }) => {
-      toastRef.current.success(`Snapshot saved (v${version})`)
-    })
-
     sock.on('room:restored', ({ strokes: restoredStrokes, version }) => {
       setStrokes(restoredStrokes || [])
       toastRef.current.success(`Restored to version ${version}`)
@@ -208,6 +240,7 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
 
     // Cleanup
     return () => {
+      clearInterval(retryInterval)
       const sock = getSocket()
       if (sock) {
         sock.off('connect')
@@ -221,7 +254,6 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
         sock.off('draw:update')
         sock.off('draw:clear')
         sock.off('cursor:move')
-        sock.off('room:saved')
         sock.off('room:restored')
         sock.off('error')
         sock.off('user:kicked')
@@ -273,15 +305,7 @@ export function useRoomActions({ socket, code, toast, confirm }) {
   const [historyLoading, setHistoryLoading] = useState(false)
   const [settingsLoading, setSettingsLoading] = useState(false)
 
-  const handleSave = useCallback(() => {
-    if (socket) {
-      socket.emit('room:save')
-      toastRef.current.success('Saved!')
-    }
-  }, [socket])
-
   // Note: Auto-save is handled server-side (5s debounce after each change)
-  // Manual save button creates explicit snapshots for version history
 
   const handleClear = useCallback(async () => {
     const confirmed = await confirm({
@@ -360,7 +384,6 @@ export function useRoomActions({ socket, code, toast, confirm }) {
   }, [code])
 
   return {
-    handleSave,
     handleClear,
     handleKick,
     handleRestore,
