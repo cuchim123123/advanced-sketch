@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Users, Folder, Activity, TrendingUp } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { api } from '@/services'
 
 const AdminDashboard = () => {
@@ -10,6 +11,7 @@ const AdminDashboard = () => {
     guestUsers: 0
   })
   const [loading, setLoading] = useState(true)
+  const navigate = useNavigate()
 
   useEffect(() => {
     fetchStats()
@@ -40,37 +42,43 @@ const AdminDashboard = () => {
       title: 'Total Users',
       value: stats.totalUsers,
       icon: Users,
-      gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      gradientClass: 'bg-gradient-to-br from-indigo-500 to-purple-600',
       change: '+12%'
     },
     {
       title: 'Total Rooms',
       value: stats.totalRooms,
       icon: Folder,
-      gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+      gradientClass: 'bg-gradient-to-br from-fuchsia-400 to-rose-500',
       change: '+8%'
     },
     {
       title: 'Active Rooms',
       value: stats.activeRooms,
       icon: Activity,
-      gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+      gradientClass: 'bg-gradient-to-br from-sky-400 to-cyan-300',
       change: '+23%'
     },
     {
       title: 'Guest Users',
       value: stats.guestUsers,
       icon: TrendingUp,
-      gradient: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+      gradientClass: 'bg-gradient-to-br from-emerald-400 to-teal-300',
       change: '+5%'
     }
   ]
 
+  const quickActions = [
+    { label: 'View All Users', route: '/admin/users' },
+    { label: 'View All Rooms', route: '/admin/rooms' },
+    { label: 'System Settings', route: '/admin/settings' }
+  ]
+
   if (loading) {
     return (
-      <div style={{ padding: '2rem', textAlign: 'center' }}>
-        <div className="spinner" style={{ margin: '0 auto' }}></div>
-        <p style={{ color: 'rgba(255, 255, 255, 0.6)', marginTop: '1rem' }}>Loading dashboard...</p>
+      <div className="p-8 text-center">
+        <div className="spinner mx-auto"></div>
+        <p className="text-white/60 mt-4">Loading dashboard...</p>
       </div>
     )
   }
@@ -78,95 +86,37 @@ const AdminDashboard = () => {
   return (
     <div>
       {/* Header */}
-      <div style={{ marginBottom: '2rem' }}>
-        <h1 style={{ 
-          fontSize: '2rem', 
-          fontWeight: '700', 
-          color: 'white',
-          marginBottom: '0.5rem'
-        }}>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-white mb-2">
           Dashboard Overview
         </h1>
-        <p style={{ 
-          fontSize: '1rem', 
-          color: 'rgba(255, 255, 255, 0.6)' 
-        }}>
+        <p className="text-base text-white/60">
           Welcome back! Here's what's happening with your application.
         </p>
       </div>
 
       {/* Stats Grid */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-        gap: '1.5rem',
-        marginBottom: '2rem'
-      }}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-6 mb-8">
         {statCards.map((stat) => {
           const Icon = stat.icon
           return (
             <div
               key={stat.title}
-              style={{
-                background: 'rgba(255, 255, 255, 0.05)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                borderRadius: '16px',
-                padding: '1.5rem',
-                transition: 'all 0.3s',
-                cursor: 'pointer'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-4px)'
-                e.currentTarget.style.boxShadow = '0 12px 28px rgba(0, 0, 0, 0.3)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)'
-                e.currentTarget.style.boxShadow = 'none'
-              }}
+              className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 transition-all duration-300 cursor-pointer hover:-translate-y-1 hover:shadow-[0_12px_28px_rgba(0,0,0,0.3)]"
             >
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'space-between',
-                marginBottom: '1rem'
-              }}>
-                <div style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: '12px',
-                  background: stat.gradient,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <Icon size={24} color="white" />
+              <div className="flex items-center justify-between mb-4">
+                <div className={`w-12 h-12 rounded-xl ${stat.gradientClass} flex items-center justify-center`}>
+                  <Icon size={24} className="text-white" />
                 </div>
-                <span style={{
-                  fontSize: '0.875rem',
-                  fontWeight: '600',
-                  color: '#10b981',
-                  background: 'rgba(16, 185, 129, 0.1)',
-                  padding: '0.25rem 0.75rem',
-                  borderRadius: '20px'
-                }}>
+                <span className="text-sm font-semibold text-emerald-500 bg-emerald-500/10 py-1 px-3 rounded-full">
                   {stat.change}
                 </span>
               </div>
               <div>
-                <p style={{ 
-                  fontSize: '0.875rem', 
-                  color: 'rgba(255, 255, 255, 0.6)',
-                  marginBottom: '0.5rem'
-                }}>
+                <p className="text-sm text-white/60 mb-2">
                   {stat.title}
                 </p>
-                <h2 style={{ 
-                  fontSize: '2rem', 
-                  fontWeight: '700', 
-                  color: 'white',
-                  margin: 0
-                }}>
+                <h2 className="text-3xl font-bold text-white m-0">
                   {stat.value.toLocaleString()}
                 </h2>
               </div>
@@ -176,46 +126,18 @@ const AdminDashboard = () => {
       </div>
 
       {/* Recent Activity */}
-      <div style={{
-        background: 'rgba(255, 255, 255, 0.05)',
-        backdropFilter: 'blur(10px)',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
-        borderRadius: '16px',
-        padding: '1.5rem'
-      }}>
-        <h3 style={{ 
-          fontSize: '1.25rem', 
-          fontWeight: '600', 
-          color: 'white',
-          marginBottom: '1.5rem'
-        }}>
+      <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6">
+        <h3 className="text-xl font-semibold text-white mb-6">
           Quick Actions
         </h3>
-        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-          {['View All Users', 'View All Rooms', 'System Settings'].map((action) => (
+        <div className="flex gap-4 flex-wrap">
+          {quickActions.map((action) => (
             <button
-              key={action}
-              style={{
-                padding: '0.875rem 1.5rem',
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '10px',
-                fontSize: '0.875rem',
-                fontWeight: '600',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.transform = 'scale(1.05)'
-                e.target.style.boxShadow = '0 8px 20px rgba(102, 126, 234, 0.4)'
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.transform = 'scale(1)'
-                e.target.style.boxShadow = 'none'
-              }}
+              key={action.label}
+              onClick={() => navigate(action.route)}
+              className="py-3.5 px-6 bg-gradient-to-br from-indigo-500 to-purple-600 text-white border-none rounded-[10px] text-sm font-semibold cursor-pointer transition-all duration-200 hover:scale-105 hover:shadow-[0_8px_20px_rgba(102,126,234,0.4)]"
             >
-              {action}
+              {action.label}
             </button>
           ))}
         </div>
