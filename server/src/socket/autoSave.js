@@ -75,7 +75,9 @@ async function performAutoSave(roomCode) {
     }
     
     // Get strokes (can be empty array after undo all)
-    const strokes = roomState.strokes || [];
+    // Filter out non-drawing tools (hand, select)
+    const VALID_TOOLS = ['pen', 'eraser', 'line', 'rectangle', 'circle', 'text', 'image', 'arrow', 'diamond', 'triangle'];
+    const strokes = (roomState.strokes || []).filter(s => VALID_TOOLS.includes(s.tool));
     
     // Upsert: update existing or create new
     // Use $set and strict: false to preserve all stroke fields (rotation, etc.)

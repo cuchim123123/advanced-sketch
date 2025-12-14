@@ -202,6 +202,9 @@ export function useCanvas({
 
     const { x, y } = getCoordinates(e)
     
+    // Hand tool - only for panning, no stroke creation
+    if (tool === TOOLS.HAND) return
+    
     // Select tool
     if (tool === TOOLS.SELECT) {
       if (selectedStroke) {
