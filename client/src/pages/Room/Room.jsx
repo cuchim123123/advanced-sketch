@@ -52,7 +52,7 @@ export default function Room() {
     historyList,
     historyLoading,
     settingsLoading
-  } = useRoomActions({ socket, code, toast, confirm, strokes, connected })
+  } = useRoomActions({ socket, code, toast, confirm })
 
   // Settings save wrapper
   const onSaveSettings = async (updates) => {

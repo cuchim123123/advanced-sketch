@@ -261,7 +261,7 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
 /**
  * Custom hook for room actions (save, clear, etc.)
  */
-export function useRoomActions({ socket, code, toast, confirm, strokes, connected }) {
+export function useRoomActions({ socket, code, toast, confirm }) {
   const { updateRoom } = useRoomStore()
   
   // Use ref for toast to avoid callback recreation
@@ -280,22 +280,8 @@ export function useRoomActions({ socket, code, toast, confirm, strokes, connecte
     }
   }, [socket])
 
-  // Auto-save every 2 minutes
-  useEffect(() => {
-    if (!socket || !connected) return
-    
-    let lastSavedStrokeCount = strokes.length
-    
-    const autoSaveInterval = setInterval(() => {
-      if (strokes.length > 0 && strokes.length !== lastSavedStrokeCount) {
-        socket.emit('room:save')
-        lastSavedStrokeCount = strokes.length
-        console.log('Auto-saved')
-      }
-    }, 2 * 60 * 1000)
-    
-    return () => clearInterval(autoSaveInterval)
-  }, [socket, connected, strokes.length])
+  // Note: Auto-save is handled server-side (5s debounce after each change)
+  // Manual save button creates explicit snapshots for version history
 
   const handleClear = useCallback(async () => {
     const confirmed = await confirm({
