@@ -167,6 +167,13 @@ function getRoomGuests(roomCode) {
 }
 
 /**
+ * Get active guest count for a room
+ */
+function getGuestCount(roomCode) {
+  return getRoomGuests(roomCode).length;
+}
+
+/**
  * Clean up guests for a room
  */
 function cleanupRoomGuests(roomCode) {
@@ -193,6 +200,7 @@ module.exports = {
   getGuestParticipant,
   setGuestParticipant,
   getRoomGuests,
+  getGuestCount,
   cleanupRoomGuests,
   // Auto-save helpers
   markRoomDirty,

@@ -1,6 +1,7 @@
 const express = require('express');
 const { Room, SketchHistory, SessionParticipant } = require('../models');
 const { protect, optionalAuth } = require('../middleware/auth.middleware');
+const { getGuestCount } = require('../socket/roomState');
 
 const router = express.Router();
 
@@ -68,20 +69,21 @@ router.get('/', protect, async (req, res) => {
       .sort({ lastActiveAt: -1 })
       .select('name code isPublic maxParticipants lastActiveAt createdAt isActive');
 
-    // Get participant counts for each room
+    // Get participant counts for each room (DB users + in-memory guests)
     const roomsWithCounts = await Promise.all(
       rooms.map(async (room) => {
-        const participantCount = await SessionParticipant.countDocuments({
+        const dbCount = await SessionParticipant.countDocuments({
           room: room._id,
           isActive: true
         });
+        const guestCount = getGuestCount(room.code);
         return {
           id: room._id,
           name: room.name,
           code: room.code,
           isPublic: room.isPublic,
           maxParticipants: room.maxParticipants,
-          participantCount,
+          participantCount: dbCount + guestCount,
           lastActiveAt: room.lastActiveAt,
           createdAt: room.createdAt,
           isOwner: true
@@ -113,13 +115,14 @@ router.get('/public', async (req, res) => {
       .sort({ createdAt: -1 })
       .select('-password');
 
-    // Get participant counts for each room
+    // Get participant counts for each room (DB users + in-memory guests)
     const roomsWithCounts = await Promise.all(
       rooms.map(async (room) => {
-        const participantCount = await SessionParticipant.countDocuments({
+        const dbCount = await SessionParticipant.countDocuments({
           room: room._id,
           isActive: true
         });
+        const guestCount = getGuestCount(room.code);
         return {
           id: room._id,
           name: room.name,
@@ -127,7 +130,7 @@ router.get('/public', async (req, res) => {
           owner: room.owner,
           isPublic: room.isPublic,
           maxParticipants: room.maxParticipants,
-          participantCount,
+          participantCount: dbCount + guestCount,
           createdAt: room.createdAt
         };
       })
