@@ -39,11 +39,11 @@ export default function Dashboard() {
     if (!isGuest) fetchRooms()
     fetchPublicRooms()
     
-    // Auto-refresh room list every 10 seconds for participant count updates
+    // Auto-refresh room list every 5 seconds for participant count updates
     const refreshInterval = setInterval(() => {
       if (!isGuest) fetchRooms()
       fetchPublicRooms()
-    }, 10000)
+    }, 5000)
     
     return () => clearInterval(refreshInterval)
     // eslint-disable-next-line react-hooks/exhaustive-deps
