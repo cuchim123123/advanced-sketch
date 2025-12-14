@@ -307,7 +307,7 @@ async function handleDisconnect(socket) {
       if (totalActive === 0) {
         const roomState = getRoomState(socket.roomCode);
 
-        if (roomState && roomState.strokes.length > 0) {
+        if (roomState && roomState.strokes?.length > 0) {
           await SketchHistory.create({
             room: room._id,
             version: roomState.version + 1,
