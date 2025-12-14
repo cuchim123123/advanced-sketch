@@ -25,7 +25,6 @@ const {
 
 const {
   handleRoomJoin,
-  handleRoomSave,
   handleRoomRestore,
   handleUserKick,
   handleDisconnect,
@@ -77,7 +76,6 @@ module.exports = (io) => {
 
     // Room events
     socket.on('room:join', (data) => handleRoomJoin(socket, io, data));
-    socket.on('room:save', () => handleRoomSave(socket));
     socket.on('room:restore', (data) => handleRoomRestore(socket, io, data));
     
     // Drawing events

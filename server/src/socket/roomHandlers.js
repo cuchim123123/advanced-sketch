@@ -148,49 +148,6 @@ async function handleRoomJoin(socket, io, { roomCode }) {
 }
 
 /**
- * Handle room:save event
- */
-async function handleRoomSave(socket) {
-  if (!socket.roomCode) {
-    console.log('[room:save] No roomCode');
-    return;
-  }
-
-  try {
-    const room = await Room.findOne({ code: socket.roomCode });
-    const roomState = getRoomState(socket.roomCode);
-
-    // Debug: console.log(`[room:save] Room ${socket.roomCode}: room=${!!room}, state=${!!roomState}, strokes=${roomState?.strokes?.length || 0}, version=${roomState?.version}`);
-
-    if (room && roomState) {
-      // Ensure version is a valid number
-      const currentVersion = typeof roomState.version === 'number' && !isNaN(roomState.version) 
-        ? roomState.version 
-        : 0;
-      const newVersion = currentVersion + 1;
-
-      await SketchHistory.create({
-        room: room._id,
-        version: newVersion,
-        strokes: roomState.strokes || [],
-        createdBy: socket.user._id || null
-      });
-
-      roomState.version = newVersion;
-
-      // Debug: console.log(`[room:save] Saved! Version: ${roomState.version}, strokes: ${roomState.strokes?.length || 0}`);
-      socket.emit('room:saved', { version: roomState.version });
-    } else {
-      console.log('[room:save] Missing room or roomState');
-      socket.emit('error', { message: 'Room not found' });
-    }
-  } catch (error) {
-    console.error('Save error:', error);
-    socket.emit('error', { message: 'Failed to save' });
-  }
-}
-
-/**
  * Handle room:restore event
  */
 async function handleRoomRestore(socket, io, { version }) {
@@ -382,7 +339,6 @@ function handleChatSend(socket, io, { message }) {
 
 module.exports = {
   handleRoomJoin,
-  handleRoomSave,
   handleRoomRestore,
   handleUserKick,
   handleDisconnect,
