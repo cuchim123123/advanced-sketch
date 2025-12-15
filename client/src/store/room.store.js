@@ -83,6 +83,20 @@ export const useRoomStore = create((set, get) => ({
     }
   },
 
+  searchRooms: async (searchTerm) => {
+    set({ loading: true, error: null })
+    try {
+      const { data } = await api.get('/rooms/search', {
+        params: { q: searchTerm }
+      })
+      set({ publicRooms: data.data.rooms || [], loading: false })
+      return { success: true, rooms: data.data.rooms }
+    } catch (error) {
+      set({ error: error.response?.data?.message, loading: false })
+      return { success: false, error: error.response?.data?.message }
+    }
+  },
+
   createRoom: async (name, options = {}) => {
     const { isPublic = false, maxParticipants = 10 } = options
     set({ loading: true, error: null })

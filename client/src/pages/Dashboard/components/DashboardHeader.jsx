@@ -34,7 +34,7 @@ export default function DashboardHeader() {
               onClick={() => setShowUserMenu(!showUserMenu)}
               className="glass-button px-4 py-2 flex items-center gap-2"
             >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-sky-400 to-emerald-400 flex items-center justify-center text-sm font-bold text-white">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-sky-300 to-green-300 flex items-center justify-center text-sm font-bold text-white">
                 {isGuest ? <UserCircle className="w-5 h-5" /> : (user?.username?.charAt(0)?.toUpperCase() || 'U')}
               </div>
               <span className="hidden sm:inline">{user?.username}</span>

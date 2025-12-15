@@ -5,7 +5,7 @@ import { useToast } from '@/components/Toast'
 import { useConfirm } from '@/components/ConfirmModal'
 import RoomSettingsModal from '@/components/RoomSettingsModal'
 import { RefreshButton } from '@/components/ui'
-import { Globe, Lock, Plus, LogIn } from 'lucide-react'
+import { Globe, Lock, Plus, LogIn, Search } from 'lucide-react'
 import {
   DashboardHeader,
   GuestBanner,
@@ -25,13 +25,14 @@ export default function Dashboard() {
   const [maxParticipants, setMaxParticipants] = useState(10)
   const [joinCode, setJoinCode] = useState('')
   const [activeTab, setActiveTab] = useState('my')
+  const [searchQuery, setSearchQuery] = useState('')
   
   const toast = useToast()
   const confirm = useConfirm()
   const navigate = useNavigate()
 
   const { isGuest } = useAuthStore()
-  const { rooms, publicRooms, createRoom, joinRoom, deleteRoom, updateRoom, loading, error } = useRoomStore()
+  const { rooms, publicRooms, createRoom, joinRoom, deleteRoom, updateRoom, searchRooms, loading, error } = useRoomStore()
 
   // Smart polling + socket updates for dashboard
   // - Only polls when tab is visible
@@ -82,6 +83,17 @@ export default function Dashboard() {
   const copyInviteLink = (code) => {
     navigator.clipboard.writeText(`${window.location.origin}/join/${code}`)
     toast.success('Invite link copied to clipboard!')
+  }
+
+  const handleSearch = async (e) => {
+    const value = e.target.value
+    setSearchQuery(value)
+    
+    if (value.trim() === '') {
+      manualRefresh()
+    } else {
+      await searchRooms(value)
+    }
   }
 
   const handleUpdateRoom = async (updates) => {
@@ -195,14 +207,29 @@ export default function Dashboard() {
         {/* Public Rooms */}
         {(activeTab === 'public' || isGuest) && (
           <div className="glass-card p-6">
-            <h2 className="text-xl font-semibold mb-4 text-slate-800">Public Rooms</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-slate-800">Public Rooms</h2>
+            </div>
+
+            {/* Search Box */}
+            <div className="relative mb-6">
+              <input
+                type="text"
+                placeholder="Search rooms by name..."
+                value={searchQuery}
+                onChange={handleSearch}
+                className="w-full px-4 py-3 glass-input text-slate-800 placeholder:text-slate-400"
+              />
+            </div>
             
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="w-8 h-8 border-2 border-sky-400 border-t-transparent rounded-full animate-spin" />
               </div>
             ) : publicRooms.length === 0 ? (
-              <p className="text-slate-400 text-center py-8">No public rooms available. Create one to share with everyone!</p>
+              <p className="text-slate-400 text-center py-8">
+                {searchQuery ? 'No rooms found matching your search.' : 'No public rooms available. Create one to share with everyone!'}
+              </p>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {publicRooms.map((room) => (
