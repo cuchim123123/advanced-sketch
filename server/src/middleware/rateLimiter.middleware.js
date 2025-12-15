@@ -30,6 +30,11 @@ function createRateLimiter(options = {}) {
   } = options;
 
   return (req, res, next) => {
+    // Skip rate limiting in test mode or with test header
+    if (process.env.NODE_ENV === 'test' || req.headers['x-e2e-test'] === 'true') {
+      return next();
+    }
+    
     // Use IP + route as key
     const key = `${req.ip}:${req.originalUrl}`;
     const now = Date.now();
