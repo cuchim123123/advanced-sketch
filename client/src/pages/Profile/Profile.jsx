@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '@/store'
 import { useToast } from '@/components/Toast'
-import { User, Lock, ArrowLeft, Check, Sparkles, UserCircle, LogIn } from 'lucide-react'
+import { User, Lock, ArrowLeft, Check, UserPen, UserCircle, LogIn, Upload } from 'lucide-react'
 
 export default function Profile() {
   const navigate = useNavigate()
@@ -14,11 +14,50 @@ export default function Profile() {
   // Profile form
   const [username, setUsername] = useState(user?.username || '')
   const [avatar, setAvatar] = useState(user?.avatar || '')
+  const [uploadingImage, setUploadingImage] = useState(false)
   
   // Password form
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file')
+      return
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size must be less than 5MB')
+      return
+    }
+
+    setUploadingImage(true)
+
+    try {
+      // Convert to base64
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const base64 = event.target.result
+        setAvatar(base64)
+        setUploadingImage(false)
+        toast.success('Image loaded successfully')
+      }
+      reader.onerror = () => {
+        toast.error('Failed to read image')
+        setUploadingImage(false)
+      }
+      reader.readAsDataURL(file)
+    } catch (error) {
+      toast.error('Failed to upload image')
+      setUploadingImage(false)
+    }
+  }
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault()
@@ -93,7 +132,7 @@ export default function Profile() {
             </button>
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-sky-500 to-emerald-500 flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-white" />
+                <UserPen className="w-4 h-4 text-white" />
               </div>
               <h1 className="text-xl font-bold text-slate-800">Account Settings</h1>
             </div>
@@ -156,7 +195,7 @@ export default function Profile() {
           </button>
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-sky-500 to-emerald-500 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-white" />
+              <UserPen className="w-4 h-4 text-white" />
             </div>
             <h1 className="text-xl font-bold text-slate-800">Account Settings</h1>
           </div>
@@ -200,7 +239,7 @@ export default function Profile() {
             
             <form onSubmit={handleUpdateProfile} className="space-y-6">
               {/* Avatar Preview */}
-              <div className="flex items-center gap-6">
+              <div className="flex flex-col items-center gap-3">
                 <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-sky-100 to-emerald-100 flex items-center justify-center text-3xl font-bold text-slate-600 overflow-hidden border-2 border-slate-200 shadow-lg">
                   {avatar ? (
                     <img 
@@ -214,18 +253,19 @@ export default function Profile() {
                     {username?.charAt(0)?.toUpperCase() || 'U'}
                   </span>
                 </div>
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-slate-600 mb-2">
-                    Avatar URL
-                  </label>
+                
+                {/* File Upload Button */}
+                <label className="px-3 py-1.5 bg-sky-500 text-white text-xs rounded-lg hover:bg-sky-600 cursor-pointer transition-all flex items-center gap-1.5 font-medium">
+                  <Upload className="w-3 h-3" />
+                  {uploadingImage ? 'Uploading...' : 'Change Avatar'}
                   <input
-                    type="url"
-                    value={avatar}
-                    onChange={(e) => setAvatar(e.target.value)}
-                    placeholder="https://example.com/avatar.jpg"
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:border-sky-400 focus:ring-2 focus:ring-sky-500/20 outline-none transition-all"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    disabled={uploadingImage}
+                    className="hidden"
                   />
-                </div>
+                </label>
               </div>
 
               {/* Username */}

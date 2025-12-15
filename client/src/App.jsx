@@ -11,6 +11,7 @@ import { api } from './services'
 const Login = lazy(() => import('./pages/Auth/Login'))
 const Signup = lazy(() => import('./pages/Auth/Signup'))
 const VerifyEmail = lazy(() => import('./pages/Auth/Verify/VerifyEmail'))
+const VerifyEmailPrompt = lazy(() => import('./pages/Auth/VerifyEmailPrompt'))
 const ForgotPassword = lazy(() => import('./pages/Auth/Password/ForgotPassword'))
 const ResetPassword = lazy(() => import('./pages/Auth/Password/ResetPassword'))
 const Dashboard = lazy(() => import('./pages/Dashboard/Dashboard'))
@@ -115,6 +116,10 @@ function HydratedApp() {
         {
           path: '/verify-email',
           element: <Suspense fallback={<PageLoader />}><VerifyEmail /></Suspense>
+        },
+        {
+          path: '/verify-email-prompt',
+          element: <Suspense fallback={<PageLoader />}><VerifyEmailPrompt /></Suspense>
         },
         {
           path: '/forgot-password',

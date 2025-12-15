@@ -5,7 +5,7 @@ export function MyRoomCard({ room, onEdit, onDelete, onCopyLink }) {
   const navigate = useNavigate()
 
   return (
-    <div className="glass rounded-xl p-4 hover:bg-slate-50 transition-all duration-300 group">
+    <div className="glass p-4 hover:bg-slate-50 transition-all duration-300 group border-2 border-slate-200 shadow-md hover:shadow-lg">
       <div className="flex justify-between items-start mb-2">
         <h3 className="font-semibold text-lg text-slate-800">{room.name}</h3>
         <div className="flex gap-1 items-center">
@@ -28,8 +28,8 @@ export function MyRoomCard({ room, onEdit, onDelete, onCopyLink }) {
       <div className="flex gap-2">
         <button
           onClick={() => navigate(`/room/${room.code}`)}
-          className="flex-1 px-3 py-2 bg-gradient-to-r from-sky-500 to-emerald-500 text-white text-sm rounded-lg 
-                   hover:from-sky-600 hover:to-emerald-600 transition-all duration-300"
+          className="flex-1 px-3 py-2 bg-gradient-to-r from-sky-500 to-sky-600 text-white text-sm
+                   hover:from-sky-600 hover:to-sky-700 transition-all duration-300"
         >
           Enter
         </button>
@@ -64,7 +64,7 @@ export function PublicRoomCard({ room }) {
   const navigate = useNavigate()
 
   return (
-    <div className="glass rounded-xl p-4 hover:bg-slate-50 transition-all duration-300 group">
+    <div className="glass p-4 hover:bg-slate-50 transition-all duration-300 group border-2 border-slate-200 shadow-md hover:shadow-lg">
       <div className="flex justify-between items-start mb-2">
         <h3 className="font-semibold text-lg text-slate-800">{room.name}</h3>
         <div className="flex gap-1 items-center">
@@ -80,8 +80,8 @@ export function PublicRoomCard({ room }) {
       <p className="text-xs text-slate-400 mb-4 font-mono">Code: {room.code}</p>
       <button
         onClick={() => navigate(`/room/${room.code}`)}
-        className="w-full px-3 py-2 bg-gradient-to-r from-sky-500 to-blue-500 text-white text-sm rounded-lg 
-                 hover:from-sky-600 hover:to-blue-600 transition-all duration-300"
+        className="w-full px-3 py-2 bg-gradient-to-r from-sky-500 to-sky-600 text-white text-sm
+                 hover:from-sky-600 hover:to-sky-700 transition-all duration-300"
       >
         Join Room
       </button>

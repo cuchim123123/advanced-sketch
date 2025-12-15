@@ -46,27 +46,11 @@ export const COLORS = [
 ]
 
 // Canvas dimensions
-export const CANVAS_WIDTH = 1920
-export const CANVAS_HEIGHT = 1080
+export const CANVAS_WIDTH = 1600
+export const CANVAS_HEIGHT = 900
 export const MIN_ZOOM = 0.25
 export const MAX_ZOOM = 4
 
 // Throttle settings
 export const EMIT_THROTTLE = 50 // ms between socket emits
 export const CURSOR_THROTTLE = 33 // ~30fps for cursor updates
-
-// Tool icons for cursor overlay
-export const TOOL_ICONS = {
-  [TOOLS.PEN]: '✏️',
-  [TOOLS.ERASER]: '🧹',
-  [TOOLS.SELECT]: '👆',
-  [TOOLS.LINE]: '📏',
-  [TOOLS.RECTANGLE]: '⬜',
-  [TOOLS.CIRCLE]: '⭕',
-  [TOOLS.TRIANGLE]: '🔺',
-  [TOOLS.ARROW]: '➡️',
-  [TOOLS.DIAMOND]: '🔷',
-  [TOOLS.TEXT]: '🔤',
-  [TOOLS.IMAGE]: '🖼️',
-  [TOOLS.HAND]: '✋'
-}

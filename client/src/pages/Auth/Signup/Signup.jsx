@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { API_BASE_URL } from '@/services/config'
@@ -8,7 +8,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { Eye, EyeOff, Check, X, CheckCircle2, Mail } from 'lucide-react'
+import { Eye, EyeOff, Check, X, CheckCircle2, Mail, Loader2 } from 'lucide-react'
 import { LoadingSpinner } from '@/components/common'
 
 const Signup = () => {
@@ -29,6 +29,8 @@ const Signup = () => {
   
   const [errors, setErrors] = useState({})
   const [touched, setTouched] = useState({})
+  const [checking, setChecking] = useState({ username: false, email: false })
+  const [availability, setAvailability] = useState({ username: null, email: null })
 
   // Redirect if already logged in
   useEffect(() => {
@@ -65,6 +67,11 @@ const Signup = () => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
     
+    // Reset availability when field changes
+    if (name === 'username' || name === 'email') {
+      setAvailability(prev => ({ ...prev, [name]: null }))
+    }
+    
     if (touched[name]) {
       const error = validateField(name, value)
       setErrors(prev => ({ ...prev, [name]: error }))
@@ -77,11 +84,43 @@ const Signup = () => {
     }
   }
 
+  // Check availability with API
+  const checkAvailability = useCallback(async (field, value) => {
+    if (!value || (field === 'username' && value.length < 3) || 
+        (field === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))) {
+      return
+    }
+
+    setChecking(prev => ({ ...prev, [field]: true }))
+    
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/check-availability?${field}=${encodeURIComponent(value)}`)
+      const data = await res.json()
+      
+      if (data.success && data.data[field]) {
+        setAvailability(prev => ({ ...prev, [field]: data.data[field] }))
+        
+        if (!data.data[field].available) {
+          setErrors(prev => ({ ...prev, [field]: data.data[field].message }))
+        }
+      }
+    } catch (err) {
+      console.error(`Check ${field} availability error:`, err)
+    } finally {
+      setChecking(prev => ({ ...prev, [field]: false }))
+    }
+  }, [])
+
   const handleBlur = (e) => {
     const { name, value } = e.target
     setTouched(prev => ({ ...prev, [name]: true }))
     const error = validateField(name, value)
     setErrors(prev => ({ ...prev, [name]: error }))
+    
+    // Check availability for username and email
+    if ((name === 'username' || name === 'email') && !error) {
+      checkAvailability(name, value.trim())
+    }
   }
 
   const handleSubmit = async (e) => {
@@ -222,10 +261,22 @@ const Signup = () => {
                 }`}
                 required
               />
-              {touched.username && errors.username && (
+              {checking.username && (
+                <p className="text-xs text-slate-500 flex items-center gap-1">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Checking availability...
+                </p>
+              )}
+              {touched.username && errors.username && !checking.username && (
                 <p className="text-xs text-red-500 flex items-center gap-1">
                   <X className="w-3 h-3" />
                   {errors.username}
+                </p>
+              )}
+              {touched.username && !errors.username && availability.username?.available && !checking.username && (
+                <p className="text-xs text-green-600 flex items-center gap-1">
+                  <Check className="w-3 h-3" />
+                  Username is available
                 </p>
               )}
             </div>
@@ -248,10 +299,22 @@ const Signup = () => {
                 }`}
                 required
               />
-              {touched.email && errors.email && (
+              {checking.email && (
+                <p className="text-xs text-slate-500 flex items-center gap-1">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Checking availability...
+                </p>
+              )}
+              {touched.email && errors.email && !checking.email && (
                 <p className="text-xs text-red-500 flex items-center gap-1">
                   <X className="w-3 h-3" />
                   {errors.email}
+                </p>
+              )}
+              {touched.email && !errors.email && availability.email?.available && !checking.email && (
+                <p className="text-xs text-green-600 flex items-center gap-1">
+                  <Check className="w-3 h-3" />
+                  Email is available
                 </p>
               )}
             </div>

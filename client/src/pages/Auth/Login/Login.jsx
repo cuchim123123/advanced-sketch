@@ -46,6 +46,14 @@ const Login = () => {
 
       const data = await res.json()
 
+      // Check if email verification is required
+      if (res.status === 403 && data.requiresVerification) {
+        // Redirect to verify-email-prompt page
+        navigate(`/verify-email-prompt?email=${encodeURIComponent(emailOrPhoneOrUsername)}`)
+        setLoading(false)
+        return
+      }
+
       if (!res.ok) {
         throw new Error(data.message || "Login failed")
       }

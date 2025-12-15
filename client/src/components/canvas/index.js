@@ -33,8 +33,7 @@ export {
   MIN_ZOOM, 
   MAX_ZOOM, 
   EMIT_THROTTLE, 
-  CURSOR_THROTTLE, 
-  TOOL_ICONS 
+  CURSOR_THROTTLE
 } from './constants'
 
 // Stroke renderer utilities

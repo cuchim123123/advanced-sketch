@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Users, Folder, Settings, LogOut, Sparkles, Search, ChevronDown } from 'lucide-react'
+import { LayoutDashboard, Users, Folder, Settings, LogOut, ShieldUser, Search, ChevronDown } from 'lucide-react'
 import { useAuthStore } from '@/store'
 
 const AdminSidebar = ({ onNavigate }) => {
@@ -43,8 +43,8 @@ const AdminSidebar = ({ onNavigate }) => {
       {/* Header */}
       <div className="px-6 pt-6 pb-4">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-            <Sparkles size={24} className="text-white" />
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-green-500 flex items-center justify-center shadow-lg transition-all duration-300 hover:from-emerald-600 hover:to-green-600 hover:shadow-xl hover:-translate-y-0.5">
+            <ShieldUser size={24} className="text-white" />
           </div>
           <div>
             <h1 className="text-xl font-bold text-white m-0">Admin Panel</h1>

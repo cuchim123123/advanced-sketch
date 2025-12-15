@@ -12,7 +12,7 @@ export default function GuestBanner() {
       </div>
       <Link
         to="/register"
-        className="px-4 py-2 bg-gradient-to-r from-sky-500 to-emerald-500 text-white rounded-lg hover:from-sky-600 hover:to-emerald-600 font-medium text-sm shadow-lg transition-all"
+        className="px-4 py-2 bg-gradient-to-r from-sky-500 to-sky-600 text-white rounded-lg hover:from-sky-600 hover:to-sky-700 font-medium text-sm shadow-lg transition-all"
       >
         Create Account
       </Link>

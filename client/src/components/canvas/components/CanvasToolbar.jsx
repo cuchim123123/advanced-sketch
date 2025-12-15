@@ -1,7 +1,8 @@
 import { memo } from 'react'
 import { Dropdown, DropdownItem, DropdownSeparator } from '../../ui/dropdown'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, BrushCleaning, Download, Undo, Redo } from 'lucide-react'
 import { TOOLS, COLORS, SHAPE_TOOLS } from '../constants'
+import { ToolIcon } from './ToolIcon'
 
 /**
  * Canvas toolbar with tools, colors, and actions
@@ -50,28 +51,28 @@ const CanvasToolbar = memo(function CanvasToolbar({
           className={toolButtonClass(tool === TOOLS.SELECT)}
           title="Select/Move (V)"
         >
-          👆
+          <ToolIcon tool={TOOLS.SELECT} size={18} />
         </button>
         <button
           onClick={() => handleToolChange(TOOLS.PEN)}
           className={toolButtonClass(tool === TOOLS.PEN)}
           title="Pen (P)"
         >
-          ✏️
+          <ToolIcon tool={TOOLS.PEN} size={18} />
         </button>
         <button
           onClick={() => handleToolChange(TOOLS.ERASER)}
           className={toolButtonClass(tool === TOOLS.ERASER)}
           title="Eraser (E)"
         >
-          🧹
+          <ToolIcon tool={TOOLS.ERASER} size={18} />
         </button>
         <button
           onClick={() => handleToolChange(TOOLS.HAND)}
           className={toolButtonClass(tool === TOOLS.HAND)}
           title="Hand (H)"
         >
-          ✋
+          <ToolIcon tool={TOOLS.HAND} size={18} />
         </button>
       </div>
 
@@ -85,14 +86,14 @@ const CanvasToolbar = memo(function CanvasToolbar({
           className={toolButtonClass(tool === TOOLS.TEXT)}
           title="Text (T)"
         >
-          🔤
+          <ToolIcon tool={TOOLS.TEXT} size={18} />
         </button>
         <button
           onClick={() => handleToolChange(TOOLS.IMAGE)}
           className={toolButtonClass(tool === TOOLS.IMAGE)}
           title="Image (I)"
         >
-          🖼️
+          <ToolIcon tool={TOOLS.IMAGE} size={18} />
         </button>
       </div>
 
@@ -154,21 +155,21 @@ const CanvasToolbar = memo(function CanvasToolbar({
           className="glass-button px-3 py-2 text-sm"
           title="Undo (Ctrl+Z)"
         >
-          ↩️
+          <Undo size={16} />
         </button>
         <button
           onClick={onRedo}
           className="glass-button px-3 py-2 text-sm"
           title="Redo (Ctrl+Y)"
         >
-          ↪️
+          <Redo size={16} />
         </button>
         <button
           onClick={onClear}
           className="px-3 py-2 text-sm bg-red-100 text-red-600 rounded-xl border border-red-200 hover:bg-red-200 transition-all duration-200"
           title="Clear All"
         >
-          🗑️
+          <BrushCleaning size={16} />
         </button>
 
         {/* Export Dropdown */}
@@ -178,19 +179,19 @@ const CanvasToolbar = memo(function CanvasToolbar({
               className="px-3 py-2 text-sm bg-emerald-100 text-emerald-600 rounded-xl border border-emerald-200 hover:bg-emerald-200 transition-all duration-200 flex items-center gap-1"
               title="Export"
             >
-              📥 <ChevronDown className="w-3 h-3" />
+              <Download size={16} /> <ChevronDown className="w-3 h-3" />
             </button>
           }
         >
           <DropdownItem onClick={() => onExport('png')}>
-            <span className="flex items-center gap-2">🖼️ Export as PNG</span>
+            <span className="flex items-center gap-2">Export as PNG</span>
           </DropdownItem>
           <DropdownItem onClick={() => onExport('svg')}>
-            <span className="flex items-center gap-2">📐 Export as SVG</span>
+            <span className="flex items-center gap-2">Export as SVG</span>
           </DropdownItem>
           <DropdownSeparator />
           <DropdownItem onClick={() => onExport('pdf')}>
-            <span className="flex items-center gap-2">📄 Export as PDF</span>
+            <span className="flex items-center gap-2">Export as PDF</span>
           </DropdownItem>
         </Dropdown>
       </div>
@@ -233,15 +234,7 @@ function ShapesDropdown({ tool, setTool }) {
   const isShapeTool = SHAPE_TOOLS.includes(tool)
   
   const getShapeIcon = () => {
-    switch (tool) {
-      case TOOLS.LINE: return '📏'
-      case TOOLS.RECTANGLE: return '⬜'
-      case TOOLS.CIRCLE: return '⭕'
-      case TOOLS.TRIANGLE: return '🔺'
-      case TOOLS.ARROW: return '➡️'
-      case TOOLS.DIAMOND: return '🔷'
-      default: return '⬜'
-    }
+    return <ToolIcon tool={tool} size={18} />
   }
 
   return (
@@ -262,28 +255,28 @@ function ShapesDropdown({ tool, setTool }) {
     >
       <DropdownItem onClick={() => setTool(TOOLS.LINE)} active={tool === TOOLS.LINE}>
         <span className="flex items-center gap-2">
-          📏 Line <span className="text-xs text-gray-400 ml-auto">L</span>
+          <ToolIcon tool={TOOLS.LINE} size={16} /> Line <span className="text-xs text-gray-400 ml-auto">L</span>
         </span>
       </DropdownItem>
       <DropdownItem onClick={() => setTool(TOOLS.RECTANGLE)} active={tool === TOOLS.RECTANGLE}>
         <span className="flex items-center gap-2">
-          ⬜ Rectangle <span className="text-xs text-gray-400 ml-auto">R</span>
+          <ToolIcon tool={TOOLS.RECTANGLE} size={16} /> Rectangle <span className="text-xs text-gray-400 ml-auto">R</span>
         </span>
       </DropdownItem>
       <DropdownItem onClick={() => setTool(TOOLS.CIRCLE)} active={tool === TOOLS.CIRCLE}>
         <span className="flex items-center gap-2">
-          ⭕ Circle <span className="text-xs text-gray-400 ml-auto">C</span>
+          <ToolIcon tool={TOOLS.CIRCLE} size={16} /> Circle <span className="text-xs text-gray-400 ml-auto">C</span>
         </span>
       </DropdownItem>
       <DropdownSeparator />
       <DropdownItem onClick={() => setTool(TOOLS.TRIANGLE)} active={tool === TOOLS.TRIANGLE}>
-        <span className="flex items-center gap-2">🔺 Triangle</span>
+        <span className="flex items-center gap-2"><ToolIcon tool={TOOLS.TRIANGLE} size={16} /> Triangle</span>
       </DropdownItem>
       <DropdownItem onClick={() => setTool(TOOLS.ARROW)} active={tool === TOOLS.ARROW}>
-        <span className="flex items-center gap-2">➡️ Arrow</span>
+        <span className="flex items-center gap-2"><ToolIcon tool={TOOLS.ARROW} size={16} /> Arrow</span>
       </DropdownItem>
       <DropdownItem onClick={() => setTool(TOOLS.DIAMOND)} active={tool === TOOLS.DIAMOND}>
-        <span className="flex items-center gap-2">🔷 Diamond</span>
+        <span className="flex items-center gap-2"><ToolIcon tool={TOOLS.DIAMOND} size={16} /> Diamond</span>
       </DropdownItem>
     </Dropdown>
   )

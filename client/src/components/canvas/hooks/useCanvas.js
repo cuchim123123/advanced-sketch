@@ -654,6 +654,7 @@ export function useCanvas({
     const now = Date.now()
     if (socket?.connected && now - refs.lastTransformEmit.current > 50) {
       socket.emit('draw:update', { stroke: updatedStroke, isPreview: true })
+      socket.emit('cursor:move', { x, y, tool })
       refs.lastTransformEmit.current = now
     }
   }, [transformMode, redrawWithStrokes, socket])
@@ -683,9 +684,10 @@ export function useCanvas({
     const now = Date.now()
     if (socket?.connected && now - refs.lastTransformEmit.current > 50) {
       socket.emit('draw:update', { stroke: updatedStroke, isPreview: true })
+      socket.emit('cursor:move', { x, y, tool })
       refs.lastTransformEmit.current = now
     }
-  }, [socket, redrawWithStrokes])
+  }, [socket, redrawWithStrokes, tool])
 
   // ========== MOUSE HANDLERS ==========
   const handleMouseMove = useCallback((e) => {

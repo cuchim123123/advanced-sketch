@@ -112,8 +112,8 @@ export default function Dashboard() {
           {!isGuest && (
             <button
               onClick={() => setShowCreateModal(true)}
-              className="px-6 py-3 bg-gradient-to-r from-sky-500 to-emerald-500 text-white rounded-xl font-semibold 
-                       hover:from-sky-600 hover:to-emerald-600 transition-all duration-300 shadow-lg hover:shadow-xl
+              className="px-6 py-3 bg-gradient-to-r from-sky-500 to-sky-600 text-white rounded-xl font-semibold 
+                       hover:from-sky-600 hover:to-sky-700 transition-all duration-300 shadow-lg hover:shadow-xl
                        hover:scale-105 active:scale-95 flex items-center gap-2 glow-purple"
             >
               <Plus className="w-5 h-5" />
@@ -136,7 +136,7 @@ export default function Dashboard() {
               onClick={() => setActiveTab('my')}
               className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 flex items-center gap-2 ${
                 activeTab === 'my'
-                  ? 'bg-gradient-to-r from-sky-500 to-emerald-500 text-white shadow-lg glow-purple'
+                  ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg glow-purple'
                   : 'glass-button'
               }`}
             >
@@ -148,7 +148,7 @@ export default function Dashboard() {
             onClick={() => setActiveTab('public')}
             className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 flex items-center gap-2 ${
               activeTab === 'public' || isGuest
-                ? 'bg-gradient-to-r from-sky-500 to-blue-500 text-white shadow-lg glow-cyan'
+                ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg glow-cyan'
                 : 'glass-button'
             }`}
           >

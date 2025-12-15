@@ -174,6 +174,20 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
       }
     })
 
+    sock.on('draw:complete', ({ strokeId }) => {
+      // Remove preview stroke when drawing is complete
+      setPreviewStrokes(prev => {
+        const updated = { ...prev }
+        // Find and remove preview with matching strokeId
+        Object.keys(updated).forEach(userId => {
+          if (updated[userId]?.id === strokeId) {
+            delete updated[userId]
+          }
+        })
+        return updated
+      })
+    })
+
     sock.on('draw:erase', ({ strokeId }) => {
       setStrokes(prev => prev.filter(s => s.id !== strokeId))
       // Also remove from preview strokes if exists

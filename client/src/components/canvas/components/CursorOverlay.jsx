@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { TOOL_ICONS } from '../constants'
+import { ToolIcon } from './ToolIcon'
 
 /**
  * Overlay showing other users' cursors
@@ -13,7 +13,6 @@ const CursorOverlay = memo(function CursorOverlay({
     <>
       {Object.entries(cursors).map(([userId, cursor]) => {
         const screenPos = canvasToScreen(cursor.x, cursor.y)
-        const toolIcon = TOOL_ICONS[cursor.tool] || '✏️'
 
         return (
           <div
@@ -35,7 +34,7 @@ const CursorOverlay = memo(function CursorOverlay({
               className="absolute -top-5 -right-5 w-6 h-6 flex items-center justify-center text-xs rounded-full border-2 border-white shadow-md"
               style={{ backgroundColor: cursor.color }}
             >
-              {toolIcon}
+              <ToolIcon tool={cursor.tool} size={14} className="text-white" />
             </div>
 
             {/* Username label */}
