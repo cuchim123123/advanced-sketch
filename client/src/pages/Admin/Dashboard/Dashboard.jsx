@@ -42,28 +42,28 @@ const AdminDashboard = () => {
       title: 'Total Users',
       value: stats.totalUsers,
       icon: Users,
-      gradientClass: 'bg-gradient-to-br from-indigo-500 to-purple-600',
+      gradientClass: 'bg-gradient-to-br from-slate-600 to-slate-700',
       change: '+12%'
     },
     {
       title: 'Total Rooms',
       value: stats.totalRooms,
       icon: Folder,
-      gradientClass: 'bg-gradient-to-br from-fuchsia-400 to-rose-500',
+      gradientClass: 'bg-gradient-to-br from-slate-600 to-slate-700',
       change: '+8%'
     },
     {
       title: 'Active Rooms',
       value: stats.activeRooms,
       icon: Activity,
-      gradientClass: 'bg-gradient-to-br from-sky-400 to-cyan-300',
+      gradientClass: 'bg-gradient-to-br from-slate-600 to-slate-700',
       change: '+23%'
     },
     {
       title: 'Guest Users',
       value: stats.guestUsers,
       icon: TrendingUp,
-      gradientClass: 'bg-gradient-to-br from-emerald-400 to-teal-300',
+      gradientClass: 'bg-gradient-to-br from-slate-600 to-slate-700',
       change: '+5%'
     }
   ]
@@ -135,7 +135,7 @@ const AdminDashboard = () => {
             <button
               key={action.label}
               onClick={() => navigate(action.route)}
-              className="py-3.5 px-6 bg-gradient-to-br from-indigo-500 to-purple-600 text-white border-none rounded-[10px] text-sm font-semibold cursor-pointer transition-all duration-200 hover:scale-105 hover:shadow-[0_8px_20px_rgba(102,126,234,0.4)]"
+              className="py-3.5 px-6 bg-gradient-to-br from-slate-700 to-slate-800 text-white border border-slate-600 rounded-[10px] text-sm font-semibold cursor-pointer transition-all duration-200 hover:scale-105 hover:shadow-[0_8px_20px_rgba(51,65,85,0.4)] hover:from-slate-600 hover:to-slate-700"
             >
               {action.label}
             </button>

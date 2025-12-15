@@ -6,7 +6,7 @@ export const AuthLayout = ({ children }) => {
   const navigate = useNavigate()
 
   return (
-    <div className="flex items-center justify-center min-h-screen py-4 sm:py-8 px-4 animated-gradient relative overflow-y-auto">
+    <div className="flex items-center justify-center min-h-screen py-4 sm:py-8 px-4 animated-gradient relative overflow-x-hidden overflow-y-auto">
       {/* Decorative orbs */}
       <div className="absolute top-20 -left-20 w-72 h-72 bg-sky-300 rounded-full blur-3xl opacity-20"></div>
       <div className="absolute bottom-20 -right-20 w-72 h-72 bg-emerald-300 rounded-full blur-3xl opacity-20"></div>

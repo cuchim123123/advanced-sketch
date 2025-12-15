@@ -105,7 +105,7 @@ export const useAuthStore = create(
       updateProfile: async (updates) => {
         set({ loading: true, error: null })
         try {
-          const { data } = await api.patch('/auth/profile', updates)
+          const { data } = await api.put('/auth/profile', updates)
           set((state) => ({
             user: { ...state.user, ...data.data.user },
             loading: false

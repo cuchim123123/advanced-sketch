@@ -240,7 +240,7 @@ export default function Profile() {
             <form onSubmit={handleUpdateProfile} className="space-y-6">
               {/* Avatar Preview */}
               <div className="flex flex-col items-center gap-3">
-                <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-sky-100 to-emerald-100 flex items-center justify-center text-3xl font-bold text-slate-600 overflow-hidden border-2 border-slate-200 shadow-lg">
+                <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-sky-50 to-green-100 flex items-center justify-center text-3xl font-bold text-slate-600 overflow-hidden border-2 border-slate-200 shadow-lg">
                   {avatar ? (
                     <img 
                       src={avatar} 

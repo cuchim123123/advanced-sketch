@@ -8,28 +8,28 @@ const toastStyles = {
     bg: 'bg-green-500/20 backdrop-blur-xl border-green-500/30',
     icon: '✓',
     iconBg: 'bg-gradient-to-r from-green-400 to-emerald-500',
-    text: 'text-green-200',
+    text: 'text-white',
     progress: 'bg-gradient-to-r from-green-400 to-emerald-500'
   },
   error: {
     bg: 'bg-red-500/20 backdrop-blur-xl border-red-500/30',
     icon: '✕',
     iconBg: 'bg-gradient-to-r from-red-400 to-rose-500',
-    text: 'text-red-200',
+    text: 'text-white',
     progress: 'bg-gradient-to-r from-red-400 to-rose-500'
   },
   warning: {
     bg: 'bg-amber-500/20 backdrop-blur-xl border-amber-500/30',
     icon: '⚠',
     iconBg: 'bg-gradient-to-r from-amber-400 to-orange-500',
-    text: 'text-amber-200',
+    text: 'text-white',
     progress: 'bg-gradient-to-r from-amber-400 to-orange-500'
   },
   info: {
     bg: 'bg-blue-500/20 backdrop-blur-xl border-blue-500/30',
     icon: 'ℹ',
     iconBg: 'bg-gradient-to-r from-blue-400 to-cyan-500',
-    text: 'text-blue-200',
+    text: 'text-white',
     progress: 'bg-gradient-to-r from-blue-400 to-cyan-500'
   }
 }

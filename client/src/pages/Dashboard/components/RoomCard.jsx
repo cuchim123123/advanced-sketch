@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Globe, Lock, Users, Settings } from 'lucide-react'
+import { Globe, Lock, Users, Settings, Share2, Trash } from 'lucide-react'
 
 export function MyRoomCard({ room, onEdit, onDelete, onCopyLink }) {
   const navigate = useNavigate()
@@ -45,15 +45,15 @@ export function MyRoomCard({ room, onEdit, onDelete, onCopyLink }) {
           className="px-3 py-2 glass-button text-sm"
           title="Copy invite link"
         >
-          📋
+          <Share2 className="w-4 h-4" />
         </button>
         <button
           onClick={() => onDelete(room.code)}
-          className="px-3 py-2 bg-red-500/20 text-red-300 text-sm rounded-xl hover:bg-red-500/30 
+          className="px-3 py-2 bg-red-500/20 text-red-600 text-sm rounded-xl hover:bg-red-500/30 
                    border border-red-500/30 transition-all duration-300"
           title="Delete room"
         >
-          🗑️
+          <Trash className="w-4 h-4" />
         </button>
       </div>
     </div>
