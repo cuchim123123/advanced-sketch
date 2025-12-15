@@ -1,302 +1,559 @@
-# CoPad - Software Requirements Specification (SRS)
+# Software Requirements Specification (SRS)
+## Collaborative Sketch - Real-time Whiteboard Application
 
-**Version:** 1.0  
-**Date:** December 15, 2024  
-**Document Type:** Software Requirements Specification  
-**Project:** CoPad - Collaborative Sketching Platform
+**Document Standard:** IEEE 830-1998  
+**Version:** 2.0  
+**Date:** December 15, 2025  
+**Status:** Approved  
+**Project:** Collaborative Sketch  
+**Classification:** Internal Use
+
+---
+
+## Revision History
+
+| Version | Date | Author | Description |
+|---------|------|--------|-------------|
+| 1.0 | 2024-12-15 | Dev Team | Initial specification derived from codebase |
+| 2.0 | 2025-12-15 | Dev Team | Updated to IEEE 830 standard, validated against implementation |
 
 ---
 
 ## Table of Contents
 
 1. [Introduction](#1-introduction)
-2. [System Overview](#2-system-overview)
-3. [User Roles](#3-user-roles)
-4. [Functional Requirements](#4-functional-requirements)
+   - 1.1 [Purpose](#11-purpose)
+   - 1.2 [Document Conventions](#12-document-conventions)
+   - 1.3 [Intended Audience](#13-intended-audience)
+   - 1.4 [Product Scope](#14-product-scope)
+   - 1.5 [References](#15-references)
+2. [Overall Description](#2-overall-description)
+   - 2.1 [Product Perspective](#21-product-perspective)
+   - 2.2 [Product Functions](#22-product-functions)
+   - 2.3 [User Classes and Characteristics](#23-user-classes-and-characteristics)
+   - 2.4 [Operating Environment](#24-operating-environment)
+   - 2.5 [Design and Implementation Constraints](#25-design-and-implementation-constraints)
+   - 2.6 [Assumptions and Dependencies](#26-assumptions-and-dependencies)
+3. [System Features](#3-system-features)
+4. [External Interface Requirements](#4-external-interface-requirements)
 5. [Non-Functional Requirements](#5-non-functional-requirements)
-6. [Data Models](#6-data-models)
-7. [API Specification](#7-api-specification)
-8. [Socket.IO Events Specification](#8-socketio-events-specification)
-9. [Security Requirements](#9-security-requirements)
-10. [Test Coverage Matrix](#10-test-coverage-matrix)
-11. [Appendix](#11-appendix)
+6. [Other Requirements](#6-other-requirements)
+7. [Appendix](#7-appendix)
 
 ---
 
 ## 1. Introduction
 
 ### 1.1 Purpose
-This document specifies the complete functional and non-functional requirements for **CoPad**, a real-time collaborative sketching platform. It serves as the authoritative reference for development, testing, and validation.
 
-### 1.2 Scope
-CoPad enables multiple users to:
-- Create and manage collaborative drawing rooms
-- Draw simultaneously with real-time synchronization
-- Communicate via in-room chat
-- Export drawings in multiple formats
+This Software Requirements Specification (SRS) document provides a complete description of the requirements for the **Collaborative Sketch** platform. It defines the functional and non-functional requirements, system interfaces, and constraints for developers, testers, project managers, and stakeholders.
 
-### 1.3 Definitions & Acronyms
+This document is intended to:
+- Establish the basis for agreement between stakeholders and developers
+- Provide a reference for validation and verification
+- Facilitate knowledge transfer and maintenance
+- Serve as the authoritative source for all development and testing activities
 
-| Term | Definition |
-|------|------------|
-| Room | A collaborative canvas workspace identified by unique 8-character code |
-| Stroke | A single drawing element (pen path, shape, text, or image) |
-| Session Participant | An active user connected to a room via WebSocket |
-| Guest | Anonymous user who can join rooms without registration |
-| Owner | The user who created a room (has management permissions) |
-| OTP | One-Time Password for email/password operations |
+### 1.2 Document Conventions
 
----
+**Requirement Prioritization:**
+- **SHALL/MUST** - Mandatory requirement
+- **SHOULD** - Recommended requirement  
+- **MAY** - Optional requirement
 
-## 2. System Overview
+**Naming Conventions:**
+- `FR-XXX-NN` - Functional Requirement (e.g., FR-AUTH-01)
+- `NFR-XXX-NN` - Non-Functional Requirement (e.g., NFR-PERF-01)
+- `UC-NN` - Use Case identifier
 
-### 2.1 Architecture
+**Typographic Conventions:**
+- `Code` - Code snippets, API endpoints, data types
+- **Bold** - Important terms, emphasis
+- *Italic* - External references, document titles
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Client (React + Vite)                     │
-├─────────────────────────────────────────────────────────────────┤
-│  Canvas Component │ Socket Service │ Auth Store │ API Service   │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                    HTTP/REST │ WebSocket (Socket.IO)
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    Server (Express + Socket.IO)                  │
-├─────────────────────────────────────────────────────────────────┤
-│  Auth Routes │ Room Routes │ Admin Routes │ Socket Handlers      │
-├─────────────────────────────────────────────────────────────────┤
-│  Auth Service │ Room Service │ Password Service │ OTP Service   │
-│  Admin Service │ Auto-Save Service │ Room State Manager         │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                         MongoDB Database                         │
-├─────────────────────────────────────────────────────────────────┤
-│   Users │ Rooms │ SketchHistory │ SessionParticipants │ OTPs    │
-└─────────────────────────────────────────────────────────────────┘
-```
+### 1.3 Intended Audience
 
-### 2.2 Technology Stack
+This document is intended for:
 
-| Layer | Technology |
-|-------|------------|
-| Frontend | React 18, Vite, TailwindCSS, Zustand |
-| Backend | Node.js, Express.js, Socket.IO |
-| Database | MongoDB with Mongoose ODM |
-| Authentication | JWT (JSON Web Tokens) |
-| Real-time | Socket.IO with WebSocket transport |
-| Email | Nodemailer (SMTP) |
+| Audience | Relevant Sections |
+|----------|-------------------|
+| **Developers** | All sections, especially §3, §4, §7 |
+| **Testers** | §3, §5, §6 for test case derivation |
+| **Project Managers** | §1, §2, §5 for scope and timeline planning |
+| **System Administrators** | §4, §5, §7 for deployment and operations |
+| **End Users** | §2.2, §3 for feature understanding |
+| **Stakeholders** | §1, §2 for business requirements |
 
----
+### 1.4 Product Scope
 
-## 3. User Roles
+**Collaborative Sketch** is a web-based real-time collaborative whiteboard application that enables multiple users to draw, sketch, and communicate simultaneously on a shared canvas.
 
-### 3.1 Role Definitions
+**Primary Objectives:**
+- Enable real-time collaboration for remote teams, educators, and creative professionals
+- Provide an intuitive drawing interface with professional-grade tools
+- Support both registered users and anonymous guests
+- Ensure data persistence and version control for collaborative work
 
-| Role | Description | Permissions |
-|------|-------------|-------------|
-| **Guest** | Anonymous user | Join public rooms, draw, chat, view only |
-| **User** | Registered, verified user | Create rooms, join any room, manage own rooms |
-| **Room Owner** | Creator of a room | All User permissions + room settings, kick users, delete room, view history |
-| **Admin** | System administrator | All permissions + user management, room management, statistics |
+**Benefits:**
+- Zero-latency drawing synchronization across participants
+- No software installation required (browser-based)
+- Secure authentication with email verification
+- Scalable architecture supporting multiple concurrent rooms
 
-### 3.2 Role Hierarchy
+**Goals:**
+- Reduce communication barriers in remote collaboration
+- Provide a lightweight alternative to desktop drawing applications
+- Enable visual brainstorming and teaching
 
-```
-Admin > Room Owner > User > Guest
-```
+### 1.5 References
 
-### 3.3 Permission Matrix
-
-| Action | Guest | User | Owner | Admin |
-|--------|-------|------|-------|-------|
-| View public rooms | ✓ | ✓ | ✓ | ✓ |
-| Join room (via code) | ✓ | ✓ | ✓ | ✓ |
-| Draw/Erase | ✓ | ✓ | ✓ | ✓ |
-| Chat in room | ✓ | ✓ | ✓ | ✓ |
-| Undo/Redo own strokes | ✓ | ✓ | ✓ | ✓ |
-| Create room | ✗ | ✓ | ✓ | ✓ |
-| Update room settings | ✗ | ✗ | ✓ | ✓ |
-| Kick participants | ✗ | ✗ | ✓ | ✓ |
-| Delete room | ✗ | ✗ | ✓ | ✓ |
-| View room history | ✗ | ✗ | ✓ | ✓ |
-| Restore snapshot | ✗ | ✗ | ✓ | ✓ |
-| Clear canvas | ✗ | ✓ | ✓ | ✓ |
-| Manage all users | ✗ | ✗ | ✗ | ✓ |
-| View system statistics | ✗ | ✗ | ✗ | ✓ |
+1. IEEE Std 830-1998, *IEEE Recommended Practice for Software Requirements Specifications*
+2. RFC 7519, *JSON Web Token (JWT)*
+3. RFC 6455, *The WebSocket Protocol*
+4. Socket.IO Documentation, https://socket.io/docs/
+5. React Documentation, https://react.dev/
+6. MongoDB Documentation, https://docs.mongodb.com/
 
 ---
 
-## 4. Functional Requirements
+## 2. Overall Description
 
-### 4.1 Authentication Module (FR-AUTH)
+### 2.1 Product Perspective
 
-#### FR-AUTH-01: User Registration
-**Description:** Users can create a new account with username, email, and password.
+Collaborative Sketch is a standalone web application consisting of three main subsystems:
 
-| Field | Type | Validation |
-|-------|------|------------|
-| username | String | Required, 3-30 chars, unique (case-insensitive) |
-| email | String | Required, valid email format, unique |
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    CLIENT APPLICATION                        │
+│  ┌────────────┬────────────┬─────────────┬──────────────┐    │
+│  │   Canvas   │  Socket    │   Global    │      UI      │    │
+│  │ Components │  Service   │ State Store │  Components  │    │
+│  │            │            │  (Zustand)  │              │    │
+│  └────────────┴────────────┴─────────────┴──────────────┘    │
+└────────────────────────────┬─────────────────────────────────┘
+                             │
+              HTTPS (REST API) / WSS (WebSocket)
+                             │
+                             ▼
+┌──────────────────────────────────────────────────────────────┐
+│                    SERVER APPLICATION                        │
+│   ┌─────────────────────────────────────────────────────┐    │
+│   │ Express Routes │ Socket.IO Handlers │ Middleware    │    │
+│   ├─────────────────────────────────────────────────────┤    │
+│   │ Auth Service │ Room Service │ Drawing Service       │    │
+│   └─────────────────────────────────────────────────────┘    │
+└────────────────────────────┬─────────────────────────────────┘
+                             │
+                             ▼
+┌──────────────────────────────────────────────────────────────┐
+│                    DATA LAYER (MongoDB)                      │
+│              Users │ Rooms │ SketchHistory                   │
+│         (SessionParticipants – transient/in-memory)          │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**System Interfaces:**
+- RESTful HTTP API for authentication and resource management
+- WebSocket (Socket.IO) for real-time drawing and chat
+- MongoDB for persistent data storage
+- SMTP for email delivery
+
+**User Interfaces:**
+- Responsive web interface (desktop and mobile)
+- Canvas-based drawing surface with tool palette
+- Real-time chat sidebar
+- Room management dashboard
+
+**Hardware Interfaces:**
+- Standard web browser with HTML5 Canvas support
+- Mouse/trackpad/touchscreen for drawing input
+- Network interface for HTTP/WebSocket communication
+
+**Software Interfaces:**
+- Node.js runtime (v18+)
+- MongoDB database (v5.0+)
+- Modern web browsers (Chrome 90+, Firefox 88+, Safari 14+, Edge 90+)
+
+**Communications Interfaces:**
+- HTTP/HTTPS (RESTful API)
+- WebSocket (Socket.IO with polling fallback)
+- SMTP (email delivery)
+
+**Memory Constraints:**
+- Client-side canvas rendering limited by browser memory
+- Server-side room state capped at 10,000 strokes per room
+- Individual stroke point limit: 10,000 points
+
+**Operations:**
+- Continuous operation (24/7 availability)
+- Automatic reconnection on connection loss
+- Graceful degradation on network issues
+
+### 2.2 Product Functions
+
+**High-Level Feature Summary:**
+
+**High-Level Feature Summary:**
+
+1. **User Management** (UC-01 to UC-05)
+   - User registration with email verification
+   - Secure authentication (login/logout)
+   - Password management (reset, change)
+   - Profile management
+   - Guest access for anonymous users
+
+2. **Room Management** (UC-06 to UC-10)
+   - Create collaborative drawing rooms
+   - Join rooms via unique 8-character code
+   - Configure room settings (public/private, participant limit)
+   - Delete owned rooms
+   - View room history and snapshots
+
+3. **Real-time Drawing** (UC-11 to UC-15)
+   - Multiple drawing tools (pen, shapes, text, images)
+   - Live drawing preview and synchronization
+   - Undo/redo functionality
+   - Stroke manipulation (reorder, delete)
+   - Canvas export (PNG, SVG, PDF)
+
+4. **Collaboration Features** (UC-16 to UC-18)
+   - Real-time cursor tracking
+   - In-room text chat
+   - Participant presence indicators
+   - Color-coded user identification
+
+5. **Administrative Functions** (UC-19 to UC-21)
+   - User management and statistics
+   - Room management and monitoring
+   - System health monitoring
+
+### 2.3 User Classes and Characteristics
+
+The system SHALL support four distinct user roles with hierarchical permissions:
+
+#### 2.3.1 Guest User
+
+**Characteristics:**
+- Anonymous, unregistered users
+- No persistent identity across sessions
+- Limited administrative capabilities
+- Temporary session-based access
+
+**Technical Sophistication:** Basic (no technical knowledge required)
+
+**Permissions:**
+- ✓ Join rooms via code/link
+- ✓ Draw and use all drawing tools
+- ✓ Send chat messages
+- ✓ View other participants
+- ✗ Create rooms
+- ✗ Clear canvas
+- ✗ Access room settings
+- ✗ View room history
+
+**Frequency of Use:** Occasional (one-time or sporadic collaboration)
+
+#### 2.3.2 Registered User
+
+**Characteristics:**
+- Verified email address
+- Persistent account with saved rooms
+- Full drawing and room creation capabilities
+
+**Technical Sophistication:** Basic to Intermediate
+
+**Permissions:**
+- ✓ All Guest permissions
+- ✓ Create unlimited rooms
+- ✓ Clear canvas (in any room)
+- ✓ Save and load sketches
+- ✓ Manage owned rooms
+- ✓ Access room history (as owner)
+- ✗ Manage other users
+- ✗ Access admin dashboard
+
+**Frequency of Use:** Regular (daily to weekly collaboration)
+
+#### 2.3.3 Room Owner
+
+**Characteristics:**
+- User who created a specific room
+- Full control over room settings and participants
+- Automatic role assignment on room creation
+
+**Technical Sophistication:** Intermediate
+
+**Permissions:**
+- ✓ All Registered User permissions
+- ✓ Update room settings (name, visibility, max participants)
+- ✓ Kick participants from room
+- ✓ Delete room and all associated data
+- ✓ View complete room history
+- ✓ Restore previous snapshots
+
+**Frequency of Use:** Regular (managing collaborative sessions)
+
+#### 2.3.4 Administrator
+
+**Characteristics:**
+- System administrator with elevated privileges
+- Database flag: `role: "admin"`
+- Platform-wide management capabilities
+
+**Technical Sophistication:** Advanced (system administration knowledge)
+
+**Permissions:**
+- ✓ All Room Owner permissions (for all rooms)
+- ✓ View system statistics
+- ✓ Manage all users (list, delete)
+- ✓ Manage all rooms (list, delete)
+- ✓ Access admin dashboard
+- ✗ Cannot delete own admin account
+
+**Frequency of Use:** As needed (system maintenance and moderation)
+
+### 2.4 Operating Environment
+
+**Client-Side:**
+- **Hardware:** Desktop, laptop, or tablet with 2GB+ RAM
+- **Operating System:** Windows 10+, macOS 10.15+, Linux, iOS 14+, Android 10+
+- **Web Browser:** 
+  - Chrome/Chromium 90+
+  - Firefox 88+
+  - Safari 14+
+  - Edge 90+
+- **Network:** Stable internet connection (min 1 Mbps)
+- **Screen Resolution:** Minimum 1024x768 recommended
+
+**Server-Side:**
+- **Hardware:** 2+ CPU cores, 4GB+ RAM, 20GB+ storage
+- **Operating System:** Linux (Ubuntu 20.04+), Windows Server 2019+
+- **Runtime:** Node.js v18+ LTS
+- **Database:** MongoDB v5.0+ (standalone or Atlas)
+- **Network:** HTTP/HTTPS ports (80/443), WebSocket support
+
+**Production Environment:**
+- Reverse proxy (Nginx/Apache) recommended
+- SSL/TLS certificate required for HTTPS
+- Process manager (PM2, systemd) for server reliability
+- Database backup strategy implemented
+
+### 2.5 Design and Implementation Constraints
+
+**Technology Constraints:**
+- MUST use JavaScript/TypeScript for all development
+- MUST use React 18+ for frontend framework
+- MUST use Express.js for backend server
+- MUST use MongoDB for data persistence
+- MUST use Socket.IO for WebSocket communication
+
+**Security Constraints:**
+- MUST hash passwords using bcrypt with minimum 12 rounds
+- MUST implement JWT-based authentication
+- MUST validate and sanitize all user inputs
+- MUST use HTTPS in production environments
+- MUST implement rate limiting on authentication endpoints
+
+**Regulatory Constraints:**
+- MUST comply with data privacy regulations (GDPR, CCPA)
+- MUST provide user data export/deletion capabilities
+- MUST secure personally identifiable information (PII)
+- MUST maintain audit logs for administrative actions
+
+**Performance Constraints:**
+- SHALL support minimum 50 concurrent users per room
+- SHALL handle minimum 1,000 concurrent rooms
+- SHALL maintain <200ms API response time (95th percentile)
+- SHALL support canvas with up to 10,000 strokes
+
+**Browser Constraints:**
+- MUST support HTML5 Canvas API
+- MUST support WebSocket or polling fallback
+- MUST function without third-party plugins
+
+**Development Constraints:**
+- Source code MUST be version-controlled (Git)
+- MUST follow ESLint configuration for code style
+- MUST achieve minimum 80% test coverage
+- MUST document all public APIs
+
+### 2.6 Assumptions and Dependencies
+
+**Assumptions:**
+1. Users have stable internet connectivity
+2. Users' browsers support HTML5 Canvas
+3. Users provide valid email addresses for registration
+4. MongoDB database is properly configured and accessible
+5. SMTP server is available for email delivery
+6. System clock is synchronized (for JWT expiration)
+
+**Dependencies:**
+
+| Component | Dependency | Version | Purpose |
+|-----------|------------|---------|---------|
+| Frontend | React | 18.x | UI framework |
+| Frontend | Vite | 5.x | Build tool |
+| Frontend | TailwindCSS | 3.x | Styling |
+| Frontend | Zustand | 4.x | State management |
+| Frontend | Socket.IO Client | 4.x | WebSocket communication |
+| Backend | Node.js | 18.x LTS | Runtime environment |
+| Backend | Express | 4.x | HTTP server |
+| Backend | Socket.IO | 4.x | WebSocket server |
+| Backend | Mongoose | 8.x | MongoDB ODM |
+| Backend | bcrypt | 5.x | Password hashing |
+| Backend | jsonwebtoken | 9.x | JWT generation |
+| Backend | Nodemailer | 6.x | Email delivery |
+| Database | MongoDB | 5.0+ | Data persistence |
+
+**External Service Dependencies:**
+- SMTP server for transactional emails (verification, password reset)
+- DNS service for domain resolution
+- SSL certificate authority for HTTPS
+
+---
+
+## 3. System Features
+
+### 3.1 User Authentication and Authorization
+
+#### 3.1.1 Description and Priority
+
+**Priority:** HIGH (Critical)  
+**Risk:** HIGH (Security-sensitive)
+
+User authentication provides secure access control and identity management. This feature enables users to create accounts, log in securely, verify email addresses, and manage credentials.
+
+#### 3.1.2 Stimulus/Response Sequences
+
+**Use Case UC-01: User Registration**
+
+| Actor | System |
+|-------|--------|
+| 1. User navigates to registration page | |
+| 2. User enters username, email, password | |
+| | 3. System validates input format |
+| | 4. System checks username/email uniqueness |
+| | 5. System hashes password (bcrypt) |
+| | 6. System creates user record |
+| | 7. System generates verification token |
+| | 8. System sends verification email |
+| | 9. System returns JWT and user data |
+| 10. User redirected to dashboard | |
+
+**Use Case UC-02: Email Verification**
+
+| Actor | System |
+|-------|--------|
+| 1. User clicks email verification link | |
+| | 2. System extracts userId and token from URL |
+| | 3. System validates token hash |
+| | 4. System checks token expiration (24h TTL) |
+| | 5. System sets isEmailVerified = true |
+| 6. User sees success confirmation | |
+
+**Use Case UC-03: User Login**
+
+| Actor | System |
+|-------|--------|
+| 1. User enters email/username and password | |
+| | 2. System locates user by email/username |
+| | 3. System verifies password (bcrypt.compare) |
+| | 4. System checks isEmailVerified === true |
+| | 5. System generates new JWT token |
+| 6. User redirected to dashboard | |
+
+#### 3.1.3 Functional Requirements
+
+**FR-AUTH-01: User Registration**
+
+The system SHALL allow users to create an account with the following:
+
+| Field | Type | Validation Rules |
+|-------|------|------------------|
+| username | String | Required, 3-30 characters, alphanumeric + underscore, unique (case-insensitive) |
+| email | String | Required, valid email format (RFC 5322), unique, normalized to lowercase |
 | password | String | Required, minimum 6 characters |
 
-**Flow:**
-1. User submits registration form
-2. System validates input and checks uniqueness
-3. System creates user with `isEmailVerified = false`
-4. System generates email verification token (expires in 24h)
-5. System sends verification email
-6. System returns JWT token and user data
+**Acceptance Criteria:**
+- Username uniqueness check MUST be case-insensitive
+- Email MUST be normalized (lowercased, trimmed)
+- Password MUST be hashed with bcrypt (12 rounds minimum)
+- New users MUST have `isEmailVerified = false`
+- System MUST generate verification token with 24-hour expiration
+- System MUST send verification email within 30 seconds
+- System MUST return JWT token valid for 7 days
+- System MUST return 409 Conflict for duplicate email/username
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "user": {
-      "id": "ObjectId",
-      "username": "string",
-      "email": "string",
-      "avatar": null,
-      "phone": null,
-      "role": "user",
-      "isEmailVerified": false
-    },
-    "token": "JWT"
-  }
-}
-```
+**FR-AUTH-02: Email Verification**
 
-**Error Conditions:**
-| Code | Condition |
-|------|-----------|
-| 409 | Email already registered |
-| 409 | Username already taken |
-| 400 | Validation failed |
+The system SHALL verify user email addresses through tokenized links.
 
----
+**URL Format:** `GET /api/auth/verify-email?uid={userId}&token={plainToken}`
 
-#### FR-AUTH-02: User Login
-**Description:** Registered users can authenticate with email/username/phone and password.
+**Process:**
+1. System SHALL validate user exists
+2. System SHALL reject if email already verified (400)
+3. System SHALL hash plain token and compare with stored hash
+4. System SHALL check token expiration (<24h since creation)
+5. System SHALL set `isEmailVerified = true` and clear token fields
+6. System SHALL return 200 OK on success
 
-**Precondition:** User must have verified email (`isEmailVerified = true`)
+**Error Responses:**
+- 404 Not Found - User does not exist
+- 400 Bad Request - Email already verified
+- 400 Bad Request - Invalid token hash
+- 410 Gone - Token expired
 
-**Input:**
-| Field | Type | Description |
-|-------|------|-------------|
-| emailOrPhoneOrUsername | String | Email, username, or phone |
-| password | String | Account password |
+**FR-AUTH-03: User Login**
 
-**Flow:**
-1. System normalizes input (email lowercased, username trimmed)
-2. System finds user by email OR username OR phone
-3. System verifies password using bcrypt
-4. System checks `isEmailVerified === true`
-5. System returns JWT token and user data
+The system SHALL authenticate users via email/username/phone and password.
 
-**Error Conditions:**
-| Code | Message |
-|------|---------|
-| 401 | Invalid credentials |
-| 403 | Email verification required (custom error type) |
-
----
-
-#### FR-AUTH-03: Email Verification
-**Description:** Users verify their email by clicking a link sent to their inbox.
-
-**URL Format:** `GET /api/auth/verify-email?uid={userId}&token={token}`
-
-**Flow:**
-1. System validates user exists
-2. System checks email not already verified
-3. System validates token hash matches stored hash
-4. System checks token not expired (24h TTL)
-5. System sets `isEmailVerified = true`
-6. System clears verification token fields
-
-**Error Conditions:**
-| Code | Condition |
-|------|-----------|
-| 404 | User not found |
-| 400 | Email already verified |
-| 400 | Invalid verification token |
-| 410 | Token expired |
-
----
-
-#### FR-AUTH-04: Resend Verification Email
-**Description:** Users can request a new verification email.
-
-**Endpoint:** `POST /api/auth/resend-verification`
-
-**Input:** `{ "email": "user@example.com" }`
-
-**Preconditions:**
-- User exists
-- Email not already verified
-
----
-
-#### FR-AUTH-05: Password Reset (Forgot Password)
-**Description:** Users can reset their password via email.
-
-**Flow:**
-1. `POST /api/auth/forgot-password` with email or username
-2. System generates reset token (15 min TTL)
-3. System sends reset email with link
-4. User clicks link: `/reset-password?uid={id}&token={token}`
-5. `POST /api/auth/reset-password` with new password
-6. System validates token and updates password
-
-**Security:** Always returns success message to prevent user enumeration.
-
----
-
-#### FR-AUTH-06: Change Password (Authenticated)
-**Description:** Authenticated users can change their password.
-
-**Endpoint:** `POST /api/auth/change-password`
+**Endpoint:** `POST /api/auth/login`
 
 **Input:**
 ```json
 {
-  "currentPassword": "string",
-  "newPassword": "string"
+  "emailOrPhoneOrUsername": "user@example.com",
+  "password": "userPassword123"
 }
 ```
 
-**Validations:**
-- Current password must match
-- New password must be different from current
-- New password minimum 6 characters
+**Process:**
+1. System SHALL normalize input (lowercase email, trim username)
+2. System SHALL query database using OR condition (email OR username OR phone)
+3. System SHALL retrieve password hash (excluded by default in User model)
+4. System SHALL verify password using bcrypt.compare()
+5. System SHALL enforce email verification (`isEmailVerified` must be true)
+6. System SHALL generate JWT token with 7-day expiration
+7. System SHALL return user object (excluding password) and token
 
----
+**Error Responses:**
+- 401 Unauthorized - Invalid credentials (password mismatch or user not found)
+- 403 Forbidden - Email verification required (`EmailVerificationRequiredError`)
 
-#### FR-AUTH-07: Check Availability
-**Description:** Check if username or email is available during registration.
+**FR-AUTH-04: Password Reset Flow**
 
-**Endpoint:** `GET /api/auth/check-availability?username={}&email={}`
+The system SHALL allow password reset via email verification.
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "username": { "value": "john", "available": true, "message": "Username is available" },
-    "email": { "value": "john@example.com", "available": false, "message": "Email is already registered" }
-  }
-}
-```
+**Step 1:** `POST /api/auth/forgot-password`
+- Input: `{ "email": "user@example.com" }`
+- System SHALL always return success (prevent user enumeration)
+- System SHALL generate reset token with 15-minute expiration
+- System SHALL send reset email with link
 
----
+**Step 2:** `POST /api/auth/reset-password`
+- Input: `{ "userId": "...", "token": "...", "newPassword": "..." }`
+- System SHALL validate token hash and expiration
+- System SHALL enforce minimum 6-character password
+- System SHALL hash new password and update user
+- System SHALL clear reset token fields
 
-#### FR-AUTH-08: Get Profile
-**Description:** Get current authenticated user's profile.
+**FR-AUTH-05: Change Password (Authenticated)**
 
-**Endpoint:** `GET /api/auth/me`
+The system SHALL allow authenticated users to change their password.
+
+**Endpoint:** `POST /api/auth/change-password`  
+**Authorization:** Required (JWT)
 
 **Authorization:** Bearer token required
 
