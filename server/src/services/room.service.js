@@ -164,12 +164,13 @@ const getRoomHistory = async (code, userId) => {
   const history = await SketchHistory.find({ room: room._id })
     .sort({ version: -1 })
     .limit(20)
-    .select('version createdAt createdBy')
+    .select('version name createdAt createdBy')
     .populate('createdBy', 'username')
     .lean();
 
   return history.map(h => ({
     version: h.version,
+    name: h.name || `Snapshot ${h.version}`,
     createdAt: h.createdAt,
     createdBy: h.createdBy?.username || 'Unknown'
   }));

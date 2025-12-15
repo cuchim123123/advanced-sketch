@@ -83,6 +83,11 @@ const sketchHistorySchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  name: {
+    type: String,
+    maxlength: 24,
+    default: null
+  },
   // Use Mixed type to preserve array order exactly as saved
   strokes: {
     type: mongoose.Schema.Types.Mixed,
