@@ -82,6 +82,37 @@ const getPublicRooms = async () => {
 };
 
 /**
+ * Search rooms by name (public rooms only)
+ */
+const searchRooms = async (searchTerm) => {
+  if (!searchTerm || searchTerm.trim() === '') {
+    return getPublicRooms();
+  }
+
+  const rooms = await Room.find({
+    isPublic: true,
+    isActive: true,
+    name: { $regex: searchTerm.trim(), $options: 'i' }
+  })
+    .populate('owner', 'username')
+    .sort({ lastActiveAt: -1 })
+    .select('-password')
+    .lean();
+
+  return Promise.all(rooms.map(async (room) => ({
+    id: room._id,
+    name: room.name,
+    code: room.code,
+    owner: room.owner,
+    isPublic: room.isPublic,
+    maxParticipants: room.maxParticipants,
+    participantCount: await getParticipantCount(room._id, room.code),
+    lastActiveAt: room.lastActiveAt,
+    createdAt: room.createdAt
+  })));
+};
+
+/**
  * Get room by code
  */
 const getRoomByCode = async (code) => {
@@ -228,6 +259,7 @@ module.exports = {
   createRoom,
   getRoomsByOwner,
   getPublicRooms,
+  searchRooms,
   getRoomByCode,
   joinRoom,
   updateRoom,

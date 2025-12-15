@@ -30,6 +30,13 @@ router.get('/', protect, roomController.getUserRooms);
 router.get('/public', roomController.getPublicRooms);
 
 /**
+ * @route   GET /api/rooms/search
+ * @desc    Search rooms by name
+ * @access  Public
+ */
+router.get('/search', roomController.searchRooms);
+
+/**
  * @route   GET /api/rooms/:code
  * @desc    Get room by code
  * @access  Public for public rooms, Private for private rooms

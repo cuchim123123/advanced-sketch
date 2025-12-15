@@ -47,6 +47,16 @@ exports.getPublicRooms = asyncHandler(async (req, res) => {
 });
 
 /**
+ * Search rooms by name
+ * GET /api/rooms/search?q=searchTerm
+ */
+exports.searchRooms = asyncHandler(async (req, res) => {
+  const { q } = req.query;
+  const rooms = await roomService.searchRooms(q);
+  res.json(success({ rooms, count: rooms.length }));
+});
+
+/**
  * Get room by code
  * GET /api/rooms/:code
  */
