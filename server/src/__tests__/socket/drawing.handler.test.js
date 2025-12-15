@@ -1,6 +1,6 @@
 /**
  * Socket.IO Drawing Handler Tests
- * Tests per SPEC FR-DRAW module requirements
+ * Tests per SPEC FR-DRAW and FR-REALTIME module requirements
  */
 
 const {
@@ -32,7 +32,7 @@ jest.mock('../../libs/stroke-optimization.lib', () => ({
 }));
 
 const { getRoomState, setRoomState } = require('../../socket/roomState');
-const { scheduleAutoSave } = require('../../socket/autoSave');
+const { markRoomDirty } = require('../../socket/autoSave');
 
 describe('Drawing Handlers (FR-DRAW)', () => {
   let mockSocket;
@@ -502,6 +502,27 @@ describe('Drawing Handlers (FR-DRAW)', () => {
       expect(mockIo.emit).toHaveBeenCalledWith('draw:reorder', { strokeIds: ['stroke-2', 'stroke-1'] });
     });
 
+    it('should reorder strokes without strokesMap (legacy path)', () => {
+      const stroke1 = createValidStroke('pen');
+      stroke1.id = 'stroke-r1';
+      const stroke2 = createValidStroke('line');
+      stroke2.id = 'stroke-r2';
+
+      const roomState = {
+        strokes: [stroke1, stroke2],
+        // No strokesMap - testing legacy code path
+        version: 1
+      };
+      getRoomState.mockReturnValue(roomState);
+
+      handleDrawReorder(mockSocket, mockIo, { strokeIds: ['stroke-r2', 'stroke-r1'] });
+
+      // Should reorder strokes array
+      expect(roomState.strokes[0].id).toBe('stroke-r2');
+      expect(roomState.strokes[1].id).toBe('stroke-r1');
+      expect(mockIo.to).toHaveBeenCalledWith('TESTROOM');
+    });
+
     it('should reject invalid strokeIds', () => {
       handleDrawReorder(mockSocket, mockIo, { strokeIds: 'not-array' });
 
@@ -547,6 +568,65 @@ describe('Drawing Handlers (FR-DRAW)', () => {
       // NOT io.to() - this is correct behavior per SPEC
       expect(mockSocket.to).toHaveBeenCalledWith('TESTROOM');
     });
+
+    it('should reject preview stroke with missing required fields', () => {
+      const invalidStroke = { tool: 'pen' }; // missing id
+
+      handleDrawStroke(mockSocket, mockIo, { stroke: invalidStroke, isPreview: true });
+
+      // Should return early, not broadcast
+      expect(mockSocket.to).not.toHaveBeenCalled();
+    });
+
+    it('should handle delta point updates for preview strokes', () => {
+      // First chunk with pointsOffset
+      const stroke = {
+        id: 'stroke-delta-1',
+        tool: 'pen',
+        startPoint: { x: 0, y: 0 },
+        points: [{ x: 10, y: 10 }],
+        pointsOffset: 0
+      };
+
+      handleDrawStroke(mockSocket, mockIo, { stroke, isPreview: true });
+
+      // Should relay first chunk
+      expect(mockSocket.to).toHaveBeenCalledWith('TESTROOM');
+    });
+
+    it('should accumulate delta points for cached preview strokes', () => {
+      const stroke1 = {
+        id: 'stroke-delta-2',
+        tool: 'pen',
+        startPoint: { x: 0, y: 0 },
+        points: [{ x: 10, y: 10 }],
+        pointsOffset: 0
+      };
+
+      const roomState = {
+        strokes: [],
+        strokesMap: new Map(),
+        previewStrokesCache: new Map([['stroke-delta-2', { ...stroke1, points: [{ x: 10, y: 10 }] }]]),
+        version: 1
+      };
+      getRoomState.mockReturnValue(roomState);
+
+      // Second chunk
+      const stroke2 = {
+        id: 'stroke-delta-2',
+        tool: 'pen',
+        points: [{ x: 20, y: 20 }],
+        pointsOffset: 1
+      };
+
+      handleDrawStroke(mockSocket, mockIo, { stroke: stroke2, isPreview: true });
+
+      // Should have accumulated points in cache
+      expect(roomState.previewStrokesCache.get('stroke-delta-2').points).toEqual([
+        { x: 10, y: 10 },
+        { x: 20, y: 20 }
+      ]);
+    });
   });
 
   describe('Draw Complete', () => {
@@ -556,6 +636,21 @@ describe('Drawing Handlers (FR-DRAW)', () => {
       // draw:complete broadcasts to other users
       // Note: Auto-save is called in handleDrawStroke, not in handleDrawComplete
       expect(mockSocket.to).toHaveBeenCalledWith('TESTROOM');
+    });
+
+    it('should clear preview cache when stroke is complete', () => {
+      const roomState = {
+        strokes: [],
+        strokesMap: new Map(),
+        previewStrokesCache: new Map([['stroke-cached', { id: 'stroke-cached' }]]),
+        version: 1
+      };
+      getRoomState.mockReturnValue(roomState);
+
+      handleDrawComplete(mockSocket, { strokeId: 'stroke-cached' });
+
+      // Preview cache should be cleared for this stroke
+      expect(roomState.previewStrokesCache.has('stroke-cached')).toBe(false);
     });
   });
 
@@ -590,6 +685,186 @@ describe('Drawing Handlers (FR-DRAW)', () => {
       // Fixed behavior: does NOT broadcast if stroke doesn't exist
       expect(mockIo.to).not.toHaveBeenCalled();
       expect(mockIo.emit).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Draw Update', () => {
+    it('should validate stroke before updating', () => {
+      const invalidStroke = { id: 'stroke-1', tool: 'invalid-tool' };
+      getRoomState.mockReturnValue({
+        strokes: [],
+        strokesMap: new Map(),
+        version: 1
+      });
+
+      handleDrawUpdate(mockSocket, { stroke: invalidStroke, isPreview: false });
+
+      expect(mockSocket.emit).toHaveBeenCalledWith('error', expect.objectContaining({
+        message: expect.stringContaining('Invalid tool')
+      }));
+    });
+
+    it('should broadcast preview updates without saving to state', () => {
+      const stroke = createValidStroke('rectangle');
+      stroke.id = 'stroke-preview';
+      
+      const roomState = {
+        strokes: [stroke],
+        strokesMap: new Map([[stroke.id, stroke]]),
+        version: 1
+      };
+      getRoomState.mockReturnValue(roomState);
+
+      handleDrawUpdate(mockSocket, { stroke: { ...stroke, endPoint: { x: 300, y: 300 } }, isPreview: true });
+
+      expect(mockSocket.to).toHaveBeenCalledWith('TESTROOM');
+    });
+
+    it('should update stroke in state for final updates', () => {
+      const stroke = createValidStroke('rectangle');
+      stroke.id = 'stroke-update';
+      
+      const roomState = {
+        strokes: [stroke],
+        strokesMap: new Map([[stroke.id, stroke]]),
+        sequenceCounter: 0,
+        version: 1
+      };
+      getRoomState.mockReturnValue(roomState);
+
+      const updatedStroke = { ...stroke, endPoint: { x: 300, y: 300 } };
+      handleDrawUpdate(mockSocket, { stroke: updatedStroke, isPreview: false });
+
+      // Should update state and broadcast
+      expect(roomState.strokesMap.get(stroke.id).endPoint).toEqual({ x: 300, y: 300 });
+      expect(mockSocket.to).toHaveBeenCalledWith('TESTROOM');
+    });
+
+    it('should mark room dirty after final update', () => {
+      const stroke = createValidStroke('rectangle');
+      stroke.id = 'stroke-dirty';
+      
+      const roomState = {
+        strokes: [stroke],
+        strokesMap: new Map([[stroke.id, stroke]]),
+        sequenceCounter: 0,
+        version: 1
+      };
+      getRoomState.mockReturnValue(roomState);
+
+      handleDrawUpdate(mockSocket, { stroke, isPreview: false });
+
+      expect(markRoomDirty).toHaveBeenCalledWith('TESTROOM');
+    });
+
+    it('should not update non-existent stroke', () => {
+      const stroke = createValidStroke('rectangle');
+      stroke.id = 'non-existent';
+      
+      getRoomState.mockReturnValue({
+        strokes: [],
+        strokesMap: new Map(),
+        version: 1
+      });
+
+      handleDrawUpdate(mockSocket, { stroke, isPreview: false });
+
+      // Should not broadcast if stroke doesn't exist
+      expect(mockSocket.to).not.toHaveBeenCalled();
+    });
+
+    it('should update stroke without strokesMap (legacy path)', () => {
+      const stroke = createValidStroke('rectangle');
+      stroke.id = 'stroke-no-map';
+      
+      const roomState = {
+        strokes: [stroke],
+        // No strokesMap - testing legacy code path
+        version: 1
+      };
+      getRoomState.mockReturnValue(roomState);
+
+      const updatedStroke = { ...stroke, endPoint: { x: 400, y: 400 } };
+      handleDrawUpdate(mockSocket, { stroke: updatedStroke, isPreview: false });
+
+      // Should update in strokes array
+      expect(roomState.strokes[0].endPoint).toEqual({ x: 400, y: 400 });
+      expect(mockSocket.to).toHaveBeenCalledWith('TESTROOM');
+      expect(markRoomDirty).toHaveBeenCalledWith('TESTROOM');
+    });
+  });
+
+  describe('FR-DRAW-04: New stroke clears redo stack', () => {
+    it('should clear redo stack when user draws new stroke', () => {
+      const stroke = createValidStroke('pen');
+      
+      const redoStack = new Map();
+      redoStack.set('user-123', [createValidStroke('line')]);
+      
+      const roomState = {
+        strokes: [],
+        strokesMap: new Map(),
+        undoStack: new Map(),
+        redoStack,
+        version: 1,
+        sequenceCounter: 0
+      };
+      getRoomState.mockReturnValue(roomState);
+
+      handleDrawStroke(mockSocket, mockIo, { stroke, isPreview: false });
+
+      // Redo stack should be cleared for this user
+      expect(roomState.redoStack.get('user-123')).toEqual([]);
+    });
+  });
+
+  describe('FR-REALTIME-03: Conflict Resolution (Last-Write-Wins)', () => {
+    it('should assign incrementing sequence numbers to strokes', () => {
+      const stroke1 = createValidStroke('pen');
+      stroke1.id = 'stroke-seq-1';
+      
+      const stroke2 = createValidStroke('line');
+      stroke2.id = 'stroke-seq-2';
+      
+      const roomState = {
+        strokes: [],
+        strokesMap: new Map(),
+        undoStack: new Map(),
+        redoStack: new Map(),
+        version: 1,
+        sequenceCounter: 0
+      };
+      getRoomState.mockReturnValue(roomState);
+
+      handleDrawStroke(mockSocket, mockIo, { stroke: stroke1, isPreview: false });
+      handleDrawStroke(mockSocket, mockIo, { stroke: stroke2, isPreview: false });
+
+      // Both strokes should have sequence numbers
+      expect(roomState.strokesMap.get('stroke-seq-1').sequence).toBe(1);
+      expect(roomState.strokesMap.get('stroke-seq-2').sequence).toBe(2);
+    });
+
+    it('should update existing stroke only if new sequence is higher', () => {
+      const existingStroke = createValidStroke('pen');
+      existingStroke.id = 'stroke-conflict';
+      existingStroke.sequence = 10;
+      existingStroke.color = '#FF0000';
+      
+      const roomState = {
+        strokes: [existingStroke],
+        strokesMap: new Map([[existingStroke.id, existingStroke]]),
+        undoStack: new Map(),
+        redoStack: new Map(),
+        version: 1,
+        sequenceCounter: 15 // Already at 15, next will be 16
+      };
+      getRoomState.mockReturnValue(roomState);
+
+      const updatedStroke = { ...existingStroke, color: '#00FF00' };
+      handleDrawStroke(mockSocket, mockIo, { stroke: updatedStroke, isPreview: false });
+
+      // Should update because sequence 16 > 10
+      expect(roomState.strokesMap.get('stroke-conflict').sequence).toBe(16);
     });
   });
 });
