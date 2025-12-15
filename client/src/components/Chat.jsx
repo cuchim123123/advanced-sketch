@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, X, MessageCircle } from 'lucide-react'
+import { Send, X, MessageSquare, MessagesSquare, User } from 'lucide-react'
+import { cn } from '@/utils/cn'
 
 export default function Chat({ socket, roomCode, user, isOpen, onToggle }) {
   const [messages, setMessages] = useState([])
@@ -8,6 +9,13 @@ export default function Chat({ socket, roomCode, user, isOpen, onToggle }) {
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
   const isOpenRef = useRef(isOpen)
+
+  // Clear messages when room changes
+  useEffect(() => {
+    setMessages([])
+    setUnreadCount(0)
+    setInputValue('')
+  }, [roomCode])
 
   // Keep ref in sync with isOpen prop
   useEffect(() => {
@@ -75,15 +83,13 @@ export default function Chat({ socket, roomCode, user, isOpen, onToggle }) {
   }
 
   const formatTime = (date) => {
-    const now = new Date()
-    const diff = now - date
-    
-    // If less than 1 minute ago
-    if (diff < 60000) {
-      return 'Just now'
+    if (!date || !(date instanceof Date) || isNaN(date)) {
+      return ''
     }
     
-    // If today
+    const now = new Date()
+    
+    // If today, show time only
     if (date.toDateString() === now.toDateString()) {
       return date.toLocaleTimeString('en-US', { 
         hour: 'numeric', 
@@ -102,20 +108,21 @@ export default function Chat({ socket, roomCode, user, isOpen, onToggle }) {
     })
   }
 
+  // Floating chat button (collapsed state)
   if (!isOpen) {
     return (
       <button
         onClick={onToggle}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-sky-500 to-emerald-500 
-                   text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 
-                   flex items-center justify-center z-40"
+        className="fixed bottom-6 right-6 w-14 h-14 bg-sky-500 hover:bg-sky-600 
+                   text-white rounded-full shadow-lg z-[9999] flex items-center justify-center
+                   transition-colors"
         title="Open Chat"
       >
-        <MessageCircle className="w-6 h-6" />
+        <MessageSquare className="w-6 h-6" />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[22px] h-[22px] px-1.5 
-                         bg-red-500 text-white text-xs font-bold rounded-full 
-                         flex items-center justify-center shadow-lg animate-pulse">
+          <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1.5 
+                         bg-red-500 text-white text-xs font-semibold rounded-full 
+                         flex items-center justify-center">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
@@ -124,29 +131,32 @@ export default function Chat({ socket, roomCode, user, isOpen, onToggle }) {
   }
 
   return (
-    <div className="fixed bottom-6 right-6 w-96 h-[500px] bg-slate-800 rounded-2xl shadow-2xl 
-                    flex flex-col z-40 border border-slate-700">
+    <div className="fixed bottom-6 right-6 w-80 sm:w-96 h-[480px] bg-white dark:bg-slate-800 rounded-lg shadow-2xl 
+                    flex flex-col z-[9999] border border-slate-200 dark:border-slate-700 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-slate-700 bg-gradient-to-r from-sky-600 to-emerald-600 rounded-t-2xl">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
         <div className="flex items-center gap-2">
-          <MessageCircle className="w-5 h-5 text-white" />
-          <h3 className="text-white font-semibold">Room Chat</h3>
+          <MessagesSquare className="w-4 h-4 text-slate-500" />
+          <h3 className="text-sm font-medium text-slate-800 dark:text-slate-200">Room Chat</h3>
+          <span className="text-xs text-slate-500">
+            ({messages.length})
+          </span>
         </div>
         <button
           onClick={onToggle}
-          className="w-8 h-8 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+          className="w-7 h-7 flex items-center justify-center rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 transition-colors"
         >
           <X className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-800">
+      {/* Messages area */}
+      <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-white dark:bg-slate-800">
         {messages.length === 0 ? (
-          <div className="text-center text-slate-400 py-8">
-            <MessageCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
-            <p>No messages yet</p>
-            <p className="text-xs mt-1">Start the conversation!</p>
+          <div className="flex flex-col items-center justify-center h-full text-slate-400">
+            <MessagesSquare className="w-10 h-10 mb-3 opacity-40" />
+            <p className="text-sm font-medium">No messages yet</p>
+            <p className="text-xs">Be the first to say hello!</p>
           </div>
         ) : (
           messages.map((msg) => {
@@ -154,25 +164,43 @@ export default function Chat({ socket, roomCode, user, isOpen, onToggle }) {
             return (
               <div
                 key={msg.id}
-                className={`flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'}`}
-              >
-                {!isOwnMessage && (
-                  <span className="text-xs text-sky-400 mb-1 px-2 font-medium">
-                    {msg.user.username}
-                  </span>
+                className={cn(
+                  "flex gap-2",
+                  isOwnMessage ? "flex-row-reverse" : "flex-row"
                 )}
-                <div
-                  className={`max-w-[80%] rounded-2xl px-4 py-2 ${
-                    isOwnMessage
-                      ? 'bg-gradient-to-r from-sky-500 to-emerald-500 text-white rounded-br-md'
-                      : 'bg-slate-700 text-slate-100 rounded-bl-md'
-                  }`}
-                >
-                  <p className="text-sm break-words">{msg.message}</p>
+              >
+                {/* Avatar */}
+                <div className={cn(
+                  "flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium",
+                  isOwnMessage 
+                    ? "bg-sky-500 text-white" 
+                    : "bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300"
+                )}>
+                  {msg.user.username?.charAt(0).toUpperCase() || <User className="w-3.5 h-3.5" />}
                 </div>
-                <span className="text-xs text-slate-500 mt-1 px-2">
-                  {formatTime(msg.timestamp)}
-                </span>
+                
+                {/* Message content */}
+                <div className={cn(
+                  "flex flex-col max-w-[75%]",
+                  isOwnMessage ? "items-end" : "items-start"
+                )}>
+                  {!isOwnMessage && (
+                    <span className="text-xs text-slate-500 mb-0.5 px-1">
+                      {msg.user.username}
+                    </span>
+                  )}
+                  <div className={cn(
+                    "px-3 py-2 rounded-lg text-sm",
+                    isOwnMessage
+                      ? "bg-sky-500 text-white rounded-br-sm"
+                      : "bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-bl-sm"
+                  )}>
+                    <p className="break-words whitespace-pre-wrap">{msg.message}</p>
+                  </div>
+                  <span className="text-[10px] text-slate-400 mt-0.5 px-1">
+                    {formatTime(msg.timestamp)}
+                  </span>
+                </div>
               </div>
             )
           })
@@ -180,8 +208,8 @@ export default function Chat({ socket, roomCode, user, isOpen, onToggle }) {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      <form onSubmit={handleSendMessage} className="p-4 border-t border-slate-700 bg-slate-800 rounded-b-2xl">
+      {/* Input area */}
+      <form onSubmit={handleSendMessage} className="p-3 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
         <div className="flex gap-2">
           <input
             ref={inputRef}
@@ -189,17 +217,16 @@ export default function Chat({ socket, roomCode, user, isOpen, onToggle }) {
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             placeholder="Type a message..."
-            className="flex-1 px-4 py-2 bg-slate-700 border border-slate-600 rounded-xl 
-                     text-white placeholder-slate-400 focus:outline-none focus:border-sky-500 
-                     focus:ring-1 focus:ring-sky-500 transition-colors"
+            className="flex-1 h-9 px-3 text-sm rounded-md border border-slate-300 dark:border-slate-600 
+                       bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200
+                       placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
             maxLength={500}
           />
           <button
             type="submit"
             disabled={!inputValue.trim()}
-            className="px-4 py-2 bg-gradient-to-r from-sky-500 to-emerald-500 text-white 
-                     rounded-xl hover:shadow-lg transition-all duration-200 disabled:opacity-50 
-                     disabled:cursor-not-allowed flex items-center justify-center"
+            className="w-9 h-9 flex items-center justify-center rounded-md bg-sky-500 hover:bg-sky-600 
+                       text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Send className="w-4 h-4" />
           </button>
