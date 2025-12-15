@@ -233,6 +233,14 @@ function handleDrawStroke(socket, io, { stroke, isPreview }) {
  * Handle draw:complete event
  */
 function handleDrawComplete(socket, { strokeId }) {
+  if (!socket.roomCode) return;
+
+  const roomState = getRoomState(socket.roomCode);
+  if (roomState?.previewStrokesCache) {
+    // Clear preview stroke from cache when drawing is complete
+    roomState.previewStrokesCache.delete(strokeId);
+  }
+
   socket.to(socket.roomCode).emit('draw:complete', { strokeId });
 }
 

@@ -1,254 +1,77 @@
-const express = require('express')
-const router = express.Router()
-const { protect } = require('../middleware/auth.middleware')
-const { User, Room, SketchHistory, SessionParticipant, OTP } = require('../models')
-const { deleteRoomState, cleanupRoomGuests } = require('../socket/roomState')
+const express = require('express');
+const { protect } = require('../middleware/auth.middleware');
+const adminController = require('../controllers/admin.controller');
 
-// Admin middleware - check if user is admin
-const adminMiddleware = (req, res, next) => {
+const router = express.Router();
+
+// =============================================================================
+// ADMIN MIDDLEWARE
+// =============================================================================
+
+/**
+ * Check if user is admin
+ */
+const adminOnly = (req, res, next) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({
       success: false,
       message: 'Access denied. Admin only.'
-    })
+    });
   }
-  next()
-}
+  next();
+};
 
-// Get user stats
-router.get('/users/stats', protect, adminMiddleware, async (req, res) => {
-  try {
-    const totalUsers = await User.countDocuments()
-    const guestUsers = await User.countDocuments({ isGuest: true })
+// Apply protect + admin middleware to all routes
+router.use(protect, adminOnly);
 
-    res.json({
-      success: true,
-      data: {
-        total: totalUsers,
-        guests: guestUsers,
-        registered: totalUsers - guestUsers
-      }
-    })
-  } catch (error) {
-    console.error('Get user stats error:', error)
-    res.status(500).json({
-      success: false,
-      message: 'Failed to get user stats'
-    })
-  }
-})
+// =============================================================================
+// USER ROUTES
+// =============================================================================
 
-// Get all users with pagination
-router.get('/users', protect, adminMiddleware, async (req, res) => {
-  try {
-    const page = parseInt(req.query.page) || 1
-    const limit = parseInt(req.query.limit) || 10
-    const search = req.query.search || ''
+/**
+ * @route   GET /api/admin/users/stats
+ * @desc    Get user statistics
+ * @access  Admin
+ */
+router.get('/users/stats', adminController.getUserStats);
 
-    const query = search
-      ? {
-          $or: [
-            { username: { $regex: search, $options: 'i' } },
-            { email: { $regex: search, $options: 'i' } }
-          ]
-        }
-      : {}
+/**
+ * @route   GET /api/admin/users
+ * @desc    Get all users with pagination
+ * @access  Admin
+ */
+router.get('/users', adminController.getUsers);
 
-    const users = await User.find(query)
-      .select('-password')
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .lean()
+/**
+ * @route   DELETE /api/admin/users/:userId
+ * @desc    Delete a user
+ * @access  Admin
+ */
+router.delete('/users/:userId', adminController.deleteUser);
 
-    const total = await User.countDocuments(query)
+// =============================================================================
+// ROOM ROUTES
+// =============================================================================
 
-    res.json({
-      success: true,
-      data: {
-        users,
-        currentPage: page,
-        totalPages: Math.ceil(total / limit),
-        total
-      }
-    })
-  } catch (error) {
-    console.error('Get users error:', error)
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch users'
-    })
-  }
-})
+/**
+ * @route   GET /api/admin/rooms/stats
+ * @desc    Get room statistics
+ * @access  Admin
+ */
+router.get('/rooms/stats', adminController.getRoomStats);
 
-// Delete user
-router.delete('/users/:userId', protect, adminMiddleware, async (req, res) => {
-  try {
-    const { userId } = req.params
+/**
+ * @route   GET /api/admin/rooms
+ * @desc    Get all rooms with pagination
+ * @access  Admin
+ */
+router.get('/rooms', adminController.getRooms);
 
-    // Prevent admin from deleting themselves
-    if (userId === req.user.id) {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot delete your own account'
-      })
-    }
+/**
+ * @route   DELETE /api/admin/rooms/:roomId
+ * @desc    Delete a room
+ * @access  Admin
+ */
+router.delete('/rooms/:roomId', adminController.deleteRoom);
 
-    const user = await User.findByIdAndDelete(userId)
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      })
-    }
-
-    // Delete user's rooms and related data
-    const userRooms = await Room.find({ owner: userId })
-    for (const room of userRooms) {
-      deleteRoomState(room.code)
-      cleanupRoomGuests(room.code)
-      await SketchHistory.deleteMany({ room: room._id })
-      await SessionParticipant.deleteMany({ room: room._id })
-    }
-    await Room.deleteMany({ owner: userId })
-
-    // Remove user from all rooms they participated in
-    await Room.updateMany(
-      { participants: userId },
-      { $pull: { participants: userId } }
-    )
-    
-    // Clean up OTPs
-    await OTP.deleteMany({ email: user.email })
-
-    res.json({
-      success: true,
-      message: 'User deleted successfully'
-    })
-  } catch (error) {
-    console.error('Delete user error:', error)
-    res.status(500).json({
-      success: false,
-      message: 'Failed to delete user'
-    })
-  }
-})
-
-// Get room stats
-router.get('/rooms/stats', protect, adminMiddleware, async (req, res) => {
-  try {
-    const totalRooms = await Room.countDocuments()
-    
-    // Count rooms with active participants using SessionParticipant
-    const roomsWithParticipants = await SessionParticipant.distinct('room', { isActive: true })
-    const activeRooms = roomsWithParticipants.length
-
-    res.json({
-      success: true,
-      data: {
-        total: totalRooms,
-        active: activeRooms,
-        inactive: totalRooms - activeRooms
-      }
-    })
-  } catch (error) {
-    console.error('Get room stats error:', error)
-    res.status(500).json({
-      success: false,
-      message: 'Failed to get room stats'
-    })
-  }
-})
-
-// Get all rooms with pagination
-router.get('/rooms', protect, adminMiddleware, async (req, res) => {
-  try {
-    const page = parseInt(req.query.page) || 1
-    const limit = parseInt(req.query.limit) || 10
-    const search = req.query.search || ''
-
-    const query = search
-      ? { name: { $regex: search, $options: 'i' } }
-      : {}
-
-    const rooms = await Room.find(query)
-      .populate('owner', 'username email')
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .lean()
-
-    // Get active participant count for each room
-    const roomsWithParticipants = await Promise.all(
-      rooms.map(async (room) => {
-        const activeCount = await SessionParticipant.countDocuments({
-          room: room._id,
-          isActive: true
-        })
-        return {
-          ...room,
-          activeParticipants: activeCount
-        }
-      })
-    )
-
-    const total = await Room.countDocuments(query)
-
-    res.json({
-      success: true,
-      data: {
-        rooms: roomsWithParticipants,
-        currentPage: page,
-        totalPages: Math.ceil(total / limit),
-        total
-      }
-    })
-  } catch (error) {
-    console.error('Get rooms error:', error)
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch rooms'
-    })
-  }
-})
-
-// Delete room
-router.delete('/rooms/:roomId', protect, adminMiddleware, async (req, res) => {
-  try {
-    const { roomId } = req.params
-
-    const room = await Room.findById(roomId)
-
-    if (!room) {
-      return res.status(404).json({
-        success: false,
-        message: 'Room not found'
-      })
-    }
-
-    // Clean up in-memory state
-    deleteRoomState(room.code)
-    cleanupRoomGuests(room.code)
-    
-    // Clean up related database records
-    await Promise.all([
-      SketchHistory.deleteMany({ room: room._id }),
-      SessionParticipant.deleteMany({ room: room._id }),
-      Room.findByIdAndDelete(roomId)
-    ])
-
-    res.json({
-      success: true,
-      message: 'Room deleted successfully'
-    })
-  } catch (error) {
-    console.error('Delete room error:', error)
-    res.status(500).json({
-      success: false,
-      message: 'Failed to delete room'
-    })
-  }
-})
-
-module.exports = router
+module.exports = router;
