@@ -3,7 +3,7 @@
  */
 const { processIncomingStroke } = require('../libs/stroke-optimization.lib');
 const { getRoomState } = require('./roomState');
-const { scheduleAutoSave, markRoomDirty } = require('./autoSave');
+const { markRoomDirty } = require('./autoSave');
 
 // ========== VALIDATION CONSTANTS ==========
 const VALID_TOOLS = ['pen', 'eraser', 'line', 'rectangle', 'circle', 'triangle', 'arrow', 'diamond', 'text', 'image'];
@@ -218,9 +218,6 @@ function handleDrawStroke(socket, io, { stroke, isPreview }) {
     roomState.strokes.push(fullStroke);
   }
 
-  // Schedule auto-save (debounced)
-  scheduleAutoSave(socket.roomCode);
-
   // Broadcast to others
   socket.to(socket.roomCode).emit('draw:stroke', {
     stroke: { ...stroke, sequence: sequenceNumber },
@@ -268,9 +265,6 @@ function handleDrawErase(socket, io, { strokeId }) {
   }
   // Remove from array (preserving order)
   roomState.strokes = (roomState.strokes || []).filter(s => s.id !== strokeId);
-
-  // Schedule auto-save
-  scheduleAutoSave(socket.roomCode);
 
   io.to(socket.roomCode).emit('draw:erase', { strokeId });
 }
@@ -324,9 +318,8 @@ function handleDrawUpdate(socket, { stroke, isPreview }) {
         stroke: { ...stroke, sequence: sequenceNumber } 
       });
       
-      // Mark room dirty for auto-save
+      // Mark room dirty
       markRoomDirty(socket.roomCode);
-      scheduleAutoSave(socket.roomCode);
     }
   } else {
     const existingIndex = roomState.strokes.findIndex(s => s.id === stroke.id);
@@ -339,9 +332,8 @@ function handleDrawUpdate(socket, { stroke, isPreview }) {
       
       socket.to(socket.roomCode).emit('draw:update', { stroke });
       
-      // Mark room dirty for auto-save
+      // Mark room dirty
       markRoomDirty(socket.roomCode);
-      scheduleAutoSave(socket.roomCode);
     }
   }
 }
@@ -366,9 +358,6 @@ function handleDrawClear(socket, io) {
   if (roomState.strokesMap) {
     roomState.strokesMap.clear();
   }
-
-  // Schedule auto-save
-  scheduleAutoSave(socket.roomCode);
 
   io.to(socket.roomCode).emit('draw:clear');
 }
@@ -405,9 +394,6 @@ function handleDrawUndo(socket, io) {
       roomState.strokesMap.delete(lastStroke.id);
     }
 
-    // Schedule auto-save
-    scheduleAutoSave(socket.roomCode);
-
     io.to(socket.roomCode).emit('draw:erase', { strokeId: lastStroke.id });
   }
 }
@@ -433,9 +419,6 @@ function handleDrawRedo(socket, io) {
   if (roomState.strokesMap) {
     roomState.strokesMap.set(strokeToRedo.id, strokeToRedo);
   }
-
-  // Schedule auto-save
-  scheduleAutoSave(socket.roomCode);
 
   io.to(socket.roomCode).emit('draw:stroke', {
     stroke: strokeToRedo,
@@ -496,9 +479,8 @@ function handleDrawReorder(socket, io, { strokeIds }) {
   // Broadcast reorder to all clients in room (including sender for confirmation)
   io.to(socket.roomCode).emit('draw:reorder', { strokeIds });
 
-  // Mark room dirty for auto-save
+  // Mark room dirty
   markRoomDirty(socket.roomCode);
-  scheduleAutoSave(socket.roomCode);
 }
 
 module.exports = {
