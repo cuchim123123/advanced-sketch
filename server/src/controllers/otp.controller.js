@@ -1,79 +1,75 @@
-const { sendOTP, verifyOTP } = require('../services/otp.service');
+/**
+ * OTP Controller
+ * Handles OTP HTTP requests
+ */
+
+const otpService = require('../services/otp.service');
+const asyncHandler = require('../middleware/asyncHandler');
+const { success } = require('../utils/response.util');
+const { BadRequestError } = require('../utils');
+const { VALIDATION } = require('../config/constants');
 
 /**
- * @route   POST /api/auth/send-otp
- * @desc    Send OTP to email
- * @access  Public
+ * Send OTP to email
+ * POST /api/auth/send-otp
  */
-const sendOTPHandler = async (req, res, next) => {
-  try {
-    const { email, purpose = 'email_verification' } = req.body;
+exports.sendOTPHandler = asyncHandler(async (req, res) => {
+  const { email, purpose = 'email_verification' } = req.body;
 
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email is required'
-      });
-    }
-
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid email format'
-      });
-    }
-
-    const result = await sendOTP(email, purpose);
-
-    res.json({
-      success: true,
-      message: result.message,
-      expiresAt: result.expiresAt
-    });
-  } catch (error) {
-    console.error('Send OTP error:', error);
-    res.status(400).json({
-      success: false,
-      message: error.message || 'Failed to send OTP'
-    });
+  if (!email) {
+    throw new BadRequestError('Email is required');
   }
-};
+
+  if (!VALIDATION.EMAIL_REGEX.test(email)) {
+    throw new BadRequestError('Invalid email format');
+  }
+
+  const result = await otpService.sendOTP(email, purpose);
+
+  res.json(success({
+    message: result.message,
+    expiresAt: result.expiresAt
+  }));
+});
 
 /**
- * @route   POST /api/auth/verify-otp
- * @desc    Verify OTP code
- * @access  Public
+ * Verify OTP code
+ * POST /api/auth/verify-otp
  */
-const verifyOTPHandler = async (req, res, next) => {
-  try {
-    const { email, code, purpose = 'email_verification' } = req.body;
+exports.verifyOTPHandler = asyncHandler(async (req, res) => {
+  const { email, code, purpose = 'email_verification' } = req.body;
 
-    if (!email || !code) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email and OTP code are required'
-      });
-    }
-
-    const result = await verifyOTP(email, code, purpose);
-
-    res.json({
-      success: true,
-      message: result.message,
-      email: result.email
-    });
-  } catch (error) {
-    console.error('Verify OTP error:', error);
-    res.status(400).json({
-      success: false,
-      message: error.message || 'Failed to verify OTP'
-    });
+  if (!email || !code) {
+    throw new BadRequestError('Email and OTP code are required');
   }
-};
 
-module.exports = {
-  sendOTPHandler,
-  verifyOTPHandler
-};
+  const result = await otpService.verifyOTP(email, code, purpose);
+
+  res.json(success({
+    message: result.message,
+    email: result.email
+  }));
+});
+
+/**
+ * Resend OTP to email
+ * POST /api/auth/resend-otp
+ */
+exports.resendOTPHandler = asyncHandler(async (req, res) => {
+  const { email, purpose = 'email_verification' } = req.body;
+
+  if (!email) {
+    throw new BadRequestError('Email is required');
+  }
+
+  if (!VALIDATION.EMAIL_REGEX.test(email)) {
+    throw new BadRequestError('Invalid email format');
+  }
+
+  const result = await otpService.sendOTP(email, purpose);
+
+  res.json(success({
+    message: 'OTP resent successfully',
+    expiresAt: result.expiresAt
+  }));
+});
