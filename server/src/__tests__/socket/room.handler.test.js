@@ -6,6 +6,7 @@
 const {
   handleRoomJoin,
   handleRoomRestore,
+  handleCreateSnapshot,
   handleUserKick,
   handleDisconnect,
   handleChatSend
@@ -64,6 +65,7 @@ const {
   getRoomState, 
   hasRoomState, 
   getGuestParticipant,
+  setGuestParticipant,
   getRoomGuests 
 } = require('../../socket/roomState');
 
@@ -364,6 +366,50 @@ describe('Room Handlers (FR-ROOM & FR-REALTIME)', () => {
         message: expect.stringContaining('yourself')
       }));
     });
+
+    it('should kick guest user when owner requests (fix #7)', async () => {
+      // This test verifies fix #7: Guest kick handling
+      // Guests are stored in-memory, not in SessionParticipant DB
+      const mockRoom = {
+        _id: 'room-id-123',
+        owner: 'user-123' // Same as socket user (owner)
+      };
+      
+      Room.findOne.mockResolvedValue(mockRoom);
+      
+      // Mock no DB participant found (guest is in-memory)
+      // SessionParticipant.find returns array directly in handleUserKick
+      SessionParticipant.find.mockResolvedValue([]);
+      
+      // Mock guest found in memory
+      const guestInfo = {
+        id: 'guest-123',
+        username: 'GuestUser',
+        isGuest: true,
+        isActive: true,
+        socketId: 'guest-socket-id'
+      };
+      getGuestParticipant.mockReturnValue(guestInfo);
+      
+      // Mock finding target socket
+      const targetSocket = {
+        id: 'guest-socket-id',
+        user: { _id: 'guest-123' },
+        emit: jest.fn(),
+        leave: jest.fn(),
+        roomCode: 'TESTROOM'
+      };
+
+      mockIo.sockets = {
+        sockets: new Map([['guest-socket-id', targetSocket]])
+      };
+
+      await handleUserKick(mockSocket, mockIo, { targetUserId: 'guest-123' });
+
+      // Guest should be kicked - emit user:kicked to guest
+      expect(targetSocket.emit).toHaveBeenCalledWith('user:kicked');
+      expect(targetSocket.leave).toHaveBeenCalledWith('TESTROOM');
+    });
   });
 
   describe('Disconnect Handling', () => {
@@ -402,6 +448,40 @@ describe('Room Handlers (FR-ROOM & FR-REALTIME)', () => {
         expect.objectContaining({ socketId: mockSocket.id }),
         expect.objectContaining({ isActive: false })
       );
+    });
+
+    it('should clean up preview strokes on disconnect (fix #5)', async () => {
+      // This test verifies fix #5: Preview strokes memory leak prevention
+      // When a user disconnects mid-drawing, their preview strokes should be cleaned
+      const mockRoom = {
+        _id: 'room-id-123',
+        code: 'TESTROOM'
+      };
+      
+      // Create room state with preview strokes from the disconnecting user
+      const previewStrokesCache = new Map([
+        ['preview-stroke-1', { id: 'preview-stroke-1', userId: 'user-123', timestamp: Date.now() }],
+        ['preview-stroke-2', { id: 'preview-stroke-2', userId: 'other-user', timestamp: Date.now() }]
+      ]);
+      
+      const roomState = {
+        strokes: [],
+        strokesMap: new Map(),
+        previewStrokesCache
+      };
+      
+      getRoomState.mockReturnValue(roomState);
+      Room.findOne.mockResolvedValue(mockRoom);
+      SessionParticipant.findOneAndUpdate.mockResolvedValue({});
+      SessionParticipant.countDocuments.mockResolvedValue(1);
+      getRoomGuests.mockReturnValue([]);
+
+      await handleDisconnect(mockSocket, mockIo);
+
+      // After disconnect, preview strokes from user-123 should be cleaned up
+      // The other user's preview strokes should remain
+      expect(roomState.previewStrokesCache.has('preview-stroke-1')).toBe(false);
+      expect(roomState.previewStrokesCache.has('preview-stroke-2')).toBe(true);
     });
   });
 
@@ -446,6 +526,89 @@ describe('Room Handlers (FR-ROOM & FR-REALTIME)', () => {
       expect(mockSocket.emit).toHaveBeenCalledWith('error', expect.objectContaining({
         message: expect.stringContaining('owner')
       }));
+    });
+  });
+
+  describe('Create Snapshot (Owner Only)', () => {
+    beforeEach(() => {
+      mockSocket.roomCode = 'TESTROOM';
+    });
+
+    it('should create snapshot when owner requests', async () => {
+      const mockRoom = {
+        _id: 'room-id-123',
+        owner: { _id: 'user-123', toString: () => 'user-123' }
+      };
+      
+      Room.findOne.mockResolvedValue(mockRoom);
+      getRoomState.mockReturnValue({
+        strokes: [{ id: 'stroke-1' }, { id: 'stroke-2' }],
+        version: 1
+      });
+      
+      // Mock finding latest version
+      SketchHistory.findOne.mockReturnValue({
+        sort: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockResolvedValue({ version: 2 })
+      });
+      
+      // Mock create
+      SketchHistory.create.mockResolvedValue({});
+
+      await handleCreateSnapshot(mockSocket, mockIo, { name: 'My Checkpoint' });
+
+      expect(SketchHistory.create).toHaveBeenCalledWith(expect.objectContaining({
+        room: 'room-id-123',
+        version: 3,
+        name: 'My Checkpoint'
+      }));
+      expect(mockIo.to).toHaveBeenCalledWith('TESTROOM');
+      expect(mockIo.emit).toHaveBeenCalledWith('room:snapshotCreated', expect.objectContaining({
+        version: 3,
+        name: 'My Checkpoint'
+      }));
+    });
+
+    it('should reject snapshot creation from non-owner', async () => {
+      const mockRoom = {
+        _id: 'room-id-123',
+        owner: { _id: 'different-owner', toString: () => 'different-owner' }
+      };
+      
+      Room.findOne.mockResolvedValue(mockRoom);
+
+      await handleCreateSnapshot(mockSocket, mockIo, { name: 'Test' });
+
+      expect(mockSocket.emit).toHaveBeenCalledWith('error', expect.objectContaining({
+        message: expect.stringContaining('owner')
+      }));
+      expect(SketchHistory.create).not.toHaveBeenCalled();
+    });
+
+    it('should use default name if not provided', async () => {
+      const mockRoom = {
+        _id: 'room-id-123',
+        owner: { _id: 'user-123', toString: () => 'user-123' }
+      };
+      
+      Room.findOne.mockResolvedValue(mockRoom);
+      getRoomState.mockReturnValue({
+        strokes: [],
+        version: 1
+      });
+      
+      SketchHistory.findOne.mockReturnValue({
+        sort: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockResolvedValue(null) // No previous history
+      });
+      
+      SketchHistory.create.mockResolvedValue({});
+
+      await handleCreateSnapshot(mockSocket, mockIo, {}); // No name provided
+
+      // Should emit error since name is required
+      expect(mockSocket.emit).toHaveBeenCalledWith('error', { message: 'Snapshot name is required' });
+      expect(SketchHistory.create).not.toHaveBeenCalled();
     });
   });
 });

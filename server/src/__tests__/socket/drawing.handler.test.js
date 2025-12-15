@@ -352,6 +352,58 @@ describe('Drawing Handlers (FR-DRAW)', () => {
       expect(mockIo.to).toHaveBeenCalledWith('TESTROOM');
     });
 
+    it('should remove stroke from strokesMap when undoing (consistency fix)', () => {
+      // This test verifies fix #3: strokesMap must be updated when undoing
+      const existingStroke = createValidStroke('pen');
+      existingStroke.id = 'stroke-to-undo';
+      existingStroke.userId = 'user-123';
+      
+      const strokesMap = new Map([[existingStroke.id, existingStroke]]);
+      const roomState = {
+        strokes: [existingStroke],
+        strokesMap,
+        undoStack: new Map(),
+        redoStack: new Map(),
+        version: 1
+      };
+      
+      getRoomState.mockReturnValue(roomState);
+
+      handleDrawUndo(mockSocket, mockIo);
+
+      // After undo, strokesMap should NOT contain the undone stroke
+      expect(roomState.strokesMap.has('stroke-to-undo')).toBe(false);
+      // And strokes array should also not contain it
+      expect(roomState.strokes.find(s => s.id === 'stroke-to-undo')).toBeUndefined();
+    });
+
+    it('should add stroke to strokesMap when redoing (consistency fix)', () => {
+      // This test verifies fix #4: strokesMap must be updated when redoing
+      const undoneStroke = createValidStroke('pen');
+      undoneStroke.id = 'stroke-to-redo';
+      undoneStroke.userId = 'user-123';
+      
+      const redoStack = new Map();
+      redoStack.set('user-123', [undoneStroke]);
+      
+      const roomState = {
+        strokes: [],
+        strokesMap: new Map(),
+        undoStack: new Map(),
+        redoStack,
+        version: 1
+      };
+      
+      getRoomState.mockReturnValue(roomState);
+
+      handleDrawRedo(mockSocket, mockIo);
+
+      // After redo, strokesMap should contain the redone stroke
+      expect(roomState.strokesMap.has('stroke-to-redo')).toBe(true);
+      // And strokes array should also contain it
+      expect(roomState.strokes.find(s => s.id === 'stroke-to-redo')).toBeDefined();
+    });
+
     it('should do nothing if user has no strokes to undo', () => {
       getRoomState.mockReturnValue({
         strokes: [],
