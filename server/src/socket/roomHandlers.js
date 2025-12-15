@@ -31,6 +31,25 @@ async function handleRoomJoin(socket, io, { roomCode }) {
       return;
     }
 
+    // Check if room is still active
+    if (!room.isActive) {
+      socket.emit('error', { message: 'Room is no longer active' });
+      return;
+    }
+
+    // Check room capacity
+    const dbParticipantCount = await SessionParticipant.countDocuments({
+      room: room._id,
+      isActive: true
+    });
+    const guestCount = getRoomGuests(roomCode).length;
+    const currentCount = dbParticipantCount + guestCount;
+    
+    if (currentCount >= room.maxParticipants) {
+      socket.emit('error', { message: 'Room is full' });
+      return;
+    }
+
     // Join socket room
     socket.join(roomCode);
     socket.roomCode = roomCode;
@@ -219,6 +238,12 @@ async function handleUserKick(socket, io, { targetUserId }) {
 
     if (targetUserId === socket.user._id.toString()) {
       socket.emit('error', { message: 'Cannot kick yourself' });
+      return;
+    }
+
+    // Prevent kicking the room owner
+    if (targetUserId === room.owner.toString()) {
+      socket.emit('error', { message: 'Cannot kick room owner' });
       return;
     }
 

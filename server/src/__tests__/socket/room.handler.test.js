@@ -134,6 +134,41 @@ describe('Room Handlers (FR-ROOM & FR-REALTIME)', () => {
       expect(mockSocket.join).not.toHaveBeenCalled();
     });
 
+    it('should reject join when room is full', async () => {
+      const mockRoom = {
+        _id: 'room-id-123',
+        code: 'TESTROOM',
+        isActive: true,
+        maxParticipants: 2
+      };
+      
+      Room.findOne.mockResolvedValue(mockRoom);
+      // Room has 2 participants (at capacity)
+      SessionParticipant.countDocuments.mockResolvedValue(2);
+      getRoomGuests.mockReturnValue([]);
+
+      await handleRoomJoin(mockSocket, mockIo, { roomCode: 'TESTROOM' });
+
+      expect(mockSocket.emit).toHaveBeenCalledWith('error', { message: 'Room is full' });
+      expect(mockSocket.join).not.toHaveBeenCalled();
+    });
+
+    it('should reject join when room is inactive', async () => {
+      const mockRoom = {
+        _id: 'room-id-123',
+        code: 'TESTROOM',
+        isActive: false, // Inactive room
+        maxParticipants: 10
+      };
+      
+      Room.findOne.mockResolvedValue(mockRoom);
+
+      await handleRoomJoin(mockSocket, mockIo, { roomCode: 'TESTROOM' });
+
+      expect(mockSocket.emit).toHaveBeenCalledWith('error', { message: 'Room is no longer active' });
+      expect(mockSocket.join).not.toHaveBeenCalled();
+    });
+
     it('should handle guest user joining', async () => {
       mockSocket.isGuest = true;
       mockSocket.user = {
@@ -309,6 +344,24 @@ describe('Room Handlers (FR-ROOM & FR-REALTIME)', () => {
 
       expect(mockSocket.emit).toHaveBeenCalledWith('error', expect.objectContaining({
         message: expect.stringContaining('owner')
+      }));
+    });
+
+    it('should prevent kicking the room owner', async () => {
+      // Even if an owner tries to kick themselves via manipulated request,
+      // or if there's a bug, we should not allow kicking the owner
+      const mockRoom = {
+        _id: 'room-id-123',
+        owner: 'user-123' // Same as socket user (owner)
+      };
+      
+      Room.findOne.mockResolvedValue(mockRoom);
+
+      // Try to kick the owner
+      await handleUserKick(mockSocket, mockIo, { targetUserId: 'user-123' });
+
+      expect(mockSocket.emit).toHaveBeenCalledWith('error', expect.objectContaining({
+        message: expect.stringContaining('yourself')
       }));
     });
   });

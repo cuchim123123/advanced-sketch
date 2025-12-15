@@ -417,6 +417,18 @@ describe('Drawing Handlers (FR-DRAW)', () => {
 
       expect(mockIo.to).not.toHaveBeenCalled();
     });
+
+    it('should reject guest user from clearing canvas', () => {
+      // Guest users should NOT be able to clear the canvas (owner/member only action)
+      mockSocket.isGuest = true;
+
+      handleDrawClear(mockSocket, mockIo);
+
+      expect(mockSocket.emit).toHaveBeenCalledWith('error', expect.objectContaining({
+        message: 'Guests cannot clear the canvas'
+      }));
+      expect(mockIo.to).not.toHaveBeenCalled();
+    });
   });
 
   describe('FR-DRAW-06: Stroke Reorder', () => {
@@ -442,6 +454,18 @@ describe('Drawing Handlers (FR-DRAW)', () => {
       handleDrawReorder(mockSocket, mockIo, { strokeIds: 'not-array' });
 
       expect(mockIo.emit).not.toHaveBeenCalled();
+    });
+
+    it('should reject guest user from reordering strokes', () => {
+      // Guest users should NOT be able to reorder strokes (member only action)
+      mockSocket.isGuest = true;
+
+      handleDrawReorder(mockSocket, mockIo, { strokeIds: ['stroke-1', 'stroke-2'] });
+
+      expect(mockSocket.emit).toHaveBeenCalledWith('error', expect.objectContaining({
+        message: 'Only room members can reorder strokes'
+      }));
+      expect(mockIo.to).not.toHaveBeenCalled();
     });
   });
 
@@ -500,9 +524,9 @@ describe('Drawing Handlers (FR-DRAW)', () => {
       expect(mockIo.emit).toHaveBeenCalledWith('draw:erase', { strokeId: 'stroke-to-erase' });
     });
 
-    it('should still broadcast erase even if strokeId not found (current behavior)', () => {
-      // NOTE: Current implementation broadcasts even if stroke doesn't exist
-      // This is noted in IMPLEMENTATION_NOTES.md as potential improvement
+    it('should NOT broadcast erase if strokeId not found (fixed behavior)', () => {
+      // FIX: Implementation now correctly checks if stroke exists before broadcasting
+      // This prevents unnecessary network traffic and client-side processing
       getRoomState.mockReturnValue({
         strokes: [],
         strokesMap: new Map(),
@@ -511,9 +535,9 @@ describe('Drawing Handlers (FR-DRAW)', () => {
 
       handleDrawErase(mockSocket, mockIo, { strokeId: 'non-existent' });
 
-      // Current behavior: still broadcasts (could be improved)
-      expect(mockIo.to).toHaveBeenCalledWith('TESTROOM');
-      expect(mockIo.emit).toHaveBeenCalledWith('draw:erase', { strokeId: 'non-existent' });
+      // Fixed behavior: does NOT broadcast if stroke doesn't exist
+      expect(mockIo.to).not.toHaveBeenCalled();
+      expect(mockIo.emit).not.toHaveBeenCalled();
     });
   });
 });

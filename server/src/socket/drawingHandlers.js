@@ -3,7 +3,7 @@
  */
 const { processIncomingStroke } = require('../libs/stroke-optimization.lib');
 const { getRoomState } = require('./roomState');
-const { scheduleAutoSave } = require('./autoSave');
+const { scheduleAutoSave, markRoomDirty } = require('./autoSave');
 
 // ========== VALIDATION CONSTANTS ==========
 const VALID_TOOLS = ['pen', 'eraser', 'line', 'rectangle', 'circle', 'triangle', 'arrow', 'diamond', 'text', 'image'];
@@ -246,12 +246,21 @@ function handleDrawComplete(socket, { strokeId }) {
 
 /**
  * Handle draw:erase event
+ * Only broadcasts if stroke actually exists (Fix #1)
  */
 function handleDrawErase(socket, io, { strokeId }) {
   if (!socket.roomCode) return;
 
   const roomState = getRoomState(socket.roomCode);
   if (!roomState) return;
+
+  // Check if stroke exists before removing
+  const strokeExists = roomState.strokesMap?.has(strokeId) || 
+                       roomState.strokes?.some(s => s.id === strokeId);
+  
+  if (!strokeExists) {
+    return; // Don't broadcast if stroke doesn't exist
+  }
 
   // Remove from map
   if (roomState.strokesMap) {
@@ -316,7 +325,6 @@ function handleDrawUpdate(socket, { stroke, isPreview }) {
       });
       
       // Mark room dirty for auto-save
-      const { markRoomDirty, scheduleAutoSave } = require('./autoSave');
       markRoomDirty(socket.roomCode);
       scheduleAutoSave(socket.roomCode);
     }
@@ -332,7 +340,6 @@ function handleDrawUpdate(socket, { stroke, isPreview }) {
       socket.to(socket.roomCode).emit('draw:update', { stroke });
       
       // Mark room dirty for auto-save
-      const { markRoomDirty, scheduleAutoSave } = require('./autoSave');
       markRoomDirty(socket.roomCode);
       scheduleAutoSave(socket.roomCode);
     }
@@ -341,9 +348,16 @@ function handleDrawUpdate(socket, { stroke, isPreview }) {
 
 /**
  * Handle draw:clear event
+ * Per SPEC FR-DRAW-05: Registered users only (not guests)
  */
 function handleDrawClear(socket, io) {
   if (!socket.roomCode) return;
+
+  // Authorization check per SPEC FR-DRAW-05
+  if (socket.isGuest) {
+    socket.emit('error', { message: 'Guests cannot clear the canvas' });
+    return;
+  }
 
   const roomState = getRoomState(socket.roomCode);
   if (!roomState) return;
@@ -383,7 +397,13 @@ function handleDrawUndo(socket, io) {
     }
     roomState.redoStack.get(currentUserId).push(lastStroke);
     
+    // Remove from strokes array
     roomState.strokes = roomState.strokes.filter(s => s.id !== lastStroke.id);
+    
+    // Also remove from strokesMap to maintain consistency (Fix #3)
+    if (roomState.strokesMap) {
+      roomState.strokesMap.delete(lastStroke.id);
+    }
 
     // Schedule auto-save
     scheduleAutoSave(socket.roomCode);
@@ -408,6 +428,11 @@ function handleDrawRedo(socket, io) {
 
   const strokeToRedo = userRedoStack.pop();
   roomState.strokes.push(strokeToRedo);
+  
+  // Also add to strokesMap to maintain consistency (Fix #4)
+  if (roomState.strokesMap) {
+    roomState.strokesMap.set(strokeToRedo.id, strokeToRedo);
+  }
 
   // Schedule auto-save
   scheduleAutoSave(socket.roomCode);
@@ -425,7 +450,7 @@ function handleCursorMove(socket, { x, y, tool }) {
   if (!socket.roomCode) return;
   
   socket.to(socket.roomCode).emit('cursor:move', {
-    userId: socket.user._id,
+    userId: socket.user._id?.toString() || socket.user.id, // Consistent format (Fix #8)
     x,
     y,
     tool
@@ -437,6 +462,12 @@ function handleCursorMove(socket, { x, y, tool }) {
  */
 function handleDrawReorder(socket, io, { strokeIds }) {
   if (!socket.roomCode) return;
+
+  // Guest validation - only registered users can reorder
+  if (socket.isGuest) {
+    socket.emit('error', { message: 'Only room members can reorder strokes' });
+    return;
+  }
 
   const roomState = getRoomState(socket.roomCode);
   if (!roomState) return;
@@ -466,7 +497,6 @@ function handleDrawReorder(socket, io, { strokeIds }) {
   io.to(socket.roomCode).emit('draw:reorder', { strokeIds });
 
   // Mark room dirty for auto-save
-  const { markRoomDirty, scheduleAutoSave } = require('./autoSave');
   markRoomDirty(socket.roomCode);
   scheduleAutoSave(socket.roomCode);
 }
