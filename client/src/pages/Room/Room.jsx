@@ -44,6 +44,7 @@ export default function Room() {
     handleClear,
     handleKick,
     handleRestore,
+    handleCreateSnapshot,
     handleSaveSettings,
     copyInviteLink,
     toggleHistory,
@@ -182,6 +183,7 @@ export default function Room() {
             historyList={historyList}
             historyLoading={historyLoading}
             onRestore={handleRestore}
+            onCreateSnapshot={handleCreateSnapshot}
           />
         )}
       </div>

@@ -4,6 +4,11 @@ import { useRoomStore } from '@/store'
 import { connectSocket, getSocket, disconnectSocket } from '@/services'
 import { deoptimizeStroke } from '@/utils/strokeOptimization'
 
+// Module-level refs for cross-hook communication
+// These allow useRoomSocket's socket listener to access state from useRoomActions
+let showHistoryRef = { current: false }
+let fetchHistoryRef = { current: null }
+
 /**
  * Custom hook to manage room socket connection and events
  * Extracted from Room.jsx to reduce file size and improve reusability
@@ -271,6 +276,14 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
       toastRef.current.success(`Restored to version ${version}`)
     })
 
+    sock.on('room:snapshotCreated', ({ version, name }) => {
+      toastRef.current.success(`Snapshot saved: ${name} (v${version})`)
+      // Refresh history if it's open
+      if (showHistoryRef.current && fetchHistoryRef.current) {
+        fetchHistoryRef.current()
+      }
+    })
+
     sock.on('error', ({ message }) => {
       toastRef.current.error(message)
     })
@@ -304,6 +317,7 @@ export function useRoomSocket({ code, loaderRoom, toast }) {
         sock.off('draw:reorder')
         sock.off('cursor:move')
         sock.off('room:restored')
+        sock.off('room:snapshotCreated')
         sock.off('error')
         sock.off('save:error')
         sock.off('user:kicked')
@@ -365,6 +379,8 @@ export function useRoomActions({ socket, code, toast, confirm }) {
   toastRef.current = toast
   
   const [showHistory, setShowHistory] = useState(false)
+  // Sync to module-level ref for socket listener access
+  showHistoryRef.current = showHistory
   const [historyList, setHistoryList] = useState([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [settingsLoading, setSettingsLoading] = useState(false)
@@ -397,6 +413,7 @@ export function useRoomActions({ socket, code, toast, confirm }) {
       setHistoryLoading(false)
     }
   }, [code])
+  fetchHistoryRef.current = fetchHistory
 
   const toggleHistory = useCallback(() => {
     if (!showHistory) {
@@ -419,6 +436,12 @@ export function useRoomActions({ socket, code, toast, confirm }) {
       setShowHistory(false)
     }
   }, [socket, confirm])
+
+  const handleCreateSnapshot = useCallback(async (name) => {
+    if (socket) {
+      socket.emit('room:createSnapshot', { name })
+    }
+  }, [socket])
 
   const handleKick = useCallback(async (targetUserId) => {
     const confirmed = await confirm({
@@ -451,6 +474,7 @@ export function useRoomActions({ socket, code, toast, confirm }) {
     handleClear,
     handleKick,
     handleRestore,
+    handleCreateSnapshot,
     handleSaveSettings,
     copyInviteLink,
     toggleHistory,
