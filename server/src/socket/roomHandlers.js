@@ -218,6 +218,85 @@ async function handleRoomRestore(socket, io, { version }) {
 }
 
 /**
+ * Handle room:createSnapshot event - Manual snapshot creation
+ * Only room owner can create snapshots
+ */
+const MAX_SNAPSHOT_NAME_LENGTH = 24;
+
+async function handleCreateSnapshot(socket, io, { name } = {}) {
+  if (!socket.roomCode) return;
+
+  // Validate name is provided
+  if (!name || typeof name !== 'string' || !name.trim()) {
+    socket.emit('error', { message: 'Snapshot name is required' });
+    return;
+  }
+
+  // Validate name length
+  const trimmedName = name.trim().slice(0, MAX_SNAPSHOT_NAME_LENGTH);
+
+  try {
+    const room = await Room.findOne({ code: socket.roomCode });
+    if (!room) {
+      socket.emit('error', { message: 'Room not found' });
+      return;
+    }
+
+    // Only owner can create snapshots
+    if (room.owner.toString() !== socket.user._id.toString()) {
+      socket.emit('error', { message: 'Only room owner can create snapshots' });
+      return;
+    }
+
+    const roomState = getRoomState(socket.roomCode);
+    if (!roomState) {
+      socket.emit('error', { message: 'Room state not found' });
+      return;
+    }
+
+    // Get the latest version number
+    const latestHistory = await SketchHistory.findOne({ room: room._id })
+      .sort({ version: -1 })
+      .lean();
+    
+    const newVersion = (latestHistory?.version || 0) + 1;
+
+    // Create new snapshot
+    await SketchHistory.create({
+      room: room._id,
+      version: newVersion,
+      strokes: roomState.strokes || [],
+      name: trimmedName,
+      createdBy: socket.user._id,
+      createdAt: new Date()
+    });
+
+    // Update room state version
+    roomState.version = newVersion;
+
+    logger.socket(`Manual snapshot created for room ${socket.roomCode}: version ${newVersion}`);
+
+    // Notify all users in room
+    io.to(socket.roomCode).emit('room:snapshotCreated', {
+      version: newVersion,
+      name: trimmedName,
+      createdBy: socket.user.username,
+      createdAt: new Date().toISOString()
+    });
+
+    // Confirm to the creator
+    socket.emit('room:snapshotSuccess', {
+      message: 'Snapshot created successfully',
+      version: newVersion
+    });
+
+  } catch (error) {
+    logger.error('Create snapshot error:', error);
+    socket.emit('error', { message: 'Failed to create snapshot' });
+  }
+}
+
+/**
  * Handle user:kick event
  */
 async function handleUserKick(socket, io, { targetUserId }) {
@@ -247,23 +326,36 @@ async function handleUserKick(socket, io, { targetUserId }) {
       return;
     }
 
+    // Try to find as registered user first
     const participants = await SessionParticipant.find({
       room: room._id,
       isActive: true
     });
 
-    const targetParticipant = participants.find(
+    let targetParticipant = participants.find(
       p => p.user.toString() === targetUserId
     );
+
+    let isGuestKick = false;
+    let guestInfo = null;
+
+    // If not found in DB, check guests (fix #7: guest kick handling)
+    if (!targetParticipant) {
+      guestInfo = getGuestParticipant(socket.roomCode, targetUserId);
+      if (guestInfo && guestInfo.isActive) {
+        isGuestKick = true;
+        targetParticipant = guestInfo;
+      }
+    }
 
     if (!targetParticipant) {
       socket.emit('error', { message: 'User not found in room' });
       return;
     }
 
-    logger.socket('Kicking user:', targetUserId, 'socketId:', targetParticipant.socketId);
-
     const targetSocketId = targetParticipant.socketId;
+    logger.socket('Kicking user:', targetUserId, 'socketId:', targetSocketId, 'isGuest:', isGuestKick);
+
     const targetSocket = io.sockets.sockets.get(targetSocketId);
     
     if (targetSocket) {
@@ -274,15 +366,28 @@ async function handleUserKick(socket, io, { targetUserId }) {
       io.to(targetSocketId).emit('user:kicked');
     }
 
-    await SessionParticipant.findByIdAndUpdate(targetParticipant._id, {
-      isActive: false
-    });
+    if (isGuestKick) {
+      // Mark guest as inactive
+      guestInfo.isActive = false;
+      setGuestParticipant(socket.roomCode, targetUserId, guestInfo);
+      
+      io.to(socket.roomCode).emit('user:left', {
+        id: targetUserId,
+        username: guestInfo.username,
+        isGuest: true
+      });
+    } else {
+      await SessionParticipant.findByIdAndUpdate(targetParticipant._id, {
+        isActive: false
+      });
 
-    const targetUser = await User.findById(targetUserId);
-    io.to(socket.roomCode).emit('user:left', {
-      id: targetUserId,
-      username: targetUser?.username || 'User'
-    });
+      const targetUser = await User.findById(targetUserId);
+      io.to(socket.roomCode).emit('user:left', {
+        id: targetUserId,
+        username: targetUser?.username || 'User',
+        isGuest: false
+      });
+    }
 
   } catch (error) {
     logger.error('Kick error:', error);
@@ -298,6 +403,17 @@ async function handleDisconnect(socket, io) {
   logger.socket(`${userType} disconnected: ${socket.user.username}`);
 
   if (socket.roomCode) {
+    // Clean up any preview strokes from this user (fix #5: memory leak prevention)
+    const roomState = getRoomState(socket.roomCode);
+    if (roomState?.previewStrokesCache) {
+      const currentUserId = socket.user._id?.toString() || socket.user.id;
+      for (const [strokeId, stroke] of roomState.previewStrokesCache.entries()) {
+        if ((stroke.userId?.toString() || stroke.userId) === currentUserId) {
+          roomState.previewStrokesCache.delete(strokeId);
+        }
+      }
+    }
+
     if (socket.isGuest) {
       const guest = getGuestParticipant(socket.roomCode, socket.user.id);
       if (guest) {
@@ -413,6 +529,7 @@ function handleChatSend(socket, io, { message }) {
 module.exports = {
   handleRoomJoin,
   handleRoomRestore,
+  handleCreateSnapshot,
   handleUserKick,
   handleDisconnect,
   handleChatSend

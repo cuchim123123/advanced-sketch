@@ -28,6 +28,7 @@ const {
 const {
   handleRoomJoin,
   handleRoomRestore,
+  handleCreateSnapshot,
   handleUserKick,
   handleDisconnect,
   handleChatSend
@@ -84,6 +85,7 @@ module.exports = (io) => {
     // Room events
     socket.on('room:join', (data) => handleRoomJoin(socket, io, data));
     socket.on('room:restore', (data) => handleRoomRestore(socket, io, data));
+    socket.on('room:createSnapshot', (data) => handleCreateSnapshot(socket, io, data));
     
     // Drawing events
     socket.on('draw:stroke', (data) => handleDrawStroke(socket, io, data));
