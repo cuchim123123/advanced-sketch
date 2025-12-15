@@ -6,7 +6,7 @@ import { useConfirm } from '@/components/ConfirmModal'
 import Canvas from '@/components/Canvas'
 import Chat from '@/components/Chat'
 import RoomSettingsModal from '@/components/RoomSettingsModal'
-import { Sparkles, WifiOff, RefreshCw, LogOut } from 'lucide-react'
+import { Paintbrush, WifiOff, RefreshCw, LogOut } from 'lucide-react'
 
 // Local components and hooks
 import { useRoomSocket, useRoomActions } from './hooks'
@@ -138,7 +138,7 @@ export default function Room() {
               <div className="flex flex-col items-center gap-4">
                 <div className="relative">
                   <div className="w-16 h-16 border-4 border-sky-200 border-t-sky-500 rounded-full animate-spin"></div>
-                  <Sparkles className="w-6 h-6 text-sky-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                  <Paintbrush className="w-6 h-6 text-sky-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
                 </div>
                 <div className="text-center">
                   <p className="text-slate-700 font-medium">Loading canvas...</p>

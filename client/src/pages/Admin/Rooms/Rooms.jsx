@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useRef } from 'react'
 import { api } from '@/services'
 import { toast } from 'sonner'
 import { usePolling } from '@/hooks'
@@ -9,11 +9,13 @@ const Rooms = () => {
   const [rooms, setRooms] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchInput, setSearchInput] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [selectedRoom, setSelectedRoom] = useState(null)
   const [showModal, setShowModal] = useState(false)
   const [modalType, setModalType] = useState('view')
+  const searchTimeoutRef = useRef(null)
 
   const fetchRooms = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
@@ -33,7 +35,7 @@ const Rooms = () => {
   // Auto-polling with visibility awareness
   const { isRefreshing, manualRefresh } = usePolling(fetchRooms, {
     pollInterval: 10000,
-    debounceTime: 3000
+    debounceTime: 1000
   })
 
   const handleDelete = async (roomId) => {
@@ -59,8 +61,17 @@ const Rooms = () => {
   }
 
   const handleSearchChange = (e) => {
-    setSearchQuery(e.target.value)
-    setCurrentPage(1)
+    const value = e.target.value
+    setSearchInput(value)
+    
+    // Debounce search query
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
+    searchTimeoutRef.current = setTimeout(() => {
+      setSearchQuery(value)
+      setCurrentPage(1)
+    }, 500)
   }
 
   return (
@@ -84,7 +95,7 @@ const Rooms = () => {
 
       {/* Search */}
       <div className="flex gap-4 mb-6 flex-wrap">
-        <SearchBar value={searchQuery} onChange={handleSearchChange} />
+        <SearchBar value={searchInput} onChange={handleSearchChange} />
       </div>
 
       {/* Content */}

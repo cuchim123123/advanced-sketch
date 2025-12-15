@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useRef } from 'react'
 import { Search, Trash2, Eye } from 'lucide-react'
 import { api } from '@/services'
 import { toast } from 'sonner'
@@ -10,11 +10,27 @@ const Users = () => {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchInput, setSearchInput] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [selectedUser, setSelectedUser] = useState(null)
   const [showModal, setShowModal] = useState(false)
   const [modalType, setModalType] = useState('view')
+  const searchTimeoutRef = useRef(null)
+
+  const handleSearchChange = (e) => {
+    const value = e.target.value
+    setSearchInput(value)
+    
+    // Debounce search query
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
+    searchTimeoutRef.current = setTimeout(() => {
+      setSearchQuery(value)
+      setCurrentPage(1)
+    }, 500)
+  }
 
   const fetchUsers = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
@@ -37,7 +53,7 @@ const Users = () => {
 
   const { isRefreshing, manualRefresh } = usePolling(fetchUsers, {
     pollInterval: 10000,
-    debounceTime: 3000
+    debounceTime: 1000
   })
 
   const handleDelete = async (userId) => {
@@ -84,11 +100,8 @@ const Users = () => {
           <input
             type="text"
             placeholder="Search users by name or email..."
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value)
-              setCurrentPage(1)
-            }}
+            value={searchInput}
+            onChange={handleSearchChange}
             className="w-full py-3.5 pl-12 pr-4 bg-white/5 border border-white/10 rounded-xl text-white text-sm outline-none transition-all focus:bg-white/[0.08] focus:border-white/20"
           />
         </div>

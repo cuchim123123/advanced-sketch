@@ -1,4 +1,4 @@
-import { ArrowLeft, Link2, Settings, Users, Sparkles, History } from 'lucide-react'
+import { ArrowLeft, Link2, Settings, Users, Paintbrush, History } from 'lucide-react'
 
 /**
  * Room header component with controls
@@ -27,7 +27,7 @@ export default function RoomHeader({
         </button>
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-white" />
+            <Paintbrush className="w-4 h-4 text-white" />
           </div>
           <h1 className="font-semibold text-base sm:text-lg text-white truncate">{roomName}</h1>
         </div>

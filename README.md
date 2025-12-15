@@ -91,6 +91,16 @@ npm run dev    # http://localhost:3000
 ### 5. Access the app
 Open http://localhost:3000 in your browser
 
+## Demo Account
+
+**Admin account for testing:**
+| Field | Value |
+|-------|-------|
+| Username | `admin123` |
+| Password | `TDTU123123` |
+
+> Admin panel accessible at http://localhost:3000/admin after login
+
 ## Architecture
 
 ```
@@ -181,6 +191,3 @@ advanced-sketch/
 └── README.md               # This file
 ```
 
-## License
-
-MIT
