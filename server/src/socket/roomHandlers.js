@@ -50,6 +50,12 @@ async function handleRoomJoin(socket, io, { roomCode }) {
       return;
     }
 
+    // Leave previous room if switching rooms (prevents chat/events leaking to old room)
+    if (socket.roomCode && socket.roomCode !== roomCode) {
+      socket.leave(socket.roomCode);
+      logger.socket(`User ${socket.user?.username} left room ${socket.roomCode} to join ${roomCode}`);
+    }
+
     // Join socket room
     socket.join(roomCode);
     socket.roomCode = roomCode;
@@ -482,16 +488,14 @@ async function handleDisconnect(socket, io) {
 
 /**
  * Sanitize user input to prevent XSS attacks
- * Escapes HTML special characters
+ * Only escape < and > to prevent HTML/script injection
+ * React already escapes content safely, so quotes/apostrophes don't need escaping
  */
 function sanitizeInput(str) {
   if (!str || typeof str !== 'string') return '';
   return str
-    .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;')
     .trim();
 }
 

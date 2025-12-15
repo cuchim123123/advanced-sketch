@@ -224,7 +224,7 @@ describe('Room Handlers (FR-ROOM & FR-REALTIME)', () => {
   });
 
   describe('FR-REALTIME-04: Participant Presence', () => {
-    it('should broadcast user:joined to room', async () => {
+    it('should broadcast user:joined to room and update all info', async () => {
       const mockRoom = {
         _id: 'room-id-123',
         code: 'TESTROOM',
@@ -234,20 +234,76 @@ describe('Room Handlers (FR-ROOM & FR-REALTIME)', () => {
       };
       
       Room.findOne.mockResolvedValue(mockRoom);
-      SessionParticipant.findOneAndUpdate.mockResolvedValue({ color: '#ff0000' });
+      
+      const mockParticipant = { 
+        _id: 'participant-123',
+        color: '#ff0000',
+        cursor: null
+      };
+      SessionParticipant.findOneAndUpdate.mockResolvedValue(mockParticipant);
+      SessionParticipant.countDocuments.mockResolvedValue(0); // No other active participants before join
+      
+      // After join, return the new participant in the list
       SessionParticipant.find.mockReturnValue({
-        populate: jest.fn().mockResolvedValue([])
+        populate: jest.fn().mockResolvedValue([{
+          user: { _id: 'user-123', username: 'TestUser', avatar: null },
+          color: '#ff0000',
+          cursor: null
+        }])
       });
+      
       getRoomGuests.mockReturnValue([]);
       getRoomState.mockReturnValue({
-        strokes: [],
+        strokes: [{ id: 'stroke-1', tool: 'pen' }],
         version: 1
       });
 
+      // Mock socketId generation
+      const toMock = jest.fn().mockReturnValue({ emit: jest.fn() });
+      mockSocket.to = toMock;
+
       await handleRoomJoin(mockSocket, mockIo, { roomCode: 'TESTROOM' });
 
-      // Should broadcast to other users in room
-      expect(mockSocket.to).toHaveBeenCalledWith('TESTROOM');
+      // Verify SessionParticipant is created/updated in DB with correct data
+      expect(SessionParticipant.findOneAndUpdate).toHaveBeenCalledWith(
+        { room: 'room-id-123', user: 'user-123' },
+        expect.objectContaining({
+          socketId: 'socket-123',
+          isActive: true,
+          lastActiveAt: expect.any(Date)
+        }),
+        { upsert: true, new: true }
+      );
+
+      // Verify user is added to socket room
+      expect(mockSocket.join).toHaveBeenCalledWith('TESTROOM');
+      expect(mockSocket.roomCode).toBe('TESTROOM');
+
+      // Verify room state is sent to joining user (includes all strokes and participants)
+      expect(mockSocket.emit).toHaveBeenCalledWith('room:state', expect.objectContaining({
+        strokes: expect.arrayContaining([expect.objectContaining({ id: 'stroke-1' })]),
+        participants: expect.any(Array)
+      }));
+
+      // Verify others in room are notified with user:joined event (broadcasts participant info with color)
+      expect(toMock).toHaveBeenCalledWith('TESTROOM');
+      // socket.to(roomCode).emit() is called to broadcast to other users
+      const toReturnValue = toMock.mock.results[0].value;
+      expect(toReturnValue.emit).toHaveBeenCalledWith('user:joined', expect.objectContaining({
+        id: 'user-123',
+        username: 'TestUser',
+        color: expect.any(String), // Participant color is generated
+        isGuest: false
+      }));
+
+      // Verify dashboard is updated with new participant count
+      expect(mockIo.emit).toHaveBeenCalledWith('dashboard:roomUpdate', {
+        roomCode: 'TESTROOM',
+        participantCount: 1 // The joining user is now in the list
+      });
+
+      // Verify room's lastActiveAt timestamp is updated
+      expect(mockRoom.save).toHaveBeenCalled();
     });
   });
 
@@ -284,7 +340,15 @@ describe('Room Handlers (FR-ROOM & FR-REALTIME)', () => {
       handleChatSend(mockSocket, mockIo, { message: '<script>alert("xss")</script>' });
 
       expect(mockIo.emit).toHaveBeenCalledWith('chat:message', expect.objectContaining({
-        message: '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;'
+        message: '&lt;script&gt;alert("xss")&lt;/script&gt;'
+      }));
+    });
+
+    it('should preserve apostrophes and quotes in chat message', () => {
+      handleChatSend(mockSocket, mockIo, { message: "It's a \"test\" message" });
+
+      expect(mockIo.emit).toHaveBeenCalledWith('chat:message', expect.objectContaining({
+        message: "It's a \"test\" message"
       }));
     });
 
