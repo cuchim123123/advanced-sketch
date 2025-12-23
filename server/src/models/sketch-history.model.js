@@ -99,7 +99,8 @@ const sketchHistorySchema = new mongoose.Schema({
     default: null
   },
   createdBy: {
-    type: String // String to support both ObjectId and guest IDs
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
   },
   createdAt: {
     type: Date,

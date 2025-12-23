@@ -37,7 +37,7 @@ export default function HistoryPanel({
   }
 
   return (
-    <div className="fixed md:relative right-0 top-0 h-full z-20 glass-dark border-l border-white/10 w-72 p-4 overflow-y-auto">
+    <div className="fixed md:relative right-0 top-0 h-full z-[60] glass-dark border-l border-white/10 w-72 p-4 overflow-y-auto">
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-semibold text-white flex items-center gap-2">
           <History className="w-4 h-4 text-amber-400" />
@@ -101,7 +101,6 @@ export default function HistoryPanel({
                 <button
                   onClick={() => onRestore(h.version)}
                   className="text-xs px-2 py-1 bg-amber-500/20 text-amber-300 rounded-lg hover:bg-amber-500/30 transition-colors"
-                  disabled={i === 0}
                 >
                   Restore
                 </button>

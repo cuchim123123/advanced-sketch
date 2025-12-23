@@ -101,6 +101,10 @@ async function performAutoSave(roomCode) {
         $set: {
           strokes: strokes,
           updatedAt: new Date()
+        },
+        $setOnInsert: {
+          createdBy: room.owner,
+          createdAt: new Date()
         }
       },
       { upsert: true, strict: false }

@@ -14,15 +14,37 @@ const VerifyEmail = () => {
   const [message, setMessage] = useState('');
   const [countdown, setCountdown] = useState(5);
 
+  // Separate useEffect for countdown timer to avoid multiple timers
   useEffect(() => {
+    if (status !== 'success') return;
+    
+    const timer = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          navigate('/login');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [status, navigate]);
+
+  useEffect(() => {
+    let isMounted = true;
+    
     const verifyEmail = async () => {
       const uid = searchParams.get('uid');
       const token = searchParams.get('token');
 
       // Check if parameters are present
       if (!uid || !token) {
-        setStatus('invalid');
-        setMessage('Invalid verification link. Please check your email and try again.');
+        if (isMounted) {
+          setStatus('invalid');
+          setMessage('Invalid verification link. Please check your email and try again.');
+        }
         return;
       }
 
@@ -36,36 +58,38 @@ const VerifyEmail = () => {
 
         const data = await res.json();
 
+        if (!isMounted) return;
+
         if (res.ok) {
           setStatus('success');
           setMessage(data.message || 'Your email has been successfully verified!');
-          
-          // Start countdown to redirect
-          const timer = setInterval(() => {
-            setCountdown(prev => {
-              if (prev <= 1) {
-                clearInterval(timer);
-                navigate('/login');
-                return 0;
-              }
-              return prev - 1;
-            });
-          }, 1000);
-
-          return () => clearInterval(timer);
         } else {
-          setStatus('error');
-          setMessage(data.message || 'Verification failed. The link may have expired.');
+          // Special case: "Email is already verified" should be treated as success
+          const isAlreadyVerified = data.message?.toLowerCase().includes('already verified');
+          
+          if (isAlreadyVerified) {
+            setStatus('success');
+            setMessage('Your email is already verified. You can sign in now!');
+          } else {
+            setStatus('error');
+            setMessage(data.message || 'Verification failed. The link may have expired.');
+          }
         }
       } catch (error) {
         console.error('Verification error:', error);
-        setStatus('error');
-        setMessage('An error occurred during verification. Please try again later.');
+        if (isMounted) {
+          setStatus('error');
+          setMessage('An error occurred during verification. Please try again later.');
+        }
       }
     };
 
     verifyEmail();
-  }, [searchParams, navigate]);
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [searchParams]);
 
   const renderContent = () => {
     switch (status) {
