@@ -114,7 +114,7 @@ const verifyEmail = async (uid, token) => {
   const user = await User.findById(uid);
 
   if (!user) {
-    throw new NotFoundError('User not found');
+    throw new NotFoundError('User not found. This verification link may be outdated. If you re-registered, please use the new verification link sent to your email.');
   }
 
   if (user.isEmailVerified) {

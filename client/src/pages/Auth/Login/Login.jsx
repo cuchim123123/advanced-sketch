@@ -93,7 +93,7 @@ const Login = () => {
       const res = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email })
+        body: JSON.stringify({ emailOrUsername: email })
       })
 
       const data = await res.json()

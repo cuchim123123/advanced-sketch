@@ -11,6 +11,7 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    allowedHosts: ['unsorely-nonmarrying-devorah.ngrok-free.dev'],
     proxy: {
       '/api': {
         target: 'http://localhost:5000',
