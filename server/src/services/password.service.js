@@ -57,12 +57,21 @@ const requestReset = async (emailOrUsername) => {
   // Send email
   const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/reset-password?uid=${user._id}&token=${token}`;
 
-  await sendEmail({
-    to: user.email,
-    subject: 'Reset Your Password - CoPad',
-    html: emailTemplates.passwordResetEmail({ resetUrl, expiresInMinutes: TOKEN_EXPIRY.PASSWORD_RESET }),
-    text: emailTemplates.plainText.passwordReset({ resetUrl, expiresInMinutes: TOKEN_EXPIRY.PASSWORD_RESET })
-  });
+  console.log('\n========================================');
+  console.log(`✉️  [DEVELOPMENT] Password Reset Link for ${user.email}:`);
+  console.log(`   ${resetUrl}`);
+  console.log(`========================================\n`);
+
+  try {
+    await sendEmail({
+      to: user.email,
+      subject: 'Reset Your Password - CoPad',
+      html: emailTemplates.passwordResetEmail({ resetUrl, expiresInMinutes: TOKEN_EXPIRY.PASSWORD_RESET }),
+      text: emailTemplates.plainText.passwordReset({ resetUrl, expiresInMinutes: TOKEN_EXPIRY.PASSWORD_RESET })
+    });
+  } catch (error) {
+    console.log(`ℹ️  Note: SMTP is not configured or failed (${error.message}). You can use the link above to reset the password.`);
+  }
 
   return { message: 'If an account exists, a reset link has been sent.' };
 };

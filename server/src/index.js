@@ -47,7 +47,7 @@ const clientBuildPath = path.join(__dirname, '../../client/dist');
 app.use(express.static(clientBuildPath));
 
 // API Routes
-app.use('/api/auth', require('./routes/auth.routes'));
+app.use('/api/auth', require('./modules/auth/auth.module'));
 app.use('/api/rooms', require('./routes/rooms.routes'));
 app.use('/api/admin', require('./routes/admin.routes'));
 
@@ -93,7 +93,15 @@ async function gracefulShutdown(signal) {
     console.error('Error saving rooms:', error);
   }
   
-  server.close(() => {
+  server.close(async () => {
+    if (global.__MONGO_MEMORY_SERVER__) {
+      try {
+        await global.__MONGO_MEMORY_SERVER__.stop();
+        console.log('MongoDB Memory Server stopped');
+      } catch (err) {
+        console.error('Error stopping MongoDB Memory Server:', err);
+      }
+    }
     console.log('Server closed');
     process.exit(0);
   });
