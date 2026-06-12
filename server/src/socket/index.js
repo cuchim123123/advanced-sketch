@@ -1,45 +1,16 @@
 /**
- * Socket.io Event Structure for Realtime Drawing Sync
- * 
- * REALTIME SYNC LOGIC:
- * - State broadcasting: Stroke data emitted to server, broadcast to all OTHER users
- * - Conflict resolution: Last-write-wins with sequence numbers
- * - Cursor presence: Throttled updates (50ms), unique colors
- * - Compression: Stroke batching, path simplification
+ * Socket.io Entry Point
+ * Wires the Hexagonal Architecture Sockets Modules
  */
 
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
 const logger = require('../libs/logger.lib');
 
-// Import handlers
-const {
-  handleDrawStroke,
-  handleDrawComplete,
-  handleDrawErase,
-  handleDrawUpdate,
-  handleDrawClear,
-  handleDrawUndo,
-  handleDrawRedo,
-  handleDrawReorder,
-  handleCursorMove
-} = require('./drawingHandlers');
-
-const {
-  handleRoomJoin,
-  handleRoomRestore,
-  handleCreateSnapshot,
-  handleUserKick,
-  handleDisconnect,
-  handleChatSend
-} = require('./roomHandlers');
-
-const { initAutoSave } = require('./autoSave');
+const { initializeSketchModule } = require('../modules/sketch/sketch.module');
+const { initializeRoomModule } = require('../modules/room/room.module');
 
 module.exports = (io) => {
-  // Initialize auto-save with io instance for error notifications
-  initAutoSave(io);
-  
   // Authentication middleware
   io.use(async (socket, next) => {
     try {
@@ -82,31 +53,8 @@ module.exports = (io) => {
     const userType = socket.isGuest ? 'Guest' : 'User';
     logger.socket(`${userType} connected: ${socket.user.username} (${socket.id})`);
 
-    // Room events
-    socket.on('room:join', (data) => handleRoomJoin(socket, io, data));
-    socket.on('room:restore', (data) => handleRoomRestore(socket, io, data));
-    socket.on('room:createSnapshot', (data) => handleCreateSnapshot(socket, io, data));
-    
-    // Drawing events
-    socket.on('draw:stroke', (data) => handleDrawStroke(socket, io, data));
-    socket.on('draw:complete', (data) => handleDrawComplete(socket, data));
-    socket.on('draw:erase', (data) => handleDrawErase(socket, io, data));
-    socket.on('draw:update', (data) => handleDrawUpdate(socket, data));
-    socket.on('draw:clear', () => handleDrawClear(socket, io));
-    socket.on('draw:undo', () => handleDrawUndo(socket, io));
-    socket.on('draw:redo', () => handleDrawRedo(socket, io));
-    socket.on('draw:reorder', (data) => handleDrawReorder(socket, io, data));
-    
-    // Cursor events
-    socket.on('cursor:move', (data) => handleCursorMove(socket, data));
-    
-    // User events
-    socket.on('user:kick', (data) => handleUserKick(socket, io, data));
-    
-    // Chat events
-    socket.on('chat:send', (data) => handleChatSend(socket, io, data));
-    
-    // Disconnect
-    socket.on('disconnect', () => handleDisconnect(socket, io));
+    // Bootstrap Sketch and Room modules for this socket
+    initializeSketchModule(io, socket);
+    initializeRoomModule(io, socket);
   });
 };
